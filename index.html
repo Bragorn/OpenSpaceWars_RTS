@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Swarm RTS</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Left Sidebar -->
+    <div class="sidebar">
+        <div>
+            <div class="panel-title">Dev Controls</div>
+            <div class="control-group">
+                <button id="btn-pause" class="dev-btn">Pause</button>
+                <button id="btn-reset" class="dev-btn">Reset Match</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel-title">Game Speed</div>
+            <div class="btn-grid">
+                <button class="dev-btn speed-btn active" data-speed="1">1x</button>
+                <button class="dev-btn speed-btn" data-speed="2">2x</button>
+                <button class="dev-btn speed-btn" data-speed="4">4x</button>
+                <button class="dev-btn speed-btn" data-speed="8">8x</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel-title">Campaign Level</div>
+            <select id="level-select" class="dev-select">
+                <option value="0">Level 1: Balanced Skirmish</option>
+                <option value="1">Level 2: Central Bottleneck</option>
+                <option value="2">Level 3: AI Fortress Siege</option>
+                <option value="3">Level 4: Twin Orbit Rings</option>
+                <option value="4">Level 5: Deep Space Highway</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Center Arena -->
+    <div id="game-container">
+        <div id="canvas-wrapper">
+            <div id="ui-overlay"></div>
+            <canvas id="game"></canvas>
+        </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div class="sidebar sidebar-right">
+        <div>
+            <div class="panel-title">Match Status</div>
+            <div class="control-group">
+                <div class="stat-box"><span>Time:</span><strong id="hud-time">00:00</strong></div>
+                <div class="stat-box"><span>Blue Stars:</span><strong id="hud-blue-stars" style="color:#00d2ff">0</strong></div>
+                <div class="stat-box"><span>Red Stars:</span><strong id="hud-red-stars" style="color:#ff3366">0</strong></div>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel-title">Controls</div>
+            <div class="hint-text">
+                • <strong>Drag</strong> from your star to route 50% of orbiting defenders.<br><br>
+                • <strong>Double-Click</strong> a star to trigger upgrade suction.<br><br>
+                • Orbiters will spiral into the center. Upon reaching upgrade cost, remaining units are released back to orbit automatically!<br><br>
+                • <strong>Defenders:</strong> Orbiters actively intercept incoming attack waves near their star.
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/Star.js"></script>
+    <script src="js/Unit.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
