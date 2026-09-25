@@ -9,34 +9,34 @@
 
     <!-- Left Sidebar -->
     <div class="sidebar">
-        <div>
-            <div class="panel-title">Dev Controls</div>
+        <div class="panel">
+            <div class="panel-title">// DEV CONTROLS</div>
             <div class="control-group">
-                <button id="btn-pause" class="dev-btn">Pause</button>
-                <button id="btn-reset" class="dev-btn">Reset Match</button>
+                <button id="btn-pause" class="dev-btn">PAUSE</button>
+                <button id="btn-reset" class="dev-btn">RESET MATCH</button>
             </div>
         </div>
 
-        <div>
-            <div class="panel-title">Performance Monitor</div>
+        <div class="panel">
+            <div class="panel-title">// PERF MONITOR</div>
             <div class="control-group">
                 <div class="stat-box">
-                    <span>Frame CPU:</span>
-                    <strong id="debug-cpu" style="color:#00ffaa; font-family: monospace;">0.0ms</strong>
+                    <span>FRAME CPU:</span>
+                    <strong id="debug-cpu">0.0ms</strong>
                 </div>
                 <div class="stat-box">
                     <span>FPS:</span>
-                    <strong id="debug-fps" style="color:#00ffaa; font-family: monospace;">60</strong>
+                    <strong id="debug-fps">60</strong>
                 </div>
                 <div class="stat-box">
-                    <span>Active Units:</span>
-                    <strong id="debug-units" style="color:#ffffff; font-family: monospace;">0</strong>
+                    <span>UNITS:</span>
+                    <strong id="debug-units">0</strong>
                 </div>
             </div>
         </div>
 
-        <div>
-            <div class="panel-title">Game Speed</div>
+        <div class="panel">
+            <div class="panel-title">// GAME SPEED</div>
             <div class="btn-grid">
                 <button class="dev-btn speed-btn active" data-speed="1">1x</button>
                 <button class="dev-btn speed-btn" data-speed="2">2x</button>
@@ -45,8 +45,8 @@
             </div>
         </div>
 
-        <div>
-            <div class="panel-title">Campaign Level</div>
+        <div class="panel">
+            <div class="panel-title">// SECTOR SELECT</div>
             <select id="level-select" class="dev-select">
                 <option value="0">Level 1: Balanced Skirmish</option>
                 <option value="1">Level 2: Central Bottleneck</option>
@@ -67,29 +67,29 @@
 
     <!-- Right Sidebar -->
     <div class="sidebar sidebar-right">
-        <div>
-            <div class="panel-title">Match Status</div>
+        <div class="panel">
+            <div class="panel-title">// MATCH STATUS</div>
             <div class="control-group">
-                <div class="stat-box"><span>Time:</span><strong id="hud-time">00:00</strong></div>
-                <div class="stat-box"><span>Blue Stars:</span><strong id="hud-blue-stars" style="color:#00d2ff">0</strong></div>
-                <div class="stat-box"><span>Red Stars:</span><strong id="hud-red-stars" style="color:#ff3366">0</strong></div>
+                <div class="stat-box"><span>TIME:</span><strong id="hud-time">00:00</strong></div>
+                <div class="stat-box"><span>BLUE PLANETS:</span><strong id="hud-blue-planets" class="blue-val">0</strong></div>
+                <div class="stat-box"><span>RED PLANETS:</span><strong id="hud-red-planets" class="red-val">0</strong></div>
             </div>
         </div>
 
-        <div>
-            <div class="panel-title">Controls</div>
+        <div class="panel">
+            <div class="panel-title">// COMMAND INPUTS</div>
             <div class="hint-text">
-                • <strong>Drag</strong> from your star to route 50% of orbiting defenders.<br><br>
-                • <strong>Double-Click</strong> a star to trigger upgrade suction.<br><br>
-                • Orbiters will spiral into the center. Upon reaching upgrade cost, remaining units are released back to orbit automatically!<br><br>
-                • <strong>Defenders:</strong> Orbiters actively intercept incoming attack waves near their star.
+                • <strong>DRAG</strong> from a planet to route 50% of orbiting defenders toward a target planet.<br><br>
+                • <strong>DOUBLE-CLICK</strong> a friendly planet to engage <strong>DOCKING</strong> mode.<br><br>
+                • Units in orbit will dock into the planet core to fund its tier upgrade.<br><br>
+                • <strong>DEFENDERS:</strong> Orbiters automatically engage and neutralize incoming hostile units.
             </div>
         </div>
     </div>
 
     <!-- Game Scripts -->
     <script src="js/config.js"></script>
-    <script src="js/Star.js"></script>
+    <script src="js/Planet.js"></script>
     <script src="js/Unit.js"></script>
     <script src="js/main.js"></script>
 </body>

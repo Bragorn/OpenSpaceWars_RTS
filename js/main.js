@@ -5,8 +5,8 @@ const gameContainer = document.getElementById('game-container');
 const uiOverlay = document.getElementById('ui-overlay');
 
 const hudTime = document.getElementById('hud-time');
-const hudBlueStars = document.getElementById('hud-blue-stars');
-const hudRedStars = document.getElementById('hud-red-stars');
+const hudBluePlanets = document.getElementById('hud-blue-planets') || document.getElementById('hud-blue-stars');
+const hudRedPlanets = document.getElementById('hud-red-planets') || document.getElementById('hud-red-stars');
 
 const debugFps = document.getElementById('debug-fps');
 const debugCpu = document.getElementById('debug-cpu');
@@ -16,7 +16,7 @@ let frameCount = 0;
 let lastFpsUpdate = performance.now();
 
 let arenaSize = 600;
-let stars = [];
+let planets = [];
 let units = [];
 
 let gameOver = false;
@@ -39,7 +39,7 @@ window.addEventListener('resize', resizeGameArea);
 resizeGameArea();
 
 function loadLevel(index) {
-    stars = [];
+    planets = [];
     units = [];
     gameOver = false;
     matchTime = 0;
@@ -51,32 +51,32 @@ function loadLevel(index) {
 
     const layoutData = LEVELS[index].setup(cx, cy, ringRadius);
     layoutData.forEach(node => {
-        stars.push(new Star(node.x, node.y, node.level, node.owner));
+        planets.push(new Planet(node.x, node.y, node.level, node.owner));
     });
 }
 
-function spawnUnit(sourceStar, targetStar) {
-    units.push(new Unit(sourceStar, targetStar));
+function spawnUnit(sourcePlanet, targetPlanet) {
+    units.push(new Unit(sourcePlanet, targetPlanet));
 }
 
 function destroyUnit(unit) {
     unit.dead = true;
 }
 
-function handleStarImpact(unit) {
-    const star = unit.targetStar;
+function handlePlanetImpact(unit) {
+    const planet = unit.targetPlanet;
 
-    if (star.owner === unit.owner) {
-        unit.state = star.isAbsorbing ? 'sucking' : 'orbit';
+    if (planet.owner === unit.owner) {
+        unit.state = planet.isDocking ? 'docking' : 'orbit';
         return;
     } 
 
-    star.hp--;
-    if (star.hp <= 0) {
-        star.owner = unit.owner;
-        star.hp = star.maxHp;
-        star.upgradeProgress = 0;
-        star.isAbsorbing = false;
+    planet.hp--;
+    if (planet.hp <= 0) {
+        planet.owner = unit.owner;
+        planet.hp = planet.maxHp;
+        planet.upgradeProgress = 0;
+        planet.isDocking = false;
         checkWinCondition();
     }
 
@@ -84,15 +84,15 @@ function handleStarImpact(unit) {
 }
 
 function checkWinCondition() {
-    const blueStars = stars.filter(s => s.owner === 1).length;
-    const redStars = stars.filter(s => s.owner === 2).length;
+    const bluePlanets = planets.filter(p => p.owner === 1).length;
+    const redPlanets = planets.filter(p => p.owner === 2).length;
 
-    if (redStars === 0 && units.filter(u => u.owner === 2 && !u.dead).length === 0) {
+    if (redPlanets === 0 && units.filter(u => u.owner === 2 && !u.dead).length === 0) {
         gameOver = true;
         uiOverlay.style.display = 'block';
         uiOverlay.style.color = OWNER_COLORS[1];
         uiOverlay.innerText = 'VICTORY!';
-    } else if (blueStars === 0 && units.filter(u => u.owner === 1 && !u.dead).length === 0) {
+    } else if (bluePlanets === 0 && units.filter(u => u.owner === 1 && !u.dead).length === 0) {
         gameOver = true;
         uiOverlay.style.display = 'block';
         uiOverlay.style.color = OWNER_COLORS[2];
@@ -107,18 +107,18 @@ function updateAI(dt) {
 
     if (aiTimer >= 3.5) {
         aiTimer = 0;
-        const redStars = stars.filter(s => s.owner === 2);
-        redStars.forEach(source => {
+        const redPlanets = planets.filter(p => p.owner === 2);
+        redPlanets.forEach(source => {
             if (source.level < 3) {
                 const reqCost = TIER_STATS[source.level].upgradeCost;
                 if (source.orbitingUnitsCount + source.upgradeProgress >= reqCost) {
-                    source.startUpgradeSuction();
+                    source.startDocking();
                     return;
                 }
             }
 
-            if (source.orbitingUnitsCount >= 6 && !source.isAbsorbing) {
-                const targets = stars.filter(s => s.owner !== 2);
+            if (source.orbitingUnitsCount >= 6 && !source.isDocking) {
+                const targets = planets.filter(p => p.owner !== 2);
                 if (targets.length > 0) {
                     let target = targets[0];
                     let minDistSq = Infinity;
@@ -132,10 +132,10 @@ function updateAI(dt) {
                         }
                     });
 
-                    const availableUnits = units.filter(u => u.targetStar === source && u.state === 'orbit' && !u.dead);
+                    const availableUnits = units.filter(u => u.targetPlanet === source && u.state === 'orbit' && !u.dead);
                     const countToDispatch = Math.floor(availableUnits.length * 0.5);
                     for (let i = 0; i < countToDispatch; i++) {
-                        availableUnits[i].targetStar = target;
+                        availableUnits[i].targetPlanet = target;
                         availableUnits[i].state = 'moving';
                     }
                 }
@@ -145,7 +145,7 @@ function updateAI(dt) {
 }
 
 // Controls
-let dragStartStar = null;
+let dragStartPlanet = null;
 let isDragging = false;
 let currentMousePos = { x: 0, y: 0 };
 
@@ -159,12 +159,12 @@ function getCanvasPos(e) {
     };
 }
 
-function getStarAtPos(pos) {
-    for (let star of stars) {
-        const dx = star.x - pos.x;
-        const dy = star.y - pos.y;
-        if (Math.sqrt(dx * dx + dy * dy) <= star.radius + 12) {
-            return star;
+function getPlanetAtPos(pos) {
+    for (let planet of planets) {
+        const dx = planet.x - pos.x;
+        const dy = planet.y - pos.y;
+        if (Math.sqrt(dx * dx + dy * dy) <= planet.radius + 12) {
+            return planet;
         }
     }
     return null;
@@ -174,9 +174,9 @@ canvas.addEventListener('mousedown', (e) => {
     if (gameOver) return;
     const pos = getCanvasPos(e);
     currentMousePos = pos;
-    const star = getStarAtPos(pos);
-    if (star && star.owner === 1) {
-        dragStartStar = star;
+    const planet = getPlanetAtPos(pos);
+    if (planet && planet.owner === 1) {
+        dragStartPlanet = planet;
         isDragging = true;
     }
 });
@@ -186,28 +186,28 @@ canvas.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
-    if (isDragging && dragStartStar) {
+    if (isDragging && dragStartPlanet) {
         const pos = getCanvasPos(e);
-        const targetStar = getStarAtPos(pos);
-        if (targetStar && targetStar !== dragStartStar) {
-            const availableUnits = units.filter(u => u.targetStar === dragStartStar && u.state === 'orbit' && !u.dead);
+        const targetPlanet = getPlanetAtPos(pos);
+        if (targetPlanet && targetPlanet !== dragStartPlanet) {
+            const availableUnits = units.filter(u => u.targetPlanet === dragStartPlanet && u.state === 'orbit' && !u.dead);
             const countToDispatch = Math.ceil(availableUnits.length * 0.5);
             for (let i = 0; i < countToDispatch; i++) {
-                availableUnits[i].targetStar = targetStar;
+                availableUnits[i].targetPlanet = targetPlanet;
                 availableUnits[i].state = 'moving';
             }
         }
     }
     isDragging = false;
-    dragStartStar = null;
+    dragStartPlanet = null;
 });
 
 canvas.addEventListener('dblclick', (e) => {
     if (gameOver) return;
     const pos = getCanvasPos(e);
-    const star = getStarAtPos(pos);
-    if (star && star.owner === 1) {
-        star.startUpgradeSuction();
+    const planet = getPlanetAtPos(pos);
+    if (planet && planet.owner === 1) {
+        planet.startDocking();
     }
 });
 
@@ -247,10 +247,10 @@ function updateHUD(dt) {
     const secs = Math.floor(matchTime % 60).toString().padStart(2, '0');
     hudTime.innerText = `${mins}:${secs}`;
 
-    const blueCount = stars.filter(s => s.owner === 1).length;
-    const redCount = stars.filter(s => s.owner === 2).length;
-    hudBlueStars.innerText = blueCount;
-    hudRedStars.innerText = redCount;
+    const blueCount = planets.filter(p => p.owner === 1).length;
+    const redCount = planets.filter(p => p.owner === 2).length;
+    if (hudBluePlanets) hudBluePlanets.innerText = blueCount;
+    if (hudRedPlanets) hudRedPlanets.innerText = redCount;
 }
 
 // Main Game Loop
@@ -262,7 +262,7 @@ function gameLoop(now) {
     lastTime = now;
 
     if (!isPaused) {
-        stars.forEach(star => star.update(dt));
+        planets.forEach(planet => planet.update(dt));
 
         for (let i = units.length - 1; i >= 0; i--) {
             if (units[i].dead) {
@@ -278,9 +278,21 @@ function gameLoop(now) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (isDragging && dragStartStar) {
+    // 1. Draw Central Sun
+    const cx = arenaSize / 2;
+    const cy = arenaSize / 2;
+    const sunRadius = typeof SUN_CONFIG !== 'undefined' ? SUN_CONFIG.radius : 32;
+    const sunColor = typeof SUN_CONFIG !== 'undefined' ? SUN_CONFIG.color : '#ffaa00';
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, sunRadius, 0, Math.PI * 2);
+    ctx.fillStyle = sunColor;
+    ctx.fill();
+
+    // 2. Draw Target Drag Line
+    if (isDragging && dragStartPlanet) {
         ctx.beginPath();
-        ctx.moveTo(dragStartStar.x, dragStartStar.y);
+        ctx.moveTo(dragStartPlanet.x, dragStartPlanet.y);
         ctx.lineTo(currentMousePos.x, currentMousePos.y);
         ctx.strokeStyle = 'rgba(0, 210, 255, 0.6)';
         ctx.lineWidth = 2;
@@ -289,9 +301,10 @@ function gameLoop(now) {
         ctx.setLineDash([]);
     }
 
-    stars.forEach(star => star.draw());
+    // 3. Draw Planets
+    planets.forEach(planet => planet.draw());
 
-    // Batched Unit Rendering
+    // 4. Batched Unit Rendering
     [1, 2].forEach(owner => {
         ctx.fillStyle = OWNER_COLORS[owner];
         ctx.beginPath();

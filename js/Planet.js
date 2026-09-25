@@ -1,19 +1,19 @@
-class Star {
+class Planet {
     constructor(x, y, level, owner) {
         this.x = x;
         this.y = y;
         this.level = level;
         this.owner = owner;
-        
+
         const stats = TIER_STATS[level];
         this.radius = stats.radius;
         this.maxHp = stats.maxHP;
         this.hp = owner !== 0 ? stats.maxHP : 5;
         this.spawnTimer = 0;
         this.regenTimer = 0;
-        
+
         this.upgradeProgress = 0;
-        this.isAbsorbing = false;
+        this.isDocking = false;
 
         const cx = arenaSize / 2;
         const cy = arenaSize / 2;
@@ -24,24 +24,24 @@ class Star {
     }
 
     get orbitingUnitsCount() {
-        return units.filter(u => u.targetStar === this && (u.state === 'orbit' || u.state === 'sucking') && !u.dead).length;
+        return units.filter(u => u.targetPlanet === this && (u.state === 'orbit' || u.state === 'docking') && !u.dead).length;
     }
 
-    startUpgradeSuction() {
+    startDocking() {
         if (this.level >= 3 || this.owner === 0) return;
-        this.isAbsorbing = true;
-        
+        this.isDocking = true;
+
         units.forEach(u => {
-            if (u.targetStar === this && u.state === 'orbit' && !u.dead) {
-                u.state = 'sucking';
+            if (u.targetPlanet === this && u.state === 'orbit' && !u.dead) {
+                u.state = 'docking';
             }
         });
     }
 
-    cancelSuctionAndRelease() {
-        this.isAbsorbing = false;
+    cancelDocking() {
+        this.isDocking = false;
         units.forEach(u => {
-            if (u.targetStar === this && u.state === 'sucking' && !u.dead) {
+            if (u.targetPlanet === this && u.state === 'docking' && !u.dead) {
                 u.state = 'orbit';
             }
         });
@@ -55,13 +55,15 @@ class Star {
             this.maxHp = stats.maxHP;
             this.hp = stats.maxHP;
             this.upgradeProgress = 0;
-            this.cancelSuctionAndRelease();
+            this.cancelDocking();
         }
     }
 
     update(dt) {
         if (this.orbitDistance > 0) {
-            this.orbitAngle += 0.012 * dt;
+            const orbitSpeed = 0.25 / Math.sqrt(this.orbitDistance);
+            this.orbitAngle += orbitSpeed * dt;
+
             const cx = arenaSize / 2;
             const cy = arenaSize / 2;
             this.x = cx + Math.cos(this.orbitAngle) * this.orbitDistance;
@@ -89,10 +91,10 @@ class Star {
             }
         }
 
-        if (this.isAbsorbing) {
-            const suckingCount = units.filter(u => u.targetStar === this && u.state === 'sucking' && !u.dead).length;
-            if (suckingCount === 0) {
-                this.isAbsorbing = false;
+        if (this.isDocking) {
+            const dockingCount = units.filter(u => u.targetPlanet === this && u.state === 'docking' && !u.dead).length;
+            if (dockingCount === 0) {
+                this.isDocking = false;
             }
         }
     }
@@ -100,7 +102,7 @@ class Star {
     draw() {
         const activeColor = this.owner !== 0 ? OWNER_COLORS[this.owner] : OWNER_COLORS[0];
 
-        // Star core
+        // Planet core
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = OWNER_COLORS[this.owner];
