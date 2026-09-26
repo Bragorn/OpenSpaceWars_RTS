@@ -6,91 +6,13 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-    <!-- Left Sidebar -->
-    <div class="sidebar">
-        <div class="panel">
-            <div class="panel-title">// DEV CONTROLS</div>
-            <div class="control-group">
-                <button id="btn-pause" class="dev-btn">PAUSE</button>
-                <button id="btn-reset" class="dev-btn">RESET MATCH</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-title">// PERF MONITOR</div>
-            <div class="control-group">
-                <div class="stat-box">
-                    <span>FRAME CPU:</span>
-                    <strong id="debug-cpu">0.0ms</strong>
-                </div>
-                <div class="stat-box">
-                    <span>FPS:</span>
-                    <strong id="debug-fps">60</strong>
-                </div>
-                <div class="stat-box">
-                    <span>UNITS:</span>
-                    <strong id="debug-units">0</strong>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-title">// GAME SPEED</div>
-            <div class="btn-grid">
-                <button class="dev-btn speed-btn active" data-speed="1">1x</button>
-                <button class="dev-btn speed-btn" data-speed="2">2x</button>
-                <button class="dev-btn speed-btn" data-speed="4">4x</button>
-                <button class="dev-btn speed-btn" data-speed="8">8x</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-title">// SECTOR SELECT</div>
-            <select id="level-select" class="dev-select">
-                <option value="0">Level 1: Balanced Skirmish</option>
-                <option value="1">Level 2: Central Bottleneck</option>
-                <option value="2">Level 3: AI Fortress Siege</option>
-                <option value="3">Level 4: Twin Orbit Rings</option>
-                <option value="4">Level 5: Deep Space Highway</option>
-            </select>
-        </div>
-    </div>
-
-    <!-- Center Arena -->
     <div id="game-container">
-        <div id="canvas-wrapper">
-            <div id="ui-overlay"></div>
-            <canvas id="game"></canvas>
-        </div>
+        <canvas id="game"></canvas>
     </div>
 
-    <!-- Right Sidebar -->
-    <div class="sidebar sidebar-right">
-        <div class="panel">
-            <div class="panel-title">// MATCH STATUS</div>
-            <div class="control-group">
-                <div class="stat-box"><span>TIME:</span><strong id="hud-time">00:00</strong></div>
-                <div class="stat-box"><span>BLUE PLANETS:</span><strong id="hud-blue-planets" class="blue-val">0</strong></div>
-                <div class="stat-box"><span>RED PLANETS:</span><strong id="hud-red-planets" class="red-val">0</strong></div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-title">// COMMAND INPUTS</div>
-            <div class="hint-text">
-                • <strong>DRAG</strong> from a planet to route 50% of orbiting defenders toward a target planet.<br><br>
-                • <strong>DOUBLE-CLICK</strong> a friendly planet to engage <strong>DOCKING</strong> mode.<br><br>
-                • Units in orbit will dock into the planet core to fund its tier upgrade.<br><br>
-                • <strong>DEFENDERS:</strong> Orbiters automatically engage and neutralize incoming hostile units.
-            </div>
-        </div>
-    </div>
-
-    <!-- Game Scripts -->
     <script src="js/config.js"></script>
     <script src="js/Planet.js"></script>
-    <script src="js/Unit.js"></script>
+    <script src="js/Ship.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

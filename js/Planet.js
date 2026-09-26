@@ -13,7 +13,7 @@ class Planet {
         this.regenTimer = 0;
 
         this.upgradeProgress = 0;
-        this.isDocking = false;
+        this.isLanding = false;
 
         const cx = arenaSize / 2;
         const cy = arenaSize / 2;
@@ -23,26 +23,26 @@ class Planet {
         this.orbitDistance = Math.sqrt(dx * dx + dy * dy);
     }
 
-    get orbitingUnitsCount() {
-        return units.filter(u => u.targetPlanet === this && (u.state === 'orbit' || u.state === 'docking') && !u.dead).length;
+    get orbitingShipsCount() {
+        return ships.filter(s => s.targetPlanet === this && (s.state === 'orbit' || s.state === 'landing') && !s.dead).length;
     }
 
-    startDocking() {
+    startLanding() {
         if (this.level >= 3 || this.owner === 0) return;
-        this.isDocking = true;
+        this.isLanding = true;
 
-        units.forEach(u => {
-            if (u.targetPlanet === this && u.state === 'orbit' && !u.dead) {
-                u.state = 'docking';
+        ships.forEach(s => {
+            if (s.targetPlanet === this && s.state === 'orbit' && !s.dead) {
+                s.state = 'landing';
             }
         });
     }
 
-    cancelDocking() {
-        this.isDocking = false;
-        units.forEach(u => {
-            if (u.targetPlanet === this && u.state === 'docking' && !u.dead) {
-                u.state = 'orbit';
+    cancelLanding() {
+        this.isLanding = false;
+        ships.forEach(s => {
+            if (s.targetPlanet === this && s.state === 'landing' && !s.dead) {
+                s.state = 'orbit';
             }
         });
     }
@@ -55,7 +55,7 @@ class Planet {
             this.maxHp = stats.maxHP;
             this.hp = stats.maxHP;
             this.upgradeProgress = 0;
-            this.cancelDocking();
+            this.cancelLanding();
         }
     }
 
@@ -71,15 +71,13 @@ class Planet {
         }
 
         if (this.owner !== 0) {
-            // Unit Spawning
             this.spawnTimer += dt;
             const stats = TIER_STATS[this.level];
             if (this.spawnTimer >= stats.spawnInterval) {
                 this.spawnTimer = 0;
-                spawnUnit(this, this);
+                spawnShip(this, this);
             }
 
-            // Passive HP Regeneration
             if (this.hp < this.maxHp) {
                 this.regenTimer += dt;
                 if (this.regenTimer >= 3.0) {
@@ -91,39 +89,37 @@ class Planet {
             }
         }
 
-        if (this.isDocking) {
-            const dockingCount = units.filter(u => u.targetPlanet === this && u.state === 'docking' && !u.dead).length;
-            if (dockingCount === 0) {
-                this.isDocking = false;
+        if (this.isLanding) {
+            const landingCount = ships.filter(s => s.targetPlanet === this && s.state === 'landing' && !s.dead).length;
+            if (landingCount === 0) {
+                this.isLanding = false;
             }
         }
     }
 
     draw() {
-        const activeColor = this.owner !== 0 ? OWNER_COLORS[this.owner] : OWNER_COLORS[0];
+        const activeColor = OWNER_COLORS[this.owner];
 
-        // Planet core
+        // Core Planet
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = OWNER_COLORS[this.owner];
+        ctx.fillStyle = activeColor;
         ctx.fill();
 
-        // Upgrade Progress Ring
-        if (this.owner !== 0 && this.level < 3) {
+        // Upgrade Progress Ring (Gold)
+        if (this.owner !== 0 && this.level < 3 && this.upgradeProgress > 0) {
             const reqCost = TIER_STATS[this.level].upgradeCost;
-            if (this.upgradeProgress > 0) {
-                const progressPercent = this.upgradeProgress / reqCost;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius + 6, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * progressPercent));
-                ctx.strokeStyle = '#ffd700';
-                ctx.lineWidth = 2.5;
-                ctx.stroke();
-            }
+            const progressPercent = this.upgradeProgress / reqCost;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 6, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * progressPercent));
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
         }
 
-        // HP Ring
+        // HP Outline Ring
         const hpPercent = Math.max(0, this.hp / this.maxHp);
-        if (hpPercent > 0) {
+        if (hpPercent > 0 && hpPercent < 1) {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius + 3, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * hpPercent));
             ctx.strokeStyle = activeColor;
@@ -131,11 +127,11 @@ class Planet {
             ctx.stroke();
         }
 
-        // Count Text
-        ctx.fillStyle = '#08090d';
+        // Defender Count Text
+        ctx.fillStyle = '#000000';
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.orbitingUnitsCount, this.x, this.y);
+        ctx.fillText(this.orbitingShipsCount, this.x, this.y);
     }
 }
