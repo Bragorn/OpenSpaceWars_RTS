@@ -5,34 +5,25 @@
 }
 
 body {
-    background: #08090c;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
     width: 100vw;
-    user-select: none;
-}
-
-#game-container {
+    height: 100vh;
+    background-color: #0b0b10; /* Match your background color */
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 100%;
-    height: 100%;
+    overflow: hidden; /* Prevents scrollbars */
 }
 
-canvas {
-    display: block;
-    background: #000000;
-    /* Maintain 1:1 aspect ratio & fill available screen height/width */
-    aspect-ratio: 1 / 1;
-    max-width: 95vw;
-    max-height: 95vh;
-    width: auto;
-    height: auto;
-    /* Ensures sharp pixel art rendering on high-DPI / Retina screens */
-    image-rendering: pixelated;
-    border: 2px solid #1a202c;
+.game-container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas#game {
+    /* Scale dynamically to fill screen while preserving square aspect ratio */
+    width: min(95vw, 95vh);
+    height: min(95vw, 95vh);
 }
