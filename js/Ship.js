@@ -36,6 +36,60 @@ class Ship {
         this.targetDist = Math.sqrt(this.targetDx * this.targetDx + this.targetDy * this.targetDy);
     }
 
+    getBoidForces() {
+        let sepX = 0, sepY = 0;
+        let alignX = 0, alignY = 0;
+        let cohortX = 0, cohortY = 0;
+        let neighborCount = 0;
+
+        const neighborDist = 28;
+        const sepDist = 10;
+
+        for (let i = 0; i < ships.length; i++) {
+            const other = ships[i];
+            if (other !== this && !other.dead && other.owner === this.owner && other.state === 'moving' && other.targetPlanet === this.targetPlanet) {
+                const dx = other.x - this.x;
+                const dy = other.y - this.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq > 0 && distSq < neighborDist * neighborDist) {
+                    const dist = Math.sqrt(distSq);
+
+                    if (dist < sepDist) {
+                        const force = (sepDist - dist) / sepDist;
+                        sepX -= (dx / dist) * force;
+                        sepY -= (dy / dist) * force;
+                    }
+
+                    alignX += other.vx;
+                    alignY += other.vy;
+
+                    cohortX += other.x;
+                    cohortY += other.y;
+
+                    neighborCount++;
+                }
+            }
+        }
+
+        let forceX = sepX * 12;
+        let forceY = sepY * 12;
+
+        if (neighborCount > 0) {
+            alignX /= neighborCount;
+            alignY /= neighborCount;
+            forceX += (alignX - this.vx) * 0.8;
+            forceY += (alignY - this.vy) * 0.8;
+
+            cohortX /= neighborCount;
+            cohortY /= neighborCount;
+            forceX += (cohortX - this.x) * 0.4;
+            forceY += (cohortY - this.y) * 0.4;
+        }
+
+        return { x: forceX, y: forceY };
+    }
+
     update(dt) {
         if (this.dead) return;
 
@@ -225,8 +279,13 @@ class Ship {
                 desiredSpeed = Math.max(10, this.maxSpeed * ramp); // Floor of 10 px/s prevents stalling
             }
 
-            const desiredVx = (this.targetDx / this.targetDist) * desiredSpeed;
-            const desiredVy = (this.targetDy / this.targetDist) * desiredSpeed;
+            let desiredVx = (this.targetDx / this.targetDist) * desiredSpeed;
+            let desiredVy = (this.targetDy / this.targetDist) * desiredSpeed;
+
+            // Apply Boid Flocking Force
+            const boid = this.getBoidForces();
+            desiredVx += boid.x;
+            desiredVy += boid.y;
 
             const steeringX = desiredVx - this.vx;
             const steeringY = desiredVy - this.vy;
@@ -242,7 +301,10 @@ class Ship {
 
             // Determine Thruster Visual State
             const dotProduct = ax * this.vx + ay * this.vy;
-            if (accelMag < 15) {
+            if (distToThreshold < slowingRadius) {
+                // Continuous terminal landing burn on approach to any planet
+                this.thrusterState = 'retro';
+            } else if (accelMag < 15) {
                 this.thrusterState = 'none'; // Coasting at cruising speed
             } else if (dotProduct < -20) {
                 this.thrusterState = 'retro'; // Braking
