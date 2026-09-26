@@ -1,9 +1,9 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-const arenaSize = VIRTUAL_SIZE;
 let planets = [];
 let ships = [];
+let controls = null;
 
 function setupCanvas() {
     canvas.width = VIRTUAL_SIZE;
@@ -18,24 +18,12 @@ function initGame() {
     const cx = VIRTUAL_SIZE / 2;
     const cy = VIRTUAL_SIZE / 2;
 
-    // 8-Planet Layout: 2 Bases (Player & Enemy) + 3 Neutral per side
-    const layout = [
-        // Left Side (Player Territory)
-        { x: cx - 260, y: cy, level: 1, owner: 1 },        // Player Base
-        { x: cx - 180, y: cy - 160, level: 1, owner: 0 },  // Left Top Neutral
-        { x: cx - 110, y: cy, level: 1, owner: 0 },        // Left Inner Neutral
-        { x: cx - 180, y: cy + 160, level: 1, owner: 0 },  // Left Bottom Neutral
-
-        // Right Side (Enemy Territory)
-        { x: cx + 260, y: cy, level: 1, owner: 2 },        // Enemy Base
-        { x: cx + 180, y: cy - 160, level: 1, owner: 0 },  // Right Top Neutral
-        { x: cx + 110, y: cy, level: 1, owner: 0 },        // Right Inner Neutral
-        { x: cx + 180, y: cy + 160, level: 1, owner: 0 }   // Right Bottom Neutral
-    ];
-
+    const layout = LEVEL_SETUP(cx, cy);
     layout.forEach(node => {
         planets.push(new Planet(node.x, node.y, node.level, node.owner));
     });
+
+    controls = new Controls(canvas, 1);
 }
 
 function spawnShip(sourcePlanet, targetPlanet) {
@@ -44,6 +32,15 @@ function spawnShip(sourcePlanet, targetPlanet) {
 
 function destroyShip(ship) {
     ship.dead = true;
+}
+
+function dispatchFleet(sourcePlanet, targetPlanet, ratio = 0.5) {
+    const availableShips = ships.filter(s => s.targetPlanet === sourcePlanet && s.state === 'orbit' && !s.dead);
+    const countToDispatch = Math.ceil(availableShips.length * ratio);
+    for (let i = 0; i < countToDispatch; i++) {
+        availableShips[i].targetPlanet = targetPlanet;
+        availableShips[i].state = 'moving';
+    }
 }
 
 function handlePlanetImpact(ship) {
@@ -69,110 +66,40 @@ function handlePlanetImpact(ship) {
 let aiTimer = 0;
 function updateAI(dt) {
     aiTimer += dt;
-
-    if (aiTimer >= 3.0) {
-        aiTimer = 0;
-        const redPlanets = planets.filter(p => p.owner === 2);
-        redPlanets.forEach(source => {
-            if (source.level < 3) {
-                const reqCost = TIER_STATS[source.level].upgradeCost;
-                if (source.orbitingShipsCount + source.upgradeProgress >= reqCost) {
-                    source.startLanding();
-                    return;
-                }
+    if (aiTimer < 3.0) return;
+    
+    aiTimer = 0;
+    const redPlanets = planets.filter(p => p.owner === 2);
+    
+    redPlanets.forEach(source => {
+        if (source.level < 3) {
+            const reqCost = TIER_STATS[source.level].upgradeCost;
+            if (source.orbitingShipsCount + source.upgradeProgress >= reqCost) {
+                source.startLanding();
+                return;
             }
+        }
 
-            if (source.orbitingShipsCount >= 6 && !source.isLanding) {
-                const targets = planets.filter(p => p.owner !== 2);
-                if (targets.length > 0) {
-                    let target = targets[0];
-                    let minDistSq = Infinity;
-                    targets.forEach(t => {
-                        const dx = t.x - source.x;
-                        const dy = t.y - source.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq < minDistSq) {
-                            minDistSq = distSq;
-                            target = t;
-                        }
-                    });
-
-                    const availableShips = ships.filter(s => s.targetPlanet === source && s.state === 'orbit' && !s.dead);
-                    const countToDispatch = Math.floor(availableShips.length * 0.5);
-                    for (let i = 0; i < countToDispatch; i++) {
-                        availableShips[i].targetPlanet = target;
-                        availableShips[i].state = 'moving';
+        if (source.orbitingShipsCount >= 6 && !source.isLanding) {
+            const targets = planets.filter(p => p.owner !== 2);
+            if (targets.length > 0) {
+                let target = targets[0];
+                let minDistSq = Infinity;
+                targets.forEach(t => {
+                    const dx = t.x - source.x;
+                    const dy = t.y - source.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < minDistSq) {
+                        minDistSq = distSq;
+                        target = t;
                     }
-                }
-            }
-        });
-    }
-}
+                });
 
-// Mouse Controls
-let dragStartPlanet = null;
-let isDragging = false;
-let currentMousePos = { x: 0, y: 0 };
-
-function getCanvasPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    return {
-        x: (clientX - rect.left) * (VIRTUAL_SIZE / rect.width),
-        y: (clientY - rect.top) * (VIRTUAL_SIZE / rect.height)
-    };
-}
-
-function getPlanetAtPos(pos) {
-    for (let planet of planets) {
-        const dx = planet.x - pos.x;
-        const dy = planet.y - pos.y;
-        if (Math.sqrt(dx * dx + dy * dy) <= planet.radius + 14) {
-            return planet;
-        }
-    }
-    return null;
-}
-
-canvas.addEventListener('mousedown', (e) => {
-    const pos = getCanvasPos(e);
-    currentMousePos = pos;
-    const planet = getPlanetAtPos(pos);
-    if (planet && planet.owner === 1) {
-        dragStartPlanet = planet;
-        isDragging = true;
-    }
-});
-
-canvas.addEventListener('mousemove', (e) => {
-    currentMousePos = getCanvasPos(e);
-});
-
-window.addEventListener('mouseup', () => {
-    if (isDragging && dragStartPlanet) {
-        const targetPlanet = getPlanetAtPos(currentMousePos);
-        if (targetPlanet && targetPlanet !== dragStartPlanet) {
-            const availableShips = ships.filter(s => s.targetPlanet === dragStartPlanet && s.state === 'orbit' && !s.dead);
-            const countToDispatch = Math.ceil(availableShips.length * 0.5);
-            for (let i = 0; i < countToDispatch; i++) {
-                availableShips[i].targetPlanet = targetPlanet;
-                availableShips[i].state = 'moving';
+                dispatchFleet(source, target, 0.5);
             }
         }
-    }
-    isDragging = false;
-    dragStartPlanet = null;
-});
-
-canvas.addEventListener('dblclick', (e) => {
-    const pos = getCanvasPos(e);
-    const planet = getPlanetAtPos(pos);
-    if (planet && planet.owner === 1) {
-        planet.startLanding();
-    }
-});
+    });
+}
 
 // Game Loop
 let lastTime = performance.now();
@@ -195,16 +122,7 @@ function gameLoop(now) {
 
     ctx.clearRect(0, 0, VIRTUAL_SIZE, VIRTUAL_SIZE);
 
-    if (isDragging && dragStartPlanet) {
-        ctx.beginPath();
-        ctx.moveTo(dragStartPlanet.x, dragStartPlanet.y);
-        ctx.lineTo(currentMousePos.x, currentMousePos.y);
-        ctx.strokeStyle = OWNER_COLORS[1];
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
+    if (controls) controls.draw(ctx);
 
     planets.forEach(planet => planet.draw());
 
