@@ -14,17 +14,26 @@ class Ship {
         this.vx = 0;
         this.vy = 0;
         this.maxSpeed = 35;
-        this.enginePower = 120;
+        this.enginePower = 55;
 
         this.state = sourcePlanet === targetPlanet ? 'orbit' : 'moving';
 
         this.orbitAngle = spawnAngle;
-        this.targetOrbitRadius = sourcePlanet.radius + 10 + Math.random() * 22;
+        
+        // --- ORBIT HEIGHT CONFIGURATION ---
+        // Min height above surface: 10px | Max height above surface: 10 + 22 = 32px
+        // Adjust these two numbers to change orbit distances across all planets!
+        const minOrbitOffset = 8;
+        const maxOrbitSpread = 18; // Reduced slightly for tighter, cleaner orbits
+        this.targetOrbitRadius = sourcePlanet.radius + minOrbitOffset + Math.random() * maxOrbitSpread;
         this.currentOrbitRadius = this.targetOrbitRadius;
 
         this.initialLandingRadius = null;
         this.landingProgress = null;
-        this.landingDuration = 3.6;
+        this.landingDuration = 3.8; // Extended slightly for softer touchdown
+
+        this.isIntercepting = false;
+        this.isReturningToOrbit = false;
 
         this.orbitSpeed = (2.2 + Math.random() * 0.5) / Math.sqrt(this.targetOrbitRadius);
         this.dead = false;
@@ -34,6 +43,15 @@ class Ship {
         this.targetDx = targetPlanet.x - this.x;
         this.targetDy = targetPlanet.y - this.y;
         this.targetDist = Math.sqrt(this.targetDx * this.targetDx + this.targetDy * this.targetDy);
+    }
+
+    abortLanding() {
+        if (this.state === 'landing') {
+            this.state = 'orbit';
+            this.isReturningToOrbit = true;
+            this.landingProgress = null;
+            this.initialLandingRadius = null;
+        }
     }
 
     getBoidForces() {
@@ -108,27 +126,27 @@ class Ship {
             this.landingProgress += dt / this.landingDuration;
             const p = Math.min(1, Math.max(0, this.landingProgress));
 
-            const altFactor = 0.5 * (1 + Math.cos(Math.PI * p * p));
-            const targetRadius = this.targetPlanet.radius + 2;
+            // Smooth cubic ease-out curve for altitude (decelerates heavily on touchdown)
+            const altFactor = Math.pow(1 - p, 2);
+            const targetRadius = this.targetPlanet.radius + 1.5;
             const radiusDelta = this.initialLandingRadius - targetRadius;
             this.currentOrbitRadius = targetRadius + radiusDelta * altFactor;
 
-            const omegaFactor = Math.pow(1 - p, 0.85);
+            const omegaFactor = Math.pow(1 - p, 1.2);
             const currentAngularSpeed = this.orbitSpeed * omegaFactor;
             this.orbitAngle += currentAngularSpeed * dt;
 
             this.x = this.targetPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
             this.y = this.targetPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
 
-            const dAlt_dp = -Math.PI * p * Math.sin(Math.PI * p * p);
-            const dr_dt = (radiusDelta * dAlt_dp) / this.landingDuration;
+            const dAlt_dt = -2 * (1 - p) * (radiusDelta / this.landingDuration);
             const dtheta_dt = currentAngularSpeed;
 
             const cosA = Math.cos(this.orbitAngle);
             const sinA = Math.sin(this.orbitAngle);
 
-            this.vx = dr_dt * cosA - this.currentOrbitRadius * dtheta_dt * sinA;
-            this.vy = dr_dt * sinA + this.currentOrbitRadius * dtheta_dt * cosA;
+            this.vx = dAlt_dt * cosA - this.currentOrbitRadius * dtheta_dt * sinA;
+            this.vy = dAlt_dt * sinA + this.currentOrbitRadius * dtheta_dt * cosA;
 
             if (p >= 1.0) {
                 this.landingProgress = null;
@@ -145,13 +163,8 @@ class Ship {
 
         // ORBIT & DEFENSE MODE
         if (this.state === 'orbit') {
-            this.thrusterState = 'none';
             this.landingProgress = null;
             this.initialLandingRadius = null;
-
-            if (this.currentOrbitRadius < this.targetOrbitRadius) {
-                this.currentOrbitRadius = Math.min(this.targetOrbitRadius, this.currentOrbitRadius + 18 * dt);
-            }
 
             let targetEnemy = null;
             let minEnemyDistSq = 3600;
@@ -174,6 +187,9 @@ class Ship {
             }
 
             if (targetEnemy) {
+                this.isIntercepting = true;
+                this.isReturningToOrbit = false;
+
                 const dx = targetEnemy.x - this.x;
                 const dy = targetEnemy.y - this.y;
                 const distSq = dx * dx + dy * dy;
@@ -191,9 +207,48 @@ class Ship {
                     this.thrusterState = 'main';
                 }
             } else {
-                this.orbitAngle += this.orbitSpeed * dt;
-                this.x = this.targetPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
-                this.y = this.targetPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
+                if (this.isIntercepting) {
+                    this.isIntercepting = false;
+                    this.isReturningToOrbit = true;
+                    const dxPlanet = this.x - this.targetPlanet.x;
+                    const dyPlanet = this.y - this.targetPlanet.y;
+                    this.currentOrbitRadius = Math.sqrt(dxPlanet * dxPlanet + dyPlanet * dyPlanet);
+                    this.orbitAngle = Math.atan2(dyPlanet, dxPlanet);
+                }
+
+                const radiusDiff = this.targetOrbitRadius - this.currentOrbitRadius;
+
+                if (this.isReturningToOrbit || Math.abs(radiusDiff) > 0.8) {
+                    this.thrusterState = 'main';
+
+                    const speedCap = 14;
+                    const radialVelocity = Math.min(Math.abs(radiusDiff) * 3.0, speedCap);
+                    const radialStep = radialVelocity * dt;
+
+                    if (Math.abs(radiusDiff) <= Math.max(0.5, radialStep)) {
+                        this.currentOrbitRadius = this.targetOrbitRadius;
+                        this.isReturningToOrbit = false;
+                    } else {
+                        this.currentOrbitRadius += Math.sign(radiusDiff) * radialStep;
+                    }
+
+                    this.orbitAngle += this.orbitSpeed * dt;
+
+                    const nextX = this.targetPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
+                    const nextY = this.targetPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
+
+                    this.vx = (nextX - this.x) / dt;
+                    this.vy = (nextY - this.y) / dt;
+
+                    this.x = nextX;
+                    this.y = nextY;
+                } else {
+                    this.isReturningToOrbit = false;
+                    this.thrusterState = 'none';
+                    this.orbitAngle += this.orbitSpeed * dt;
+                    this.x = this.targetPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
+                    this.y = this.targetPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
+                }
             }
             return;
         }
@@ -202,6 +257,8 @@ class Ship {
         if (this.state === 'moving') {
             this.landingProgress = null;
             this.initialLandingRadius = null;
+            this.isIntercepting = false;
+            this.isReturningToOrbit = false;
 
             // 1. Intercept enemy check
             let targetEnemy = null;
@@ -260,23 +317,24 @@ class Ship {
                     return;
                 }
             } else {
-                const impactDist = this.targetPlanet.radius + 4;
+                const impactDist = this.targetPlanet.radius + 3;
                 if (this.targetDist <= impactDist) {
                     handlePlanetImpact(this);
                     return;
                 }
             }
 
-            // 3. Arrival Steering Physics (Accelerate -> Coast -> Decelerate)
+            // 3. Arrival Steering Physics
             const targetThreshold = isFriendly ? this.targetOrbitRadius : this.targetPlanet.radius;
             const distToThreshold = Math.max(0, this.targetDist - targetThreshold);
 
-            const slowingRadius = 65; // Distance threshold to initiate slowing down
+            const slowingRadius = 40;
             let desiredSpeed = this.maxSpeed;
 
             if (distToThreshold < slowingRadius) {
                 const ramp = distToThreshold / slowingRadius;
-                desiredSpeed = Math.max(10, this.maxSpeed * ramp); // Floor of 10 px/s prevents stalling
+                // Floor reduced to 6px/s so ships ease down smoothly right at touchdown
+                desiredSpeed = Math.max(6, this.maxSpeed * Math.pow(ramp, 1.1));
             }
 
             let desiredVx = (this.targetDx / this.targetDist) * desiredSpeed;
@@ -290,8 +348,8 @@ class Ship {
             const steeringX = desiredVx - this.vx;
             const steeringY = desiredVy - this.vy;
 
-            let ax = steeringX * 8;
-            let ay = steeringY * 8;
+            let ax = steeringX * 6;
+            let ay = steeringY * 6;
 
             const accelMag = Math.sqrt(ax * ax + ay * ay);
             if (accelMag > this.enginePower) {
@@ -302,14 +360,13 @@ class Ship {
             // Determine Thruster Visual State
             const dotProduct = ax * this.vx + ay * this.vy;
             if (distToThreshold < slowingRadius) {
-                // Continuous terminal landing burn on approach to any planet
                 this.thrusterState = 'retro';
-            } else if (accelMag < 15) {
-                this.thrusterState = 'none'; // Coasting at cruising speed
-            } else if (dotProduct < -20) {
-                this.thrusterState = 'retro'; // Braking
+            } else if (accelMag < 12) {
+                this.thrusterState = 'none';
+            } else if (dotProduct < -15) {
+                this.thrusterState = 'retro';
             } else {
-                this.thrusterState = 'main'; // Accelerating
+                this.thrusterState = 'main';
             }
 
             this.vx += ax * dt;
