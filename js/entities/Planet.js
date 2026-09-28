@@ -14,20 +14,13 @@ class Planet {
 
         this.upgradeProgress = 0;
         this.isLanding = false;
-
-        const cx = arenaSize / 2;
-        const cy = arenaSize / 2;
-        const dx = x - cx;
-        const dy = y - cy;
-        this.orbitAngle = Math.atan2(dy, dx);
-        this.orbitDistance = Math.sqrt(dx * dx + dy * dy);
     }
 
-    get orbitingShipsCount() {
+    getOrbitingShipsCount(ships) {
         return ships.filter(s => s.targetPlanet === this && (s.state === 'orbit' || s.state === 'landing') && !s.dead).length;
     }
 
-    startLanding() {
+    startLanding(ships) {
         if (this.level >= 3 || this.owner === 0) return;
         this.isLanding = true;
 
@@ -38,7 +31,7 @@ class Planet {
         });
     }
 
-    cancelLanding() {
+    cancelLanding(ships) {
         this.isLanding = false;
         ships.forEach(s => {
             if (s.targetPlanet === this && s.state === 'landing' && !s.dead) {
@@ -47,7 +40,7 @@ class Planet {
         });
     }
 
-    upgrade() {
+    upgrade(ships) {
         if (this.level < 3) {
             this.level++;
             const stats = TIER_STATS[this.level];
@@ -55,19 +48,17 @@ class Planet {
             this.maxHp = stats.maxHP;
             this.hp = stats.maxHP;
             this.upgradeProgress = 0;
-            this.cancelLanding();
+            this.cancelLanding(ships);
         }
     }
 
-    update(dt) {
-        // Orbital rotation code removed to keep planets stationary
-
+    update(dt, gameManager) {
         if (this.owner !== 0) {
             this.spawnTimer += dt;
             const stats = TIER_STATS[this.level];
             if (this.spawnTimer >= stats.spawnInterval) {
                 this.spawnTimer = 0;
-                spawnShip(this, this);
+                gameManager.spawnShip(this, this);
             }
 
             if (this.hp < this.maxHp) {
@@ -82,17 +73,17 @@ class Planet {
         }
 
         if (this.isLanding) {
-            const landingCount = ships.filter(s => s.targetPlanet === this && s.state === 'landing' && !s.dead).length;
+            const landingCount = gameManager.ships.filter(s => s.targetPlanet === this && s.state === 'landing' && !s.dead).length;
             if (landingCount === 0) {
                 this.isLanding = false;
             }
         }
     }
 
-    draw() {
+    draw(ctx, ships) {
         const activeColor = OWNER_COLORS[this.owner];
 
-        // Core Planet
+        // Core Planet Body
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = activeColor;
@@ -103,27 +94,32 @@ class Planet {
             const reqCost = TIER_STATS[this.level].upgradeCost;
             const progressPercent = this.upgradeProgress / reqCost;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius + 6, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * progressPercent));
+            ctx.arc(this.x, this.y, this.radius + 7, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * progressPercent));
             ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 3.0;
+            ctx.stroke();
+        }
+
+        // HP Ring
+        const hpPercent = Math.max(0, this.hp / this.maxHp);
+        if (hpPercent > 0 && hpPercent < 1) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 3.5, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * hpPercent));
+            ctx.strokeStyle = activeColor;
             ctx.lineWidth = 2.5;
             ctx.stroke();
         }
 
-        // HP Outline Ring
-        const hpPercent = Math.max(0, this.hp / this.maxHp);
-        if (hpPercent > 0 && hpPercent < 1) {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius + 3, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * hpPercent));
-            ctx.strokeStyle = activeColor;
-            ctx.lineWidth = 2.0;
-            ctx.stroke();
-        }
-
-        // Defender Count Text
-        ctx.fillStyle = '#000000';
-        ctx.font = 'bold 11px sans-serif';
+        // Defender Count Text with High-Contrast Stroke
+        const countText = this.getOrbitingShipsCount(ships).toString();
+        ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.orbitingShipsCount, this.x, this.y);
+
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeText(countText, this.x, this.y);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(countText, this.x, this.y);
     }
 }

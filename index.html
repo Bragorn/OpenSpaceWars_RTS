@@ -2,18 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Swarm RTS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenSpaceWars</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="game-container">
+    <div id="game-frame">
         <canvas id="game"></canvas>
     </div>
 
+    <!-- Configuration & Helpers -->
     <script src="js/config.js"></script>
-    <script src="js/Planet.js"></script>
-    <script src="js/Ship.js"></script>
-    <script src="js/Controls.js"></script>
+    <script src="js/utils/math.js"></script>
+
+    <!-- Entities -->
+    <script src="js/entities/Planet.js"></script>
+    <script src="js/entities/Ship.js"></script>
+
+    <!-- Systems & Managers -->
+    <script src="js/systems/Controls.js"></script>
+    <script src="js/systems/AIController.js"></script>
+    <script src="js/systems/Renderer.js"></script>
+    <script src="js/GameManager.js"></script>
+
+    <!-- Entry Point -->
     <script src="js/main.js"></script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 class Controls {
-    constructor(canvas, playerOwner = 1) {
+    constructor(canvas, gameManager, playerOwner = 1) {
         this.canvas = canvas;
+        this.gameManager = gameManager;
         this.playerOwner = playerOwner;
 
         this.dragStartPlanet = null;
@@ -22,10 +23,10 @@ class Controls {
     }
 
     getPlanetAtPos(pos) {
-        for (let planet of planets) {
+        for (let planet of this.gameManager.planets) {
             const dx = planet.x - pos.x;
             const dy = planet.y - pos.y;
-            if (Math.sqrt(dx * dx + dy * dy) <= planet.radius + 14) {
+            if (Math.sqrt(dx * dx + dy * dy) <= planet.radius + 16) {
                 return planet;
             }
         }
@@ -51,7 +52,7 @@ class Controls {
             if (this.isDragging && this.dragStartPlanet) {
                 const targetPlanet = this.getPlanetAtPos(this.currentMousePos);
                 if (targetPlanet && targetPlanet !== this.dragStartPlanet) {
-                    dispatchFleet(this.dragStartPlanet, targetPlanet, 0.5);
+                    this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, 0.5);
                 }
             }
             this.isDragging = false;
@@ -62,7 +63,7 @@ class Controls {
             const pos = this.getCanvasPos(e);
             const planet = this.getPlanetAtPos(pos);
             if (planet && planet.owner === this.playerOwner) {
-                planet.startLanding();
+                planet.startLanding(this.gameManager.ships);
             }
         });
     }
@@ -73,8 +74,8 @@ class Controls {
             ctx.moveTo(this.dragStartPlanet.x, this.dragStartPlanet.y);
             ctx.lineTo(this.currentMousePos.x, this.currentMousePos.y);
             ctx.strokeStyle = OWNER_COLORS[this.playerOwner];
-            ctx.lineWidth = 2;
-            ctx.setLineDash([6, 4]);
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([8, 5]);
             ctx.stroke();
             ctx.setLineDash([]);
         }
