@@ -8,6 +8,12 @@ let controls = null;
 function setupCanvas() {
     canvas.width = VIRTUAL_SIZE;
     canvas.height = VIRTUAL_SIZE;
+
+    // Responsive CSS styling so the canvas fits the window cleanly
+    canvas.style.width = '100%';
+    canvas.style.height = 'auto';
+    canvas.style.maxHeight = '95vh';
+    canvas.style.objectFit = 'contain';
 }
 setupCanvas();
 
@@ -39,7 +45,7 @@ function dispatchFleet(sourcePlanet, targetPlanet, ratio = 0.5) {
     const countToDispatch = Math.ceil(availableShips.length * ratio);
     for (let i = 0; i < countToDispatch; i++) {
         availableShips[i].targetPlanet = targetPlanet;
-        availableShips[i].state = 'moving';
+        availableShips[i].state = 'launching';
     }
 }
 

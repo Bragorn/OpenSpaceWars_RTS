@@ -60,15 +60,7 @@ class Planet {
     }
 
     update(dt) {
-        if (this.orbitDistance > 0) {
-            const orbitSpeed = 0.25 / Math.sqrt(this.orbitDistance);
-            this.orbitAngle += orbitSpeed * dt;
-
-            const cx = arenaSize / 2;
-            const cy = arenaSize / 2;
-            this.x = cx + Math.cos(this.orbitAngle) * this.orbitDistance;
-            this.y = cy + Math.sin(this.orbitAngle) * this.orbitDistance;
-        }
+        // Orbital rotation code removed to keep planets stationary
 
         if (this.owner !== 0) {
             this.spawnTimer += dt;

@@ -1,6 +1,28 @@
+// Helper: Checks if line segment (x1, y1) -> (x2, y2) passes through a planet's collision boundary
+function isPathBlockedByPlanet(x1, y1, x2, y2, planet, margin = 4) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return false;
+
+    // Project planet center onto the movement line segment (clamped 0 to 1)
+    let t = ((planet.x - x1) * dx + (planet.y - y1) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+
+    // Closest point on the segment to the planet center
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+
+    const distSq = (planet.x - closestX) ** 2 + (planet.y - closestY) ** 2;
+    const safeRadius = planet.radius + margin;
+
+    return distSq < safeRadius * safeRadius;
+}
+
 class Ship {
     constructor(sourcePlanet, targetPlanet) {
         this.owner = sourcePlanet.owner;
+        this.orbitPlanet = sourcePlanet;
         this.targetPlanet = targetPlanet;
 
         const spawnAngle = Math.random() * Math.PI * 2;
@@ -20,17 +42,14 @@ class Ship {
 
         this.orbitAngle = spawnAngle;
         
-        // --- ORBIT HEIGHT CONFIGURATION ---
-        // Min height above surface: 10px | Max height above surface: 10 + 22 = 32px
-        // Adjust these two numbers to change orbit distances across all planets!
         const minOrbitOffset = 8;
-        const maxOrbitSpread = 18; // Reduced slightly for tighter, cleaner orbits
+        const maxOrbitSpread = 18;
         this.targetOrbitRadius = sourcePlanet.radius + minOrbitOffset + Math.random() * maxOrbitSpread;
         this.currentOrbitRadius = this.targetOrbitRadius;
 
         this.initialLandingRadius = null;
         this.landingProgress = null;
-        this.landingDuration = 3.8; // Extended slightly for softer touchdown
+        this.landingDuration = 3.8;
 
         this.isIntercepting = false;
         this.isReturningToOrbit = false;
@@ -111,6 +130,39 @@ class Ship {
     update(dt) {
         if (this.dead) return;
 
+        // LAUNCHING / WAITING FOR TANGENT BURN
+        if (this.state === 'launching') {
+            this.landingProgress = null;
+            this.initialLandingRadius = null;
+            this.thrusterState = 'none';
+
+            this.orbitAngle += this.orbitSpeed * dt;
+            this.x = this.orbitPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
+            this.y = this.orbitPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
+
+            const tangentX = -Math.sin(this.orbitAngle);
+            const tangentY = Math.cos(this.orbitAngle);
+
+            const dx = this.targetPlanet.x - this.x;
+            const dy = this.targetPlanet.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > 0) {
+                const targetDirX = dx / dist;
+                const targetDirY = dy / dist;
+                const alignment = tangentX * targetDirX + tangentY * targetDirY;
+
+                if (alignment >= 0.96) {
+                    this.state = 'moving';
+                    this.orbitPlanet = null;
+                    this.vx = tangentX * (this.maxSpeed * 0.8);
+                    this.vy = tangentY * (this.maxSpeed * 0.8);
+                    this.thrusterState = 'main';
+                }
+            }
+            return;
+        }
+
         // LANDING & UPGRADE MODE
         if (this.state === 'landing') {
             this.thrusterState = 'retro';
@@ -126,7 +178,6 @@ class Ship {
             this.landingProgress += dt / this.landingDuration;
             const p = Math.min(1, Math.max(0, this.landingProgress));
 
-            // Smooth cubic ease-out curve for altitude (decelerates heavily on touchdown)
             const altFactor = Math.pow(1 - p, 2);
             const targetRadius = this.targetPlanet.radius + 1.5;
             const radiusDelta = this.initialLandingRadius - targetRadius;
@@ -165,6 +216,7 @@ class Ship {
         if (this.state === 'orbit') {
             this.landingProgress = null;
             this.initialLandingRadius = null;
+            this.orbitPlanet = this.targetPlanet;
 
             let targetEnemy = null;
             let minEnemyDistSq = 3600;
@@ -175,12 +227,15 @@ class Ship {
                     const dxPlanet = other.x - this.targetPlanet.x;
                     const dyPlanet = other.y - this.targetPlanet.y;
                     if (dxPlanet * dxPlanet + dyPlanet * dyPlanet < minEnemyDistSq) {
-                        const dx = other.x - this.x;
-                        const dy = other.y - this.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq < minEnemyDistSq) {
-                            minEnemyDistSq = distSq;
-                            targetEnemy = other;
+                        // LINE OF SIGHT CHECK: Only target enemy if planet core isn't blocking path
+                        if (!isPathBlockedByPlanet(this.x, this.y, other.x, other.y, this.targetPlanet, 2)) {
+                            const dx = other.x - this.x;
+                            const dy = other.y - this.y;
+                            const distSq = dx * dx + dy * dy;
+                            if (distSq < minEnemyDistSq) {
+                                minEnemyDistSq = distSq;
+                                targetEnemy = other;
+                            }
                         }
                     }
                 }
@@ -312,6 +367,7 @@ class Ship {
                     return;
                 } else if (!isLandingTarget && this.targetDist <= this.targetOrbitRadius + 2) {
                     this.state = 'orbit';
+                    this.orbitPlanet = this.targetPlanet;
                     this.orbitAngle = Math.atan2(this.y - this.targetPlanet.y, this.x - this.targetPlanet.x);
                     this.currentOrbitRadius = this.targetDist;
                     return;
@@ -324,7 +380,7 @@ class Ship {
                 }
             }
 
-            // 3. Arrival Steering Physics
+            // 3. Arrival Steering & Obstacle Avoidance Physics
             const targetThreshold = isFriendly ? this.targetOrbitRadius : this.targetPlanet.radius;
             const distToThreshold = Math.max(0, this.targetDist - targetThreshold);
 
@@ -333,12 +389,31 @@ class Ship {
 
             if (distToThreshold < slowingRadius) {
                 const ramp = distToThreshold / slowingRadius;
-                // Floor reduced to 6px/s so ships ease down smoothly right at touchdown
                 desiredSpeed = Math.max(6, this.maxSpeed * Math.pow(ramp, 1.1));
             }
 
             let desiredVx = (this.targetDx / this.targetDist) * desiredSpeed;
             let desiredVy = (this.targetDy / this.targetDist) * desiredSpeed;
+
+            // PLANET OBSTACLE CUSHION: Push away from non-target planets along the transit path
+            for (let i = 0; i < planets.length; i++) {
+                const p = planets[i];
+                if (p === this.targetPlanet) continue;
+
+                const pdx = this.x - p.x;
+                const pdy = this.y - p.y;
+                const pDistSq = pdx * pdx + pdy * pdy;
+                const avoidRadius = p.radius + 20;
+
+                if (pDistSq < avoidRadius * avoidRadius) {
+                    const pDist = Math.sqrt(pDistSq);
+                    if (pDist > 0) {
+                        const pushFactor = (avoidRadius - pDist) / avoidRadius;
+                        desiredVx += (pdx / pDist) * pushFactor * this.maxSpeed * 1.5;
+                        desiredVy += (pdy / pDist) * pushFactor * this.maxSpeed * 1.5;
+                    }
+                }
+            }
 
             // Apply Boid Flocking Force
             const boid = this.getBoidForces();
