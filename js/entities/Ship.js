@@ -11,7 +11,7 @@ class Ship {
         this.vy = 0;
         this.maxSpeed = 38;
         this.enginePower = 60;
-        this.turnRate = 12.0; // Max rotation speed in radians per second
+        this.turnRate = 10.0; // Smooth, deliberate turning speed
 
         const minOrbitOffset = 10;
         const maxOrbitSpread = 22;
@@ -27,7 +27,6 @@ class Ship {
         this.x = sourcePlanet.x + Math.cos(spawnAngle) * this.currentOrbitRadius;
         this.y = sourcePlanet.y + Math.sin(spawnAngle) * this.currentOrbitRadius;
 
-        // Facing straight outward from planet surface on spawn
         this.heading = spawnAngle;
 
         this.state = 'surface_launch';
@@ -41,33 +40,38 @@ class Ship {
         this.isReturningToOrbit = false;
         this.dead = false;
         this.thrusterState = 'main';
+
+        // Performance Optimization & State Cache
+        this.cachedEnemy = null;
+        this.targetScanTimer = Math.random() * 0.15; // Staggered scanning
+        this.boidFx = 0;
+        this.boidFy = 0;
+        this.isBraking = false; // Prevents flip-flop jitter
     }
 
-    // Smoothly rotates current heading towards target angle
+    // Bulletproof smooth rotation using trigonometry angle delta
     rotateTowards(targetHeading, dt) {
         let diff = targetHeading - this.heading;
-
-        // Wrap angle difference to [-PI, PI]
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        while (diff > Math.PI) diff -= Math.PI * 2;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff)); // Standardized shortest arc delta [-PI, PI]
 
         const maxTurn = this.turnRate * dt;
         if (Math.abs(diff) <= maxTurn) {
             this.heading = targetHeading;
-            return true; // Fully aligned
+            return true;
         } else {
             this.heading += Math.sign(diff) * maxTurn;
-            return Math.abs(diff) < 0.6; // Aligned enough for thruster burst (~35 degrees)
+            return Math.abs(diff) < 0.6; // ~35 degrees alignment threshold for thrusters
         }
     }
 
-    getBoidForces(ships) {
+    // Zero-allocation boid force calculation
+    computeBoidForces(ships) {
         let sepX = 0, sepY = 0;
         let alignX = 0, alignY = 0;
         let cohortX = 0, cohortY = 0;
         let neighborCount = 0;
 
-        const neighborDist = 32;
+        const neighborDistSq = 1024; // 32 * 32
         const sepDist = 12;
 
         for (let i = 0; i < ships.length; i++) {
@@ -77,7 +81,7 @@ class Ship {
                 const dy = other.y - this.y;
                 const distSq = dx * dx + dy * dy;
 
-                if (distSq > 0 && distSq < neighborDist * neighborDist) {
+                if (distSq > 0 && distSq < neighborDistSq) {
                     const dist = Math.sqrt(distSq);
                     if (dist < sepDist) {
                         const force = (sepDist - dist) / sepDist;
@@ -94,22 +98,20 @@ class Ship {
             }
         }
 
-        let forceX = sepX * 12;
-        let forceY = sepY * 12;
+        this.boidFx = sepX * 12;
+        this.boidFy = sepY * 12;
 
         if (neighborCount > 0) {
             alignX /= neighborCount;
             alignY /= neighborCount;
-            forceX += (alignX - this.vx) * 0.8;
-            forceY += (alignY - this.vy) * 0.8;
+            this.boidFx += (alignX - this.vx) * 0.8;
+            this.boidFy += (alignY - this.vy) * 0.8;
 
             cohortX /= neighborCount;
             cohortY /= neighborCount;
-            forceX += (cohortX - this.x) * 0.4;
-            forceY += (cohortY - this.y) * 0.4;
+            this.boidFx += (cohortX - this.x) * 0.4;
+            this.boidFy += (cohortY - this.y) * 0.4;
         }
-
-        return { x: forceX, y: forceY };
     }
 
     update(dt, gameManager) {
@@ -137,9 +139,12 @@ class Ship {
             this.vx = dAlt_dt * cosA - this.currentOrbitRadius * currentAngularSpeed * sinA;
             this.vy = dAlt_dt * sinA + this.currentOrbitRadius * currentAngularSpeed * cosA;
 
-            const targetH = Math.atan2(this.vy, this.vx);
-            const isAligned = this.rotateTowards(targetH, dt);
-            this.thrusterState = isAligned ? 'main' : 'none';
+            const speedSq = this.vx * this.vx + this.vy * this.vy;
+            if (speedSq > 0.1) {
+                const targetH = Math.atan2(this.vy, this.vx);
+                const isAligned = this.rotateTowards(targetH, dt);
+                this.thrusterState = isAligned ? 'main' : 'none';
+            }
 
             if (p >= 1.0) {
                 this.currentOrbitRadius = this.targetOrbitRadius;
@@ -165,9 +170,10 @@ class Ship {
 
             const dx = this.targetPlanet.x - this.x;
             const dy = this.targetPlanet.y - this.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const distSq = dx * dx + dy * dy;
 
-            if (dist > 0) {
+            if (distSq > 0) {
+                const dist = Math.sqrt(distSq);
                 const alignment = tangentX * (dx / dist) + tangentY * (dy / dist);
                 if (alignment >= 0.96) {
                     this.state = 'moving';
@@ -180,7 +186,7 @@ class Ship {
             return;
         }
 
-        // LANDING MODE (SpaceX Tail-First Retrograde Descent)
+        // LANDING MODE
         if (this.state === 'landing') {
             if (this.landingProgress === null) {
                 this.landingProgress = 0;
@@ -211,10 +217,12 @@ class Ship {
             this.vx = dAlt_dt * cosA - this.currentOrbitRadius * currentAngularSpeed * sinA;
             this.vy = dAlt_dt * sinA + this.currentOrbitRadius * currentAngularSpeed * cosA;
 
-            // Target retrograde orientation (+ Math.PI)
-            const retroTarget = Math.atan2(this.vy, this.vx) + Math.PI;
-            const isAligned = this.rotateTowards(retroTarget, dt);
-            this.thrusterState = isAligned ? 'main' : 'none';
+            const speedSq = this.vx * this.vx + this.vy * this.vy;
+            if (speedSq > 0.05) {
+                const retroTarget = Math.atan2(this.vy, this.vx) + Math.PI;
+                const isAligned = this.rotateTowards(retroTarget, dt);
+                this.thrusterState = isAligned ? 'main' : 'none';
+            }
 
             if (p >= 1.0) {
                 gameManager.destroyShip(this);
@@ -233,39 +241,44 @@ class Ship {
             this.initialLandingRadius = null;
             this.orbitPlanet = this.targetPlanet;
 
-            let targetEnemy = null;
-            let minEnemyDistSq = 3600;
+            // Throttled enemy targeting scan
+            this.targetScanTimer -= dt;
+            if (this.targetScanTimer <= 0) {
+                this.targetScanTimer = 0.12; // Rescan ~8 times per second
+                this.cachedEnemy = null;
+                let minEnemyDistSq = 3600;
 
-            for (let i = 0; i < gameManager.ships.length; i++) {
-                const other = gameManager.ships[i];
-                if (other !== this && !other.dead && other.owner !== this.owner) {
-                    const dxPlanet = other.x - this.targetPlanet.x;
-                    const dyPlanet = other.y - this.targetPlanet.y;
-                    if (dxPlanet * dxPlanet + dyPlanet * dyPlanet < minEnemyDistSq) {
-                        if (!isPathBlockedByPlanet(this.x, this.y, other.x, other.y, this.targetPlanet, 2)) {
-                            const dx = other.x - this.x;
-                            const dy = other.y - this.y;
-                            const distSq = dx * dx + dy * dy;
-                            if (distSq < minEnemyDistSq) {
-                                minEnemyDistSq = distSq;
-                                targetEnemy = other;
+                for (let i = 0; i < gameManager.ships.length; i++) {
+                    const other = gameManager.ships[i];
+                    if (other !== this && !other.dead && other.owner !== this.owner) {
+                        const dxPlanet = other.x - this.targetPlanet.x;
+                        const dyPlanet = other.y - this.targetPlanet.y;
+                        if (dxPlanet * dxPlanet + dyPlanet * dyPlanet < minEnemyDistSq) {
+                            if (!isPathBlockedByPlanet(this.x, this.y, other.x, other.y, this.targetPlanet, 2)) {
+                                const dx = other.x - this.x;
+                                const dy = other.y - this.y;
+                                const distSq = dx * dx + dy * dy;
+                                if (distSq < minEnemyDistSq) {
+                                    minEnemyDistSq = distSq;
+                                    this.cachedEnemy = other;
+                                }
                             }
                         }
                     }
                 }
             }
 
-            if (targetEnemy) {
+            if (this.cachedEnemy && !this.cachedEnemy.dead) {
                 this.isIntercepting = true;
                 this.isReturningToOrbit = false;
 
-                const dx = targetEnemy.x - this.x;
-                const dy = targetEnemy.y - this.y;
+                const dx = this.cachedEnemy.x - this.x;
+                const dy = this.cachedEnemy.y - this.y;
                 const distSq = dx * dx + dy * dy;
 
                 if (distSq < 25) {
                     gameManager.destroyShip(this);
-                    gameManager.destroyShip(targetEnemy);
+                    gameManager.destroyShip(this.cachedEnemy);
                     return;
                 } else {
                     const dist = Math.sqrt(distSq);
@@ -332,31 +345,35 @@ class Ship {
             this.isIntercepting = false;
             this.isReturningToOrbit = false;
 
-            // Enemy Intercept
-            let targetEnemy = null;
-            let minEnemyDistSq = 900;
+            // Throttled transit enemy intercept scan
+            this.targetScanTimer -= dt;
+            if (this.targetScanTimer <= 0) {
+                this.targetScanTimer = 0.1;
+                this.cachedEnemy = null;
+                let minEnemyDistSq = 900;
 
-            for (let i = 0; i < gameManager.ships.length; i++) {
-                const other = gameManager.ships[i];
-                if (other !== this && !other.dead && other.owner !== this.owner) {
-                    const dx = other.x - this.x;
-                    const dy = other.y - this.y;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq < minEnemyDistSq) {
-                        minEnemyDistSq = distSq;
-                        targetEnemy = other;
+                for (let i = 0; i < gameManager.ships.length; i++) {
+                    const other = gameManager.ships[i];
+                    if (other !== this && !other.dead && other.owner !== this.owner) {
+                        const dx = other.x - this.x;
+                        const dy = other.y - this.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < minEnemyDistSq) {
+                            minEnemyDistSq = distSq;
+                            this.cachedEnemy = other;
+                        }
                     }
                 }
             }
 
-            if (targetEnemy) {
-                const dx = targetEnemy.x - this.x;
-                const dy = targetEnemy.y - this.y;
+            if (this.cachedEnemy && !this.cachedEnemy.dead) {
+                const dx = this.cachedEnemy.x - this.x;
+                const dy = this.cachedEnemy.y - this.y;
                 const distSq = dx * dx + dy * dy;
 
                 if (distSq < 25) {
                     gameManager.destroyShip(this);
-                    gameManager.destroyShip(targetEnemy);
+                    gameManager.destroyShip(this.cachedEnemy);
                     return;
                 } else {
                     const dist = Math.sqrt(distSq);
@@ -375,7 +392,8 @@ class Ship {
             // Target Planet Arrival Check
             const targetDx = this.targetPlanet.x - this.x;
             const targetDy = this.targetPlanet.y - this.y;
-            const targetDist = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
+            const targetDistSq = targetDx * targetDx + targetDy * targetDy;
+            const targetDist = Math.sqrt(targetDistSq);
 
             const isFriendly = (this.targetPlanet.owner === this.owner);
             const isLandingTarget = isFriendly && this.targetPlanet.isLanding;
@@ -403,7 +421,7 @@ class Ship {
             const distToThreshold = Math.max(0, targetDist - targetThreshold);
             
             const slowingRadius = 40;
-            const flipAnticipationRadius = 65; // Begin rotation turn before braking starts
+            const flipAnticipationRadius = 65;
 
             let desiredSpeed = this.maxSpeed;
             if (distToThreshold < slowingRadius) {
@@ -434,10 +452,10 @@ class Ship {
                 }
             }
 
-            // Flocking
-            const boid = this.getBoidForces(gameManager.ships);
-            desiredVx += boid.x;
-            desiredVy += boid.y;
+            // Zero-allocation Flocking
+            this.computeBoidForces(gameManager.ships);
+            desiredVx += this.boidFx;
+            desiredVy += this.boidFy;
 
             let ax = (desiredVx - this.vx) * 6;
             let ay = (desiredVy - this.vy) * 6;
@@ -453,23 +471,30 @@ class Ship {
             this.x += this.vx * dt;
             this.y += this.vy * dt;
 
-            // Orientation & Thruster Logic
+            // Stable Braking Hysteresis
             const dotProduct = ax * this.vx + ay * this.vy;
-            const isPreparingToBrake = (distToThreshold < flipAnticipationRadius) || (dotProduct < -15);
-
-            let targetH = Math.atan2(this.vy, this.vx);
-            if (isPreparingToBrake) {
-                targetH += Math.PI; // Rotate tail-first for retro burn
+            if (distToThreshold < flipAnticipationRadius || dotProduct < -18) {
+                this.isBraking = true;
+            } else if (distToThreshold > flipAnticipationRadius + 15 && dotProduct > 5) {
+                this.isBraking = false;
             }
 
-            const isAligned = this.rotateTowards(targetH, dt);
+            const speedSq = this.vx * this.vx + this.vy * this.vy;
+            if (speedSq > 0.1) {
+                let targetH = Math.atan2(this.vy, this.vx);
+                if (this.isBraking) {
+                    targetH += Math.PI;
+                }
 
-            if (accelMag < 12) {
-                this.thrusterState = 'none';
-            } else if (isAligned) {
-                this.thrusterState = 'main';
-            } else {
-                this.thrusterState = 'none'; // Hold thrust until ship completes turn
+                const isAligned = this.rotateTowards(targetH, dt);
+
+                if (accelMag < 12) {
+                    this.thrusterState = 'none';
+                } else if (isAligned) {
+                    this.thrusterState = 'main';
+                } else {
+                    this.thrusterState = 'none';
+                }
             }
         }
     }
