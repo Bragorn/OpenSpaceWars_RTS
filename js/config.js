@@ -5,26 +5,27 @@ const OWNER_COLORS = {
 };
 
 const TIER_STATS = {
-    1: { radius: 28, maxHP: 10, spawnInterval: 3.0, upgradeCost: 10 },
-    2: { radius: 38, maxHP: 20, spawnInterval: 1.8, upgradeCost: 20 },
-    3: { radius: 50, maxHP: 30, spawnInterval: 0.9, upgradeCost: 0 }
+    1: { radius: 30, maxHP: 10, spawnInterval: 3.0, upgradeCost: 10 },
+    2: { radius: 30, maxHP: 20, spawnInterval: 1.8, upgradeCost: 20 },
+    3: { radius: 30, maxHP: 30, spawnInterval: 0.9, upgradeCost: 0 }
 };
 
 const LEVEL_SETUP = (width, height) => [
-    // --- FACTION BASES (Far Left / Far Right) ---
-    { x: width * 0.12, y: height * 0.50, level: 1, owner: 1 }, // Player Home Base
-    { x: width * 0.88, y: height * 0.50, level: 1, owner: 2 }, // Enemy Home Base
+    // --- FACTION BASES (Tucked back safely) ---
+    { x: width * 0.08, y: height * 0.50, level: 1, owner: 1 }, // Player Home
+    { x: width * 0.92, y: height * 0.50, level: 1, owner: 2 }, // AI Home
 
-    // --- LEFT FLANK NEUTRALS ---
-    { x: width * 0.28, y: height * 0.25, level: 1, owner: 0 }, // Player Upper Flank
-    { x: width * 0.28, y: height * 0.75, level: 1, owner: 0 }, // Player Lower Flank
+    // --- SAFE POCKET EXPANSIONS (Close, easy early pickings) ---
+    { x: width * 0.20, y: height * 0.25, level: 1, owner: 0 }, // Player Top Pocket
+    { x: width * 0.20, y: height * 0.75, level: 1, owner: 0 }, // Player Bottom Pocket
 
-    // --- CENTER BATTLEGROUND NEUTRALS ---
-    { x: width * 0.50, y: height * 0.22, level: 1, owner: 0 }, // Center High
-    { x: width * 0.50, y: height * 0.50, level: 1, owner: 0 }, // Central Core Planet
-    { x: width * 0.50, y: height * 0.78, level: 1, owner: 0 }, // Center Low
+    { x: width * 0.80, y: height * 0.25, level: 1, owner: 0 }, // AI Top Pocket
+    { x: width * 0.80, y: height * 0.75, level: 1, owner: 0 }, // AI Bottom Pocket
 
-    // --- RIGHT FLANK NEUTRALS ---
-    { x: width * 0.72, y: height * 0.25, level: 1, owner: 0 }, // Enemy Upper Flank
-    { x: width * 0.72, y: height * 0.75, level: 1, owner: 0 }  // Enemy Lower Flank
+    // --- THE CONTESTED CENTER (High Tier / High HP Fortress) ---
+    { x: width * 0.50, y: height * 0.50, level: 2, owner: 0 }, // Central Core (Tier 2)
+
+    // --- FLANK ROUTES (Open avenues for counter-attacks) ---
+    { x: width * 0.50, y: height * 0.15, level: 1, owner: 0 }, // High Flank
+    { x: width * 0.50, y: height * 0.85, level: 1, owner: 0 }  // Low Flank
 ];

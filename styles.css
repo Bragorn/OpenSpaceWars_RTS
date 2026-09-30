@@ -12,3 +12,109 @@ html, body {
     width: 100vw;
     height: 100vh;
 }
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #ffffff;
+    user-select: none;
+}
+
+#top-bar {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: rgba(10, 10, 25, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 8px 18px;
+    border-radius: 20px;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+}
+
+#timer {
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    min-width: 55px;
+    text-align: center;
+}
+
+#speed-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.speed-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 5px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s ease;
+}
+
+.speed-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.speed-btn.active {
+    background: #0088ff;
+    border-color: #0088ff;
+    font-weight: bold;
+}
+
+#game-over-modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 10, 25, 0.92);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    padding: 32px 48px;
+    border-radius: 16px;
+    text-align: center;
+    pointer-events: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+#game-over-modal.hidden {
+    display: none;
+}
+
+#game-over-title {
+    margin: 0 0 10px 0;
+    font-size: 32px;
+}
+
+#game-over-msg {
+    margin: 0 0 20px 0;
+    color: #cccccc;
+    font-size: 15px;
+}
+
+#btn-restart {
+    padding: 10px 24px;
+    background: #0088ff;
+    border: none;
+    color: #fff;
+    font-size: 15px;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+#btn-restart:hover {
+    background: #33a0ff;
+}

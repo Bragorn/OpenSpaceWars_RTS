@@ -2,11 +2,19 @@ class GameManager {
     constructor() {
         this.planets = [];
         this.ships = [];
+        this.gameTime = 0;
+        this.gameSpeed = 1; // 0 = Pause, 1 = 1x, 2 = 2x, 3 = 3x
+        this.gameOver = false;
+        this.winner = null; // 1 = Player, 2 = AI
     }
 
     init() {
         this.planets = [];
         this.ships = [];
+        this.gameTime = 0;
+        this.gameSpeed = 1;
+        this.gameOver = false;
+        this.winner = null;
 
         const width = window.innerWidth;
         const height = window.innerHeight;
@@ -18,7 +26,9 @@ class GameManager {
     }
 
     spawnShip(sourcePlanet, targetPlanet) {
-        this.ships.push(new Ship(sourcePlanet, targetPlanet));
+        const ship = new Ship(sourcePlanet, targetPlanet);
+        ship.owner = sourcePlanet.owner; // Direct ownership assignment
+        this.ships.push(ship);
     }
 
     destroyShip(ship) {
@@ -53,15 +63,47 @@ class GameManager {
         this.destroyShip(ship);
     }
 
+    checkWinCondition() {
+        if (this.gameOver) return;
+
+        // Count planets per team
+        const p1Planets = this.planets.filter(p => p.owner === 1).length;
+        const p2Planets = this.planets.filter(p => p.owner === 2).length;
+
+        // Count active ships per team
+        const p1Ships = this.ships.filter(s => s.owner === 1 && !s.dead).length;
+        const p2Ships = this.ships.filter(s => s.owner === 2 && !s.dead).length;
+
+        // Player has no planets and no active ships -> AI Wins
+        if (p1Planets === 0 && p1Ships === 0) {
+            this.gameOver = true;
+            this.winner = 2;
+        } 
+        // AI has no planets and no active ships -> Player Wins
+        else if (p2Planets === 0 && p2Ships === 0) {
+            this.gameOver = true;
+            this.winner = 1;
+        }
+    }
+
     update(dt) {
-        this.planets.forEach(planet => planet.update(dt, this));
+        if (this.gameOver) return;
+
+        const scaledDt = dt * this.gameSpeed;
+        if (this.gameSpeed > 0) {
+            this.gameTime += scaledDt;
+        }
+
+        this.planets.forEach(planet => planet.update(scaledDt, this));
 
         for (let i = this.ships.length - 1; i >= 0; i--) {
             if (this.ships[i].dead) {
                 this.ships.splice(i, 1);
             } else {
-                this.ships[i].update(dt, this);
+                this.ships[i].update(scaledDt, this);
             }
         }
+
+        this.checkWinCondition();
     }
 }
