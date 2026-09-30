@@ -1,6 +1,3 @@
-const VIRTUAL_SIZE = 1000;
-const arenaSize = VIRTUAL_SIZE;
-
 const OWNER_COLORS = {
     0: '#ffffff', // Neutral
     1: '#0088ff', // Player Blue
@@ -13,16 +10,21 @@ const TIER_STATS = {
     3: { radius: 50, maxHP: 30, spawnInterval: 0.9, upgradeCost: 0 }
 };
 
-const LEVEL_SETUP = (cx, cy) => [
-    // Left Side (Player Territory)
-    { x: cx - 340, y: cy, level: 1, owner: 1 },        // Player Base
-    { x: cx - 210, y: cy - 220, level: 1, owner: 0 },  // Left Top Neutral
-    { x: cx - 120, y: cy, level: 1, owner: 0 },        // Left Inner Neutral
-    { x: cx - 210, y: cy + 220, level: 1, owner: 0 },  // Left Bottom Neutral
+const LEVEL_SETUP = (width, height) => [
+    // --- FACTION BASES (Far Left / Far Right) ---
+    { x: width * 0.12, y: height * 0.50, level: 1, owner: 1 }, // Player Home Base
+    { x: width * 0.88, y: height * 0.50, level: 1, owner: 2 }, // Enemy Home Base
 
-    // Right Side (Enemy Territory)
-    { x: cx + 340, y: cy, level: 1, owner: 2 },        // Enemy Base
-    { x: cx + 220, y: cy - 220, level: 1, owner: 0 },  // Right Top Neutral
-    { x: cx + 120, y: cy, level: 1, owner: 0 },        // Right Inner Neutral
-    { x: cx + 220, y: cy + 220, level: 1, owner: 0 }   // Right Bottom Neutral
+    // --- LEFT FLANK NEUTRALS ---
+    { x: width * 0.28, y: height * 0.25, level: 1, owner: 0 }, // Player Upper Flank
+    { x: width * 0.28, y: height * 0.75, level: 1, owner: 0 }, // Player Lower Flank
+
+    // --- CENTER BATTLEGROUND NEUTRALS ---
+    { x: width * 0.50, y: height * 0.22, level: 1, owner: 0 }, // Center High
+    { x: width * 0.50, y: height * 0.50, level: 1, owner: 0 }, // Central Core Planet
+    { x: width * 0.50, y: height * 0.78, level: 1, owner: 0 }, // Center Low
+
+    // --- RIGHT FLANK NEUTRALS ---
+    { x: width * 0.72, y: height * 0.25, level: 1, owner: 0 }, // Enemy Upper Flank
+    { x: width * 0.72, y: height * 0.75, level: 1, owner: 0 }  // Enemy Lower Flank
 ];

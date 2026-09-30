@@ -16,13 +16,13 @@ class Ship {
         this.transitTurnRate = 3.5; // Heavy momentum for long travel & landing
         this.combatTurnRate = 12.0;  // Highly agile RCS thrusters for dogfighting
 
-        const minOrbitOffset = 10;
-        const maxOrbitSpread = 22;
+        const minOrbitOffset = 12;
+        const maxOrbitSpread = 24;
         this.targetOrbitRadius = sourcePlanet.radius + minOrbitOffset + Math.random() * maxOrbitSpread;
         this.orbitSpeed = (2.2 + Math.random() * 0.5) / Math.sqrt(this.targetOrbitRadius);
 
         // Surface Launch Setup
-        this.initialLaunchRadius = sourcePlanet.radius + 1.5;
+        this.initialLaunchRadius = sourcePlanet.radius + 2;
         this.currentOrbitRadius = this.initialLaunchRadius;
         this.launchProgress = 0;
         this.launchDuration = 2.0;
@@ -78,8 +78,8 @@ class Ship {
         let alignX = 0, alignY = 0;
         let neighborCount = 0;
 
-        const neighborDistSq = 900;
-        const sepDist = 14;
+        const neighborDistSq = 1225; // 35px neighborhood
+        const sepDist = 20;          // Scaled separation distance
 
         for (let i = 0; i < ships.length; i++) {
             const other = ships[i];
@@ -102,8 +102,8 @@ class Ship {
             }
         }
 
-        let fx = sepX * 15;
-        let fy = sepY * 15;
+        let fx = sepX * 10;
+        let fy = sepY * 10;
 
         if (neighborCount > 0) {
             alignX /= neighborCount;
@@ -210,7 +210,7 @@ class Ship {
             const p = Math.min(1, Math.max(0, this.landingProgress));
 
             const altFactor = Math.pow(1 - p, 2);
-            const targetRadius = this.targetPlanet.radius + 1.5;
+            const targetRadius = this.targetPlanet.radius + 2;
             const radiusDelta = this.initialLandingRadius - targetRadius;
             this.currentOrbitRadius = targetRadius + radiusDelta * altFactor;
 
@@ -260,7 +260,7 @@ class Ship {
             if (this.targetScanTimer <= 0) {
                 this.targetScanTimer = 0.12;
                 this.cachedEnemy = null;
-                let minEnemyDistSq = 4900; // 70px engagement range
+                let minEnemyDistSq = 6400; // 80px engagement range
 
                 for (let i = 0; i < gameManager.ships.length; i++) {
                     const other = gameManager.ships[i];
@@ -284,15 +284,15 @@ class Ship {
                 const dy = this.cachedEnemy.y - this.y;
                 const distSq = dx * dx + dy * dy;
 
-                if (distSq < 36) {
+                if (distSq < 32) { // Scaled collision hit distance
                     gameManager.destroyShip(this);
                     gameManager.destroyShip(this.cachedEnemy);
                     return;
                 }
 
                 const dist = Math.sqrt(distSq);
-                const targetVx = (dx / dist) * (this.maxSpeed * 1.3);
-                const targetVy = (dy / dist) * (this.maxSpeed * 1.3);
+                const targetVx = (dx / dist) * (this.maxSpeed);
+                const targetVy = (dy / dist) * (this.maxSpeed);
 
                 this.vx += (targetVx - this.vx) * 10 * dt;
                 this.vy += (targetVy - this.vy) * 10 * dt;
@@ -318,29 +318,24 @@ class Ship {
                 const needsAltitudeCorrection = Math.abs(radiusDiff) > 0.8;
 
                 if (needsAltitudeCorrection) {
-                    // Radial velocity component (spiral inward or outward)
                     const radialSpeed = Math.sign(radiusDiff) * Math.min(Math.abs(radiusDiff) * 3.5, 20);
                     this.currentOrbitRadius += radialSpeed * dt;
 
-                    // Tangential orbital velocity progression
                     this.orbitAngle += this.orbitSpeed * dt;
 
                     const nextX = this.targetPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
                     const nextY = this.targetPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
 
-                    // Derive true motion vector
                     this.vx = (nextX - this.x) / dt;
                     this.vy = (nextY - this.y) / dt;
 
                     this.x = nextX;
                     this.y = nextY;
 
-                    // Orient ship along actual spiral flight vector & fire thruster burn
                     const flightVectorHeading = Math.atan2(this.vy, this.vx);
                     const isAligned = this.rotateTowards(flightVectorHeading, dt);
                     this.thrusterState = isAligned ? 'main' : 'none';
                 } else {
-                    // Stable free orbit (coasting, thrusters off)
                     this.currentOrbitRadius = this.targetOrbitRadius;
                     this.orbitAngle += this.orbitSpeed * dt;
 
@@ -365,7 +360,7 @@ class Ship {
             if (this.targetScanTimer <= 0) {
                 this.targetScanTimer = 0.1;
                 this.cachedEnemy = null;
-                let minEnemyDistSq = 1225;
+                let minEnemyDistSq = 1600;
 
                 for (let i = 0; i < gameManager.ships.length; i++) {
                     const other = gameManager.ships[i];
@@ -386,7 +381,7 @@ class Ship {
                 const dy = this.cachedEnemy.y - this.y;
                 const distSq = dx * dx + dy * dy;
 
-                if (distSq < 36) {
+                if (distSq < 64) {
                     gameManager.destroyShip(this);
                     gameManager.destroyShip(this.cachedEnemy);
                     return;
@@ -424,7 +419,7 @@ class Ship {
                     return;
                 }
             } else {
-                if (targetDist <= this.targetPlanet.radius + 3) {
+                if (targetDist <= this.targetPlanet.radius + 4) {
                     gameManager.handlePlanetImpact(this);
                     return;
                 }
@@ -444,25 +439,6 @@ class Ship {
 
             let desiredVx = (targetDx / targetDist) * desiredSpeed;
             let desiredVy = (targetDy / targetDist) * desiredSpeed;
-
-            for (let i = 0; i < gameManager.planets.length; i++) {
-                const p = gameManager.planets[i];
-                if (p === this.targetPlanet) continue;
-
-                const pdx = this.x - p.x;
-                const pdy = this.y - p.y;
-                const pDistSq = pdx * pdx + pdy * pdy;
-                const avoidRadius = p.radius + 22;
-
-                if (pDistSq < avoidRadius * avoidRadius) {
-                    const pDist = Math.sqrt(pDistSq);
-                    if (pDist > 0) {
-                        const pushFactor = (avoidRadius - pDist) / avoidRadius;
-                        desiredVx += (pdx / pDist) * pushFactor * this.maxSpeed * 1.2;
-                        desiredVy += (pdy / pDist) * pushFactor * this.maxSpeed * 1.2;
-                    }
-                }
-            }
 
             this.computeBoidForces(gameManager.ships);
             desiredVx += this.boidFx;
@@ -517,10 +493,10 @@ class Ship {
 
         ctx.fillStyle = OWNER_COLORS[this.owner];
         ctx.beginPath();
-        ctx.moveTo(4.5, 0);       // Nose
-        ctx.lineTo(-3.5, -3);    // Left wing
-        ctx.lineTo(-2, 0);       // Engine notch
-        ctx.lineTo(-3.5, 3);     // Right wing
+        ctx.moveTo(3.5, 0);       // Nose
+        ctx.lineTo(-2.5, -2.0);   // Left Wing
+        ctx.lineTo(-1.0, 0);      // Engine Notch
+        ctx.lineTo(-2.5, 2.0);    // Right Wing
         ctx.closePath();
         ctx.fill();
 
@@ -533,10 +509,10 @@ class Ship {
         ctx.save();
         if (this.thrusterState === 'main') {
             ctx.fillStyle = '#ffaa11';
-            const plumeX = this.x - Math.cos(this.heading) * 5;
-            const plumeY = this.y - Math.sin(this.heading) * 5;
+        const plumeX = this.x - Math.cos(this.heading) * 3.0;
+        const plumeY = this.y - Math.sin(this.heading) * 3.0;
             ctx.beginPath();
-            ctx.arc(plumeX, plumeY, 1.8, 0, Math.PI * 2);
+            ctx.arc(plumeX, plumeY, 1.5, 0, Math.PI * 2);
             ctx.fill();
         }
         ctx.restore();

@@ -5,7 +5,8 @@ class Renderer {
     }
 
     render(gameManager, controls) {
-        this.ctx.clearRect(0, 0, VIRTUAL_SIZE, VIRTUAL_SIZE);
+        // Clear canvas using actual screen dimensions
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (controls) controls.draw(this.ctx);
 

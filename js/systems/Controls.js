@@ -16,9 +16,10 @@ class Controls {
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
+        // Direct 1:1 screen pixel coordinates relative to the canvas
         return {
-            x: (clientX - rect.left) * (VIRTUAL_SIZE / rect.width),
-            y: (clientY - rect.top) * (VIRTUAL_SIZE / rect.height)
+            x: clientX - rect.left,
+            y: clientY - rect.top
         };
     }
 

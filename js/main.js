@@ -2,10 +2,12 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
 function setupCanvas() {
-    canvas.width = VIRTUAL_SIZE;
-    canvas.height = VIRTUAL_SIZE;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 }
 setupCanvas();
+
+window.addEventListener('resize', setupCanvas);
 
 const gameManager = new GameManager();
 gameManager.init();

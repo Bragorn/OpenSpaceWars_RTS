@@ -8,10 +8,10 @@ class GameManager {
         this.planets = [];
         this.ships = [];
 
-        const cx = VIRTUAL_SIZE / 2;
-        const cy = VIRTUAL_SIZE / 2;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
 
-        const layout = LEVEL_SETUP(cx, cy);
+        const layout = LEVEL_SETUP(width, height);
         layout.forEach(node => {
             this.planets.push(new Planet(node.x, node.y, node.level, node.owner));
         });
