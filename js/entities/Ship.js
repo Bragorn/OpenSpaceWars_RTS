@@ -5,58 +5,47 @@ class Ship {
         this.targetPlanet = targetPlanet;
 
         const spawnAngle = Math.random() * Math.PI * 2;
+        const minOrbitOffset = 14;
+        const maxOrbitSpread = 22;
+        this.targetOrbitRadius = sourcePlanet.radius + minOrbitOffset + Math.random() * maxOrbitSpread;
+
+        // Physics & Engine Specs
+        this.gravConst = 28000.0;
+        this.mass = 1.0;
+        this.maxSpeed = 65.0;
+        this.enginePower = 120.0;
+        this.transitTurnRate = 5.0;
+        this.combatTurnRate = 12.0;
+
+        this.orbitDir = Math.random() < 0.5 ? 1 : -1;
+        this.launchStartAngle = spawnAngle; // Fixed initial launch angle reference
         this.orbitAngle = spawnAngle;
+
+        // Launch & Landing Arc Control
+        this.launchProgress = 0;
+        this.launchDuration = 2.2; // Seconds for gravity turn ascent
+        this.landingProgress = 0;
+        this.landingDuration = 2.0; // Seconds for touchdown descent
+
+        // Spawn on planet surface
+        this.x = sourcePlanet.x + Math.cos(spawnAngle) * (sourcePlanet.radius + 2);
+        this.y = sourcePlanet.y + Math.sin(spawnAngle) * (sourcePlanet.radius + 2);
 
         this.vx = 0;
         this.vy = 0;
-        this.maxSpeed = 38;
-        this.enginePower = 50;
-
-        // Contextual Turn Rates
-        this.transitTurnRate = 3.5; // Heavy momentum for long travel & landing
-        this.combatTurnRate = 12.0;  // Highly agile RCS thrusters for dogfighting
-
-        const minOrbitOffset = 12;
-        const maxOrbitSpread = 24;
-        this.targetOrbitRadius = sourcePlanet.radius + minOrbitOffset + Math.random() * maxOrbitSpread;
-        this.orbitSpeed = (2.2 + Math.random() * 0.5) / Math.sqrt(this.targetOrbitRadius);
-
-        // Surface Launch Setup
-        this.initialLaunchRadius = sourcePlanet.radius + 2;
-        this.currentOrbitRadius = this.initialLaunchRadius;
-        this.launchProgress = 0;
-        this.launchDuration = 2.0;
-
-        this.x = sourcePlanet.x + Math.cos(spawnAngle) * this.currentOrbitRadius;
-        this.y = sourcePlanet.y + Math.sin(spawnAngle) * this.currentOrbitRadius;
-
         this.heading = spawnAngle;
 
         this.state = 'surface_launch';
         this.postLaunchState = sourcePlanet === targetPlanet ? 'orbit' : 'launching';
 
-        this.initialLandingRadius = null;
-        this.landingProgress = null;
-        this.landingDuration = 3.2;
-
-        this.isIntercepting = false;
         this.dead = false;
-        this.thrusterState = 'main';
-
-        // Performance & State
-        this.cachedEnemy = null;
-        this.targetScanTimer = Math.random() * 0.15;
+        this.thrustRatio = 0;
         this.boidFx = 0;
         this.boidFy = 0;
-        this.isBraking = false;
-        this.lastRetroHeading = null;
     }
 
     get currentTurnRate() {
-        if (this.isIntercepting || (this.state === 'moving' && this.cachedEnemy)) {
-            return this.combatTurnRate;
-        }
-        return this.transitTurnRate;
+        return (this.state === 'insertion') ? this.combatTurnRate : this.transitTurnRate;
     }
 
     rotateTowards(targetHeading, dt) {
@@ -69,17 +58,14 @@ class Ship {
             return true;
         } else {
             this.heading += Math.sign(diff) * maxTurn;
-            return Math.abs(diff) < 0.5;
+            return Math.abs(diff) < 0.35;
         }
     }
 
     computeBoidForces(ships) {
         let sepX = 0, sepY = 0;
         let alignX = 0, alignY = 0;
-        let neighborCount = 0;
-
-        const neighborDistSq = 1225; // 35px neighborhood
-        const sepDist = 20;          // Scaled separation distance
+        let count = 0;
 
         for (let i = 0; i < ships.length; i++) {
             const other = ships[i];
@@ -88,37 +74,32 @@ class Ship {
                 const dy = other.y - this.y;
                 const distSq = dx * dx + dy * dy;
 
-                if (distSq > 0 && distSq < neighborDistSq) {
+                if (distSq > 0 && distSq < 1225) {
                     const dist = Math.sqrt(distSq);
-                    if (dist < sepDist) {
-                        const force = (sepDist - dist) / sepDist;
+                    if (dist < 20) {
+                        const force = (20 - dist) / 20;
                         sepX -= (dx / dist) * force;
                         sepY -= (dy / dist) * force;
                     }
                     alignX += other.vx;
                     alignY += other.vy;
-                    neighborCount++;
+                    count++;
                 }
             }
         }
 
-        let fx = sepX * 10;
-        let fy = sepY * 10;
-
-        if (neighborCount > 0) {
-            alignX /= neighborCount;
-            alignY /= neighborCount;
-            fx += (alignX - this.vx) * 0.5;
-            fy += (alignY - this.vy) * 0.5;
+        let fx = sepX * 12.0;
+        let fy = sepY * 12.0;
+        if (count > 0) {
+            fx += ((alignX / count) - this.vx) * 0.5;
+            fy += ((alignY / count) - this.vy) * 0.5;
         }
 
-        const forceMag = Math.sqrt(fx * fx + fy * fy);
-        const maxBoidForce = 8.0;
-        if (forceMag > maxBoidForce) {
-            fx = (fx / forceMag) * maxBoidForce;
-            fy = (fy / forceMag) * maxBoidForce;
+        const mag = Math.sqrt(fx * fx + fy * fy);
+        if (mag > 12.0) {
+            fx = (fx / mag) * 12.0;
+            fy = (fy / mag) * 12.0;
         }
-
         this.boidFx = fx;
         this.boidFy = fy;
     }
@@ -126,362 +107,246 @@ class Ship {
     update(dt, gameManager) {
         if (this.dead) return;
 
-        // SURFACE LAUNCH MODE
+        // --- 1. SEAMLESS GRAVITY TURN ASCENT ---
         if (this.state === 'surface_launch') {
+            const planet = this.orbitPlanet;
             this.launchProgress += dt / this.launchDuration;
-            const p = Math.min(1, Math.max(0, this.launchProgress));
+            const p = Math.min(1.0, this.launchProgress);
 
-            const altFactor = 1 - Math.pow(1 - p, 2);
-            const radiusDelta = this.targetOrbitRadius - this.initialLaunchRadius;
-            this.currentOrbitRadius = this.initialLaunchRadius + radiusDelta * altFactor;
+            const vCirc = Math.sqrt(this.gravConst / this.targetOrbitRadius);
+            const omegaBase = vCirc / this.targetOrbitRadius;
+            const angularVelocity = omegaBase * this.orbitDir; // Single signed angular rate
 
-            const currentAngularSpeed = this.orbitSpeed * Math.pow(p, 0.8);
-            this.orbitAngle += currentAngularSpeed * dt;
+            // Altitude envelope: Smooth sine curve from surface outward to target orbit
+            const currentR = planet.radius + 2.0 + (this.targetOrbitRadius - planet.radius - 2.0) * Math.sin(p * Math.PI / 2);
 
-            this.x = this.orbitPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
-            this.y = this.orbitPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
+            // Orbit angle evolves seamlessly according to assigned orbitDir
+            this.orbitAngle = this.launchStartAngle + angularVelocity * (this.launchDuration / 3.0) * Math.pow(p, 3);
 
-            const dAlt_dt = 2 * (1 - p) * (radiusDelta / this.launchDuration);
-            const cosA = Math.cos(this.orbitAngle);
-            const sinA = Math.sin(this.orbitAngle);
+            // Parametric radial and angular derivatives
+            const drdt = (this.targetOrbitRadius - planet.radius - 2.0) * (Math.PI / (2 * this.launchDuration)) * Math.cos(p * Math.PI / 2);
+            const dthetadt = angularVelocity * Math.pow(p, 2);
 
-            this.vx = dAlt_dt * cosA - this.currentOrbitRadius * currentAngularSpeed * sinA;
-            this.vy = dAlt_dt * sinA + this.currentOrbitRadius * currentAngularSpeed * cosA;
+            this.x = planet.x + Math.cos(this.orbitAngle) * currentR;
+            this.y = planet.y + Math.sin(this.orbitAngle) * currentR;
 
-            const speedSq = this.vx * this.vx + this.vy * this.vy;
-            if (speedSq > 0.1) {
-                const targetH = Math.atan2(this.vy, this.vx);
-                const isAligned = this.rotateTowards(targetH, dt);
-                this.thrusterState = isAligned ? 'main' : 'none';
-            }
+            // Physical velocity matching actual position derivatives
+            this.vx = drdt * Math.cos(this.orbitAngle) - currentR * Math.sin(this.orbitAngle) * dthetadt;
+            this.vy = drdt * Math.sin(this.orbitAngle) + currentR * Math.cos(this.orbitAngle) * dthetadt;
+
+            // Nose points precisely along movement trajectory
+            this.heading = Math.atan2(this.vy, this.vx);
+            this.thrustRatio = 1.0;
 
             if (p >= 1.0) {
-                this.currentOrbitRadius = this.targetOrbitRadius;
                 this.state = this.postLaunchState;
             }
             return;
         }
 
-        // LAUNCHING MODE
-        if (this.state === 'launching') {
-            this.landingProgress = null;
-            this.initialLandingRadius = null;
-            this.lastRetroHeading = null;
-            this.thrusterState = 'none';
+        // --- 2. PARAMETRIC STABLE ORBIT ---
+        if (this.state === 'orbit') {
+            const planet = this.targetPlanet;
+            const vCirc = Math.sqrt(this.gravConst / this.targetOrbitRadius);
+            const angularVelocity = (vCirc / this.targetOrbitRadius) * this.orbitDir;
 
-            this.orbitAngle += this.orbitSpeed * dt;
-            this.x = this.orbitPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
-            this.y = this.orbitPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
+            this.orbitAngle += angularVelocity * dt;
+            this.x = planet.x + Math.cos(this.orbitAngle) * this.targetOrbitRadius;
+            this.y = planet.y + Math.sin(this.orbitAngle) * this.targetOrbitRadius;
 
-            this.rotateTowards(this.orbitAngle + Math.PI / 2, dt);
-
-            const tangentX = -Math.sin(this.orbitAngle);
-            const tangentY = Math.cos(this.orbitAngle);
-
-            const dx = this.targetPlanet.x - this.x;
-            const dy = this.targetPlanet.y - this.y;
-            const distSq = dx * dx + dy * dy;
-
-            if (distSq > 0) {
-                const dist = Math.sqrt(distSq);
-                const alignment = tangentX * (dx / dist) + tangentY * (dy / dist);
-                if (alignment >= 0.95) {
-                    this.state = 'moving';
-                    this.orbitPlanet = null;
-                    this.vx = tangentX * (this.maxSpeed * 0.85);
-                    this.vy = tangentY * (this.maxSpeed * 0.85);
-                    this.thrusterState = 'main';
-                }
-            }
+            this.vx = -Math.sin(this.orbitAngle) * vCirc * this.orbitDir;
+            this.vy = Math.cos(this.orbitAngle) * vCirc * this.orbitDir;
+            this.heading = Math.atan2(this.vy, this.vx);
+            this.thrustRatio = 0;
             return;
         }
 
-        // LANDING MODE
+        // --- 3. RETROGRADE LANDING TOUCHDOWN ARC ---
         if (this.state === 'landing') {
-            if (this.landingProgress === null) {
-                this.landingProgress = 0;
-                const dx = this.x - this.targetPlanet.x;
-                const dy = this.y - this.targetPlanet.y;
-                this.initialLandingRadius = Math.sqrt(dx * dx + dy * dy);
-                this.orbitAngle = Math.atan2(dy, dx);
-            }
-
+            const planet = this.targetPlanet;
             this.landingProgress += dt / this.landingDuration;
-            const p = Math.min(1, Math.max(0, this.landingProgress));
+            const p = Math.min(1.0, this.landingProgress);
 
-            const altFactor = Math.pow(1 - p, 2);
-            const targetRadius = this.targetPlanet.radius + 2;
-            const radiusDelta = this.initialLandingRadius - targetRadius;
-            this.currentOrbitRadius = targetRadius + radiusDelta * altFactor;
+            const vCirc = Math.sqrt(this.gravConst / this.targetOrbitRadius);
+            const omegaCirc = (vCirc / this.targetOrbitRadius) * this.orbitDir;
 
-            const currentAngularSpeed = this.orbitSpeed * Math.pow(1 - p, 1.2);
-            this.orbitAngle += currentAngularSpeed * dt;
+            const currentR = this.targetOrbitRadius - (this.targetOrbitRadius - planet.radius - 1.5) * (1.0 - Math.cos(p * Math.PI / 2));
+            const dthetadt = omegaCirc * Math.pow(1.0 - p, 2);
 
-            this.x = this.targetPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
-            this.y = this.targetPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
+            this.orbitAngle += dthetadt * dt;
+            this.x = planet.x + Math.cos(this.orbitAngle) * currentR;
+            this.y = planet.y + Math.sin(this.orbitAngle) * currentR;
 
-            const dAlt_dt = -2 * (1 - p) * (radiusDelta / this.landingDuration);
-            const cosA = Math.cos(this.orbitAngle);
-            const sinA = Math.sin(this.orbitAngle);
+            const orbitHeading = Math.atan2(Math.cos(this.orbitAngle) * this.orbitDir, -Math.sin(this.orbitAngle) * this.orbitDir);
+            const surfaceHeading = Math.atan2(planet.y - this.y, planet.x - this.x);
+            this.heading = orbitHeading * (1.0 - p) + surfaceHeading * p;
 
-            this.vx = dAlt_dt * cosA - this.currentOrbitRadius * currentAngularSpeed * sinA;
-            this.vy = dAlt_dt * sinA + this.currentOrbitRadius * currentAngularSpeed * cosA;
-
-            const speedSq = this.vx * this.vx + this.vy * this.vy;
-            if (speedSq > 1.0) {
-                this.lastRetroHeading = Math.atan2(this.vy, this.vx) + Math.PI;
-            } else if (!this.lastRetroHeading) {
-                this.lastRetroHeading = Math.atan2(this.y - this.targetPlanet.y, this.x - this.targetPlanet.x);
-            }
-
-            const isAligned = this.rotateTowards(this.lastRetroHeading, dt);
-            this.thrusterState = (isAligned && p < 0.92) ? 'main' : 'none';
+            this.thrustRatio = 0.5 * (1.0 - p);
 
             if (p >= 1.0) {
                 gameManager.destroyShip(this);
-                this.targetPlanet.upgradeProgress++;
-                const reqCost = TIER_STATS[this.targetPlanet.level].upgradeCost;
-                if (this.targetPlanet.upgradeProgress >= reqCost) {
-                    this.targetPlanet.upgrade(gameManager.ships);
+                planet.upgradeProgress++;
+
+                if (planet.owner === 0) {
+                    planet.owner = this.owner;
+                    planet.hp = TIER_STATS[planet.level].maxHP;
+                    planet.upgradeProgress = 0;
+                } else if (planet.upgradeProgress >= TIER_STATS[planet.level].upgradeCost) {
+                    planet.upgrade(gameManager.ships);
                 }
             }
             return;
         }
 
-        // ORBIT & DEFENSE MODE
-        if (this.state === 'orbit') {
-            this.landingProgress = null;
-            this.initialLandingRadius = null;
-            this.lastRetroHeading = null;
-            this.orbitPlanet = this.targetPlanet;
+        // --- NEWTONIAN VECTOR PHYSICS FOR TRANSIT & INSERTION ---
+        let totalFx = 0;
+        let totalFy = 0;
 
-            // Target scan
-            this.targetScanTimer -= dt;
-            if (this.targetScanTimer <= 0) {
-                this.targetScanTimer = 0.12;
-                this.cachedEnemy = null;
-                let minEnemyDistSq = 6400; // 80px engagement range
+        const refPlanet = this.orbitPlanet || this.targetPlanet;
+        const dx = this.x - refPlanet.x;
+        const dy = this.y - refPlanet.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
-                for (let i = 0; i < gameManager.ships.length; i++) {
-                    const other = gameManager.ships[i];
-                    if (other !== this && !other.dead && other.owner !== this.owner) {
-                        const dx = other.x - this.x;
-                        const dy = other.y - this.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq < minEnemyDistSq) {
-                            minEnemyDistSq = distSq;
-                            this.cachedEnemy = other;
-                        }
-                    }
-                }
-            }
+        const rx = dx / dist;
+        const ry = dy / dist;
 
-            // ACTIVE INTERCEPT (Dogfight)
-            if (this.cachedEnemy && !this.cachedEnemy.dead) {
-                this.isIntercepting = true;
-
-                const dx = this.cachedEnemy.x - this.x;
-                const dy = this.cachedEnemy.y - this.y;
-                const distSq = dx * dx + dy * dy;
-
-                if (distSq < 32) { // Scaled collision hit distance
-                    gameManager.destroyShip(this);
-                    gameManager.destroyShip(this.cachedEnemy);
-                    return;
-                }
-
-                const dist = Math.sqrt(distSq);
-                const targetVx = (dx / dist) * (this.maxSpeed);
-                const targetVy = (dy / dist) * (this.maxSpeed);
-
-                this.vx += (targetVx - this.vx) * 10 * dt;
-                this.vy += (targetVy - this.vy) * 10 * dt;
-
-                this.x += this.vx * dt;
-                this.y += this.vy * dt;
-
-                const targetH = Math.atan2(this.vy, this.vx);
-                const isAligned = this.rotateTowards(targetH, dt);
-                this.thrusterState = isAligned ? 'main' : 'none';
-            } 
-            // ORBIT RECAPTURE WITH ACTIVE THRUST & TRAJECTORY CANTING
-            else {
-                if (this.isIntercepting) {
-                    this.isIntercepting = false;
-                    const dxPlanet = this.x - this.targetPlanet.x;
-                    const dyPlanet = this.y - this.targetPlanet.y;
-                    this.currentOrbitRadius = Math.sqrt(dxPlanet * dxPlanet + dyPlanet * dyPlanet);
-                    this.orbitAngle = Math.atan2(dyPlanet, dxPlanet);
-                }
-
-                const radiusDiff = this.targetOrbitRadius - this.currentOrbitRadius;
-                const needsAltitudeCorrection = Math.abs(radiusDiff) > 0.8;
-
-                if (needsAltitudeCorrection) {
-                    const radialSpeed = Math.sign(radiusDiff) * Math.min(Math.abs(radiusDiff) * 3.5, 20);
-                    this.currentOrbitRadius += radialSpeed * dt;
-
-                    this.orbitAngle += this.orbitSpeed * dt;
-
-                    const nextX = this.targetPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
-                    const nextY = this.targetPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
-
-                    this.vx = (nextX - this.x) / dt;
-                    this.vy = (nextY - this.y) / dt;
-
-                    this.x = nextX;
-                    this.y = nextY;
-
-                    const flightVectorHeading = Math.atan2(this.vy, this.vx);
-                    const isAligned = this.rotateTowards(flightVectorHeading, dt);
-                    this.thrusterState = isAligned ? 'main' : 'none';
-                } else {
-                    this.currentOrbitRadius = this.targetOrbitRadius;
-                    this.orbitAngle += this.orbitSpeed * dt;
-
-                    this.x = this.targetPlanet.x + Math.cos(this.orbitAngle) * this.currentOrbitRadius;
-                    this.y = this.targetPlanet.y + Math.sin(this.orbitAngle) * this.currentOrbitRadius;
-
-                    this.rotateTowards(this.orbitAngle + Math.PI / 2, dt);
-                    this.thrusterState = 'none';
-                }
-            }
-            return;
+        const angularMomentum = dx * this.vy - dy * this.vx;
+        if (Math.abs(angularMomentum) > 0.1) {
+            this.orbitDir = angularMomentum >= 0 ? 1 : -1;
         }
 
-        // INTERPLANETARY TRANSIT MODE
-        if (this.state === 'moving') {
-            this.landingProgress = null;
-            this.initialLandingRadius = null;
-            this.lastRetroHeading = null;
-            this.isIntercepting = false;
+        const tx = -ry * this.orbitDir;
+        const ty = rx * this.orbitDir;
 
-            this.targetScanTimer -= dt;
-            if (this.targetScanTimer <= 0) {
-                this.targetScanTimer = 0.1;
-                this.cachedEnemy = null;
-                let minEnemyDistSq = 1600;
+        if (dist > 1.0) {
+            const gAccel = this.gravConst / (dist * dist);
+            totalFx -= rx * gAccel;
+            totalFy -= ry * gAccel;
+        }
 
-                for (let i = 0; i < gameManager.ships.length; i++) {
-                    const other = gameManager.ships[i];
-                    if (other !== this && !other.dead && other.owner !== this.owner) {
-                        const dx = other.x - this.x;
-                        const dy = other.y - this.y;
-                        const distSq = dx * dx + dy * dy;
-                        if (distSq < minEnemyDistSq) {
-                            minEnemyDistSq = distSq;
-                            this.cachedEnemy = other;
-                        }
-                    }
-                }
-            }
+        let desiredVx = 0;
+        let desiredVy = 0;
+        let requiresThrust = false;
 
-            if (this.cachedEnemy && !this.cachedEnemy.dead) {
-                const dx = this.cachedEnemy.x - this.x;
-                const dy = this.cachedEnemy.y - this.y;
-                const distSq = dx * dx + dy * dy;
-
-                if (distSq < 64) {
-                    gameManager.destroyShip(this);
-                    gameManager.destroyShip(this.cachedEnemy);
-                    return;
-                }
-
-                const dist = Math.sqrt(distSq);
-                this.vx = (dx / dist) * this.maxSpeed;
-                this.vy = (dy / dist) * this.maxSpeed;
-                this.x += this.vx * dt;
-                this.y += this.vy * dt;
-
-                const targetH = Math.atan2(this.vy, this.vx);
-                const isAligned = this.rotateTowards(targetH, dt);
-                this.thrusterState = isAligned ? 'main' : 'none';
-                return;
-            }
+        // --- 4. LAUNCHING HOLD ---
+        if (this.state === 'launching') {
+            const vCirc = Math.sqrt(this.gravConst / dist);
+            desiredVx = tx * vCirc;
+            desiredVy = ty * vCirc;
+            requiresThrust = true;
 
             const targetDx = this.targetPlanet.x - this.x;
             const targetDy = this.targetPlanet.y - this.y;
-            const targetDistSq = targetDx * targetDx + targetDy * targetDy;
-            const targetDist = Math.sqrt(targetDistSq);
+            const targetDist = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
+            const alignment = tx * (targetDx / targetDist) + ty * (targetDy / targetDist);
+
+            if (alignment >= 0.88) {
+                this.state = 'moving';
+                this.orbitPlanet = null;
+            }
+        }
+
+        // --- 5. TRANSIT TO TARGET PLANET ---
+        else if (this.state === 'moving') {
+            const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            const vCirc = Math.sqrt(this.gravConst / this.targetOrbitRadius);
+
+            const decelDist = Math.max(0, (currentSpeed * currentSpeed - vCirc * vCirc) / (2.0 * this.enginePower)) + 16.0;
+
+            const pdx = this.targetPlanet.x - this.x;
+            const pdy = this.targetPlanet.y - this.y;
+            const distToPlanet = Math.sqrt(pdx * pdx + pdy * pdy);
 
             const isFriendly = (this.targetPlanet.owner === this.owner);
-            const isLandingTarget = isFriendly && this.targetPlanet.isLanding;
+            const isUnclaimed = (this.targetPlanet.owner === 0);
 
-            if (isFriendly) {
-                if (isLandingTarget && targetDist <= this.targetOrbitRadius) {
-                    this.state = 'landing';
-                    return;
-                } else if (!isLandingTarget && targetDist <= this.targetOrbitRadius + 2) {
-                    this.state = 'orbit';
-                    this.orbitPlanet = this.targetPlanet;
-                    this.orbitAngle = Math.atan2(this.y - this.targetPlanet.y, this.x - this.targetPlanet.x);
-                    this.currentOrbitRadius = targetDist;
-                    return;
-                }
-            } else {
-                if (targetDist <= this.targetPlanet.radius + 4) {
-                    gameManager.handlePlanetImpact(this);
-                    return;
-                }
+            if ((isFriendly || isUnclaimed) && distToPlanet <= this.targetOrbitRadius + decelDist) {
+                this.state = 'insertion';
+                this.orbitPlanet = this.targetPlanet;
+            } else if (!isFriendly && !isUnclaimed && distToPlanet <= this.targetPlanet.radius + 4.0) {
+                gameManager.handlePlanetImpact(this);
+                return;
             }
 
-            const targetThreshold = isFriendly ? this.targetOrbitRadius : this.targetPlanet.radius;
-            const distToThreshold = Math.max(0, targetDist - targetThreshold);
+            const angleToShip = Math.atan2(this.y - this.targetPlanet.y, this.x - this.targetPlanet.x);
+            const tangentAngle = angleToShip + (this.orbitDir * Math.PI / 2);
 
-            const slowingRadius = 45;
-            const flipAnticipationRadius = 55;
+            const aimX = this.targetPlanet.x + Math.cos(tangentAngle) * this.targetOrbitRadius;
+            const aimY = this.targetPlanet.y + Math.sin(tangentAngle) * this.targetOrbitRadius;
 
-            let desiredSpeed = this.maxSpeed;
-            if (distToThreshold < slowingRadius) {
-                const ramp = distToThreshold / slowingRadius;
-                desiredSpeed = Math.max(8, this.maxSpeed * Math.pow(ramp, 1.1));
-            }
-
-            let desiredVx = (targetDx / targetDist) * desiredSpeed;
-            let desiredVy = (targetDy / targetDist) * desiredSpeed;
+            const aimDx = aimX - this.x;
+            const aimDy = aimY - this.y;
+            const aimDist = Math.sqrt(aimDx * aimDx + aimDy * aimDy);
 
             this.computeBoidForces(gameManager.ships);
-            desiredVx += this.boidFx;
-            desiredVy += this.boidFy;
+            desiredVx = (aimDx / aimDist) * this.maxSpeed + this.boidFx;
+            desiredVy = (aimDy / aimDist) * this.maxSpeed + this.boidFy;
+            requiresThrust = true;
+        }
 
-            let ax = (desiredVx - this.vx) * 5;
-            let ay = (desiredVy - this.vy) * 5;
+        // --- 6. ORBITAL INSERTION BRAKING BURN ---
+        else if (this.state === 'insertion') {
+            const vCirc = Math.sqrt(this.gravConst / dist);
+            desiredVx = tx * vCirc;
+            desiredVy = ty * vCirc;
+            requiresThrust = true;
 
-            const accelMag = Math.sqrt(ax * ax + ay * ay);
-            if (accelMag > this.enginePower) {
-                ax = (ax / accelMag) * this.enginePower;
-                ay = (ay / accelMag) * this.enginePower;
-            }
+            const vr = this.vx * rx + this.vy * ry;
+            const vt = this.vx * tx + this.vy * ty;
 
-            this.vx += ax * dt;
-            this.vy += ay * dt;
-            this.x += this.vx * dt;
-            this.y += this.vy * dt;
+            if (Math.abs(vt - vCirc) < 4.0 && Math.abs(vr) < 3.0) {
+                this.orbitAngle = Math.atan2(dy, dx);
+                this.targetOrbitRadius = dist;
 
-            if (distToThreshold < flipAnticipationRadius) {
-                this.isBraking = true;
-            } else if (distToThreshold > flipAnticipationRadius + 20) {
-                this.isBraking = false;
-            }
+                const isUnclaimed = (this.targetPlanet.owner === 0);
+                const isFriendlyLanding = (this.targetPlanet.owner === this.owner && this.targetPlanet.isLanding);
 
-            const speedSq = this.vx * this.vx + this.vy * this.vy;
-            if (speedSq > 0.1) {
-                let targetH = Math.atan2(this.vy, this.vx);
-                if (this.isBraking) {
-                    targetH += Math.PI;
-                }
-
-                const isAligned = this.rotateTowards(targetH, dt);
-
-                if (accelMag < 8) {
-                    this.thrusterState = 'none';
-                } else if (isAligned) {
-                    this.thrusterState = 'main';
+                if (isUnclaimed || isFriendlyLanding) {
+                    this.state = 'landing';
+                    this.landingProgress = 0;
                 } else {
-                    this.thrusterState = 'none';
+                    this.state = 'orbit';
                 }
             }
         }
+
+        // --- STEERING & INTEGRATION CONTROLLER ---
+        if (requiresThrust) {
+            const errVx = desiredVx - this.vx;
+            const errVy = desiredVy - this.vy;
+            const errMag = Math.sqrt(errVx * errVx + errVy * errVy);
+
+            if (errMag > 1.0) {
+                const targetHeading = Math.atan2(errVy, errVx);
+                const aligned = this.rotateTowards(targetHeading, dt);
+
+                if (aligned) {
+                    this.thrustRatio = Math.min(1.0, errMag / 25.0);
+                    const accel = this.enginePower * this.thrustRatio;
+                    totalFx += Math.cos(this.heading) * accel;
+                    totalFy += Math.sin(this.heading) * accel;
+                } else {
+                    this.thrustRatio = 0;
+                }
+            } else {
+                this.thrustRatio = 0;
+            }
+        } else {
+            this.thrustRatio = 0;
+        }
+
+        this.vx += (totalFx / this.mass) * dt;
+        this.vy += (totalFy / this.mass) * dt;
+
+        const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        const speedCap = this.state === 'moving' ? this.maxSpeed * 1.2 : this.maxSpeed;
+        if (currentSpeed > speedCap) {
+            this.vx = (this.vx / currentSpeed) * speedCap;
+            this.vy = (this.vy / currentSpeed) * speedCap;
+        }
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
     }
 
     draw(ctx) {
@@ -493,10 +358,10 @@ class Ship {
 
         ctx.fillStyle = OWNER_COLORS[this.owner];
         ctx.beginPath();
-        ctx.moveTo(3.5, 0);       // Nose
-        ctx.lineTo(-2.5, -2.0);   // Left Wing
-        ctx.lineTo(-1.0, 0);      // Engine Notch
-        ctx.lineTo(-2.5, 2.0);    // Right Wing
+        ctx.moveTo(3.5, 0);
+        ctx.lineTo(-2.5, -2.0);
+        ctx.lineTo(-1.0, 0);
+        ctx.lineTo(-2.5, 2.0);
         ctx.closePath();
         ctx.fill();
 
@@ -504,17 +369,18 @@ class Ship {
     }
 
     drawThrusters(ctx) {
-        if (this.dead || this.thrusterState === 'none') return;
+        if (this.dead || this.thrustRatio <= 0.05) return;
 
         ctx.save();
-        if (this.thrusterState === 'main') {
-            ctx.fillStyle = '#ffaa11';
         const plumeX = this.x - Math.cos(this.heading) * 3.0;
         const plumeY = this.y - Math.sin(this.heading) * 3.0;
-            ctx.beginPath();
-            ctx.arc(plumeX, plumeY, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        const plumeRadius = 0.8 + this.thrustRatio * 1.0;
+
+        ctx.fillStyle = this.thrustRatio > 0.5 ? '#ffaa11' : '#66ccff';
+        ctx.beginPath();
+        ctx.arc(plumeX, plumeY, plumeRadius, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.restore();
     }
 }
