@@ -10,11 +10,11 @@ class Ship {
         const maxOrbitSpread = 22;
         this.targetOrbitRadius = baseRadius + minOrbitOffset + Math.random() * maxOrbitSpread;
 
-        // Physics Specs
-        this.gravConst = 28000.0;
+        // --- Tuned Physics Specs (Slower Pacing) ---
+        this.gravConst = 12000.0;     // Lowered from 28000.0 for slower orbital rotation
         this.mass = 1.0;
-        this.maxSpeed = 65.0;
-        this.enginePower = 120.0;
+        this.maxSpeed = 42.0;         // Lowered from 65.0 for slower interplanetary transit
+        this.enginePower = 70.0;      // Lowered from 120.0 for smoother acceleration arcing
         this.transitTurnRate = 5.0;
         this.combatTurnRate = 12.0;
 
@@ -165,7 +165,6 @@ class Ship {
     update(dtUncapped, gameManager) {
         if (this.dead) return;
 
-        // Cap dt to prevent frame-spike tunneling
         const dt = Math.min(dtUncapped || 0.016, 0.1);
 
         if (this.laserTimer > 0) this.laserTimer -= dt;
