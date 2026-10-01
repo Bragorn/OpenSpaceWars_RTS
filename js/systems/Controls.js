@@ -16,7 +16,6 @@ class Controls {
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-        // Direct 1:1 screen pixel coordinates relative to the canvas
         return {
             x: clientX - rect.left,
             y: clientY - rect.top
@@ -64,7 +63,7 @@ class Controls {
             const pos = this.getCanvasPos(e);
             const planet = this.getPlanetAtPos(pos);
             if (planet && planet.owner === this.playerOwner) {
-                planet.startLanding(this.gameManager.ships);
+                planet.startUpgrade(this.gameManager.ships);
             }
         });
     }

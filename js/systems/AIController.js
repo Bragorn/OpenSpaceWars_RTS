@@ -13,15 +13,18 @@ class AIController {
         const ownedPlanets = this.gameManager.planets.filter(p => p.owner === this.teamOwner);
         
         ownedPlanets.forEach(source => {
-            if (source.level < 3) {
-                const reqCost = TIER_STATS[source.level].upgradeCost;
+            // 1. Upgrade planet if enough orbiting ships are present
+            const maxTier = source.getMaxTier();
+            if (source.level < maxTier) {
+                const reqCost = source.getUpgradeCost();
                 if (source.getOrbitingShipsCount(this.gameManager.ships) + source.upgradeProgress >= reqCost) {
-                    source.startLanding(this.gameManager.ships);
+                    source.startUpgrade(this.gameManager.ships); // FIX: match method name in Planet.js
                     return;
                 }
             }
 
-            if (source.getOrbitingShipsCount(this.gameManager.ships) >= 6 && !source.isLanding) {
+            // 2. Dispatch fleet to nearest non-owned target
+            if (source.getOrbitingShipsCount(this.gameManager.ships) >= 6) {
                 const targets = this.gameManager.planets.filter(p => p.owner !== this.teamOwner);
                 if (targets.length > 0) {
                     let target = targets[0];
