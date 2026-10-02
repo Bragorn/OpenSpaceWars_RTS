@@ -1,10 +1,18 @@
-html, body {
+/* Universal VT323 Font Reset */
+* {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
+    user-select: none;
+    font-family: 'VT323', monospace;
+}
+
+html, body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #05050d;
+    background-color: #0a0c14;
+    color: #ffffff;
 }
 
 #game {
@@ -13,108 +21,244 @@ html, body {
     height: 100vh;
 }
 
-#ui-layer {
+.hidden {
+    display: none !important;
+}
+
+/* ================= TOP-LEFT HUD ================= */
+.hud-top-left {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 100;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+
+    padding: 10px 14px;
+    background: rgba(10, 14, 23, 0.88);
+    border: 1px solid #3d4f73;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.hud-timer {
+    font-size: 28px;
+    line-height: 1;
+    color: #00ffcc;
+    text-shadow: 0 0 8px rgba(0, 255, 204, 0.4);
+    letter-spacing: 2px;
+    text-align: center;
+    width: 100%;
+}
+
+.hud-controls {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+}
+
+.hud-btn {
+    font-size: 18px;
+    color: #8a9ba8;
+    background: #141b2d;
+    border: 1px solid #3d4f73;
+    border-radius: 3px;
+
+    height: 28px;
+    padding: 0 10px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+    transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+}
+
+.hud-btn:hover {
+    background: #1f2b47;
+    color: #ffffff;
+    border-color: #00ffcc;
+}
+
+.hud-btn.active {
+    background: #00ffcc;
+    color: #0a0e17;
+    border-color: #00ffcc;
+    box-shadow: 0 0 6px rgba(0, 255, 204, 0.3);
+}
+
+/* ================= MENUS & OVERLAYS ================= */
+#ui-overlay {
     position: absolute;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
-    font-family: system-ui, -apple-system, sans-serif;
-    color: #ffffff;
-    user-select: none;
+    z-index: 30;
 }
 
-#top-bar {
+.menu-card {
+    pointer-events: auto;
+    background: rgba(10, 12, 20, 0.95);
+    width: 340px;
+    margin: 100px auto;
+    padding: 28px;
+    text-align: center;
+    border: 2px solid #334466;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+}
+
+.menu-card h2 {
+    font-size: 32px;
+    letter-spacing: 3px;
+    color: #00aaff;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px rgba(0, 170, 255, 0.4);
+}
+
+.menu-card h3 {
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: #00aaff;
+    margin-bottom: 16px;
+}
+
+.menu-btn {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0;
+    background: #224488;
+    color: #ffffff;
+    border: 1px solid #4477cc;
+    border-radius: 4px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.menu-btn:hover {
+    background: #2a55aa;
+    border-color: #00aaff;
+}
+
+.menu-btn.btn-secondary {
+    background: #334455;
+    border-color: #556677;
+}
+
+.menu-btn.btn-secondary:hover {
+    background: #445566;
+}
+
+/* Slot Buttons in Map Select */
+.slot-btn {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+    background: #182232;
+    color: #aaa;
+    border: 1px solid #2a3d58;
+    border-radius: 4px;
+    font-size: 18px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.slot-btn:hover {
+    background: #223348;
+    color: #fff;
+}
+
+.slot-btn.selected {
+    background: #1d4ed8;
+    color: #ffffff;
+    border-color: #60a5fa;
+}
+
+/* Editor Toolbar */
+#editor-toolbar {
+    pointer-events: auto;
     position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 12px;
+    left: 12px;
+    background: rgba(10, 12, 20, 0.92);
+    padding: 10px 14px;
+    border: 1px solid #334466;
+    border-radius: 6px;
     display: flex;
     align-items: center;
-    gap: 20px;
-    background: rgba(10, 10, 25, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    padding: 8px 18px;
-    border-radius: 20px;
-    backdrop-filter: blur(6px);
-    pointer-events: auto;
-}
-
-#timer {
+    gap: 8px;
     font-size: 18px;
-    font-weight: bold;
-    letter-spacing: 1px;
-    min-width: 55px;
-    text-align: center;
 }
 
-#speed-controls {
-    display: flex;
-    gap: 6px;
+.editor-label {
+    color: #8a9ba8;
 }
 
-.speed-btn {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+.editor-btn {
+    background: #223344;
     color: #fff;
-    padding: 5px 12px;
-    border-radius: 12px;
+    border: 1px solid #445566;
+    padding: 4px 10px;
+    font-size: 16px;
+    border-radius: 3px;
     cursor: pointer;
-    font-size: 13px;
-    transition: all 0.15s ease;
 }
 
-.speed-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
+.editor-btn:hover {
+    background: #2c445e;
 }
 
-.speed-btn.active {
-    background: #0088ff;
-    border-color: #0088ff;
-    font-weight: bold;
+.editor-btn.btn-save {
+    background: #166534;
+    border-color: #22c55e;
 }
 
+.editor-btn.btn-exit {
+    background: #991b1b;
+    border-color: #ef4444;
+}
+
+.editor-select {
+    padding: 4px 8px;
+    background: #182232;
+    color: #fff;
+    border: 1px solid #334466;
+    border-radius: 3px;
+    font-size: 16px;
+}
+
+/* Game Over Modal */
 #game-over-modal {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(10, 10, 25, 0.92);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    padding: 32px 48px;
-    border-radius: 16px;
+    background: rgba(10, 12, 20, 0.95);
+    border: 2px solid #334466;
+    padding: 28px 40px;
     text-align: center;
-    pointer-events: auto;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-}
-
-#game-over-modal.hidden {
-    display: none;
-}
-
-#game-over-title {
-    margin: 0 0 10px 0;
-    font-size: 32px;
-}
-
-#game-over-msg {
-    margin: 0 0 20px 0;
-    color: #cccccc;
-    font-size: 15px;
-}
-
-#btn-restart {
-    padding: 10px 24px;
-    background: #0088ff;
-    border: none;
-    color: #fff;
-    font-size: 15px;
-    font-weight: bold;
+    z-index: 100;
     border-radius: 8px;
-    cursor: pointer;
 }
 
-#btn-restart:hover {
-    background: #33a0ff;
+#game-over-modal h1 {
+    font-size: 36px;
+    color: #00ffcc;
+    margin-bottom: 8px;
+}
+
+#game-over-modal p {
+    font-size: 20px;
+    color: #aaa;
+    margin-bottom: 16px;
 }

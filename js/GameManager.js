@@ -1,109 +1,179 @@
 class GameManager {
     constructor() {
+        this.canvas = document.getElementById('game');
         this.planets = [];
         this.ships = [];
-        this.gameTime = 0;
-        this.gameSpeed = 1; // 0 = Pause, 1 = 1x, 2 = 2x, 3 = 3x
-        this.gameOver = false;
-        this.winner = null; // 1 = Player, 2 = AI
+
+        this.renderer = typeof Renderer === 'function' ? new Renderer(this.canvas) : null;
+        this.controls = typeof Controls === 'function' ? new Controls(this.canvas, this, 1) : null;
+        this.aiController = typeof AIController === 'function' ? new AIController(this) : null;
+
+        // Simulation State
+        this.isRunning = false;
+        this.gameTime = 0; 
+        this.gameSpeed = 1; 
+
+        // HUD Elements
+        this.hudElement = document.getElementById('hud');
+        this.hudTimer = document.getElementById('game-timer');
+        this.btnPlayPause = document.getElementById('btn-play-pause');
+        this.btnSpeed1 = document.getElementById('btn-speed-1');
+        this.btnSpeed2 = document.getElementById('btn-speed-2');
+        this.btnSpeed3 = document.getElementById('btn-speed-3');
+
+        this.initHUDListeners();
     }
 
-    init() {
-        this.planets = [];
-        this.ships = [];
-        this.gameTime = 0;
-        this.gameSpeed = 1;
-        this.gameOver = false;
-        this.winner = null;
-
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        const layout = LEVEL_SETUP(width, height);
-        layout.forEach(node => {
-            this.planets.push(new Planet(node.x, node.y, node.level, node.owner));
+    initHUDListeners() {
+        this.btnPlayPause?.addEventListener('click', () => {
+            this.setSpeed(this.gameSpeed === 0 ? 1 : 0);
         });
+
+        this.btnSpeed1?.addEventListener('click', () => this.setSpeed(1));
+        this.btnSpeed2?.addEventListener('click', () => this.setSpeed(2));
+        this.btnSpeed3?.addEventListener('click', () => this.setSpeed(3));
     }
 
+    setSpeed(speed) {
+        this.gameSpeed = speed;
+        this.updateHUDUI();
+    }
+
+    updateHUDUI() {
+        const isPaused = (this.gameSpeed === 0);
+
+        if (this.btnPlayPause) {
+            this.btnPlayPause.textContent = isPaused ? 'Play' : 'Pause';
+            this.btnPlayPause.classList.toggle('active', isPaused);
+        }
+
+        this.btnSpeed1?.classList.toggle('active', !isPaused && this.gameSpeed === 1);
+        this.btnSpeed2?.classList.toggle('active', !isPaused && this.gameSpeed === 2);
+        this.btnSpeed3?.classList.toggle('active', !isPaused && this.gameSpeed === 3);
+    }
+
+    start(mapData) {
+        this.reset();
+        this.loadMap(mapData);
+        this.isRunning = true;
+        this.setSpeed(1);
+        this.hudElement?.classList.remove('hidden');
+    }
+
+    stop() {
+        this.isRunning = false;
+        this.hudElement?.classList.add('hidden');
+    }
+
+    reset() {
+        this.planets = [];
+        this.ships = [];
+        this.gameTime = 0;
+        this.updateTimerDisplay();
+    }
+
+    // Called directly by Planet.js to produce new ships
     spawnShip(sourcePlanet, targetPlanet) {
-        const ship = new Ship(sourcePlanet, targetPlanet);
-        ship.owner = sourcePlanet.owner; // Direct ownership assignment
+        if (!sourcePlanet || typeof Ship !== 'function') return null;
+        const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet);
         this.ships.push(ship);
+        return ship;
     }
 
+    // Called directly by Ship.js / Planet.js when a ship dies
     destroyShip(ship) {
+        if (!ship) return;
         ship.dead = true;
-    }
-
-    dispatchFleet(sourcePlanet, targetPlanet, ratio = 0.5) {
-        const availableShips = this.ships.filter(s => s.targetPlanet === sourcePlanet && s.state === 'orbit' && !s.dead);
-        const countToDispatch = Math.ceil(availableShips.length * ratio);
-        for (let i = 0; i < countToDispatch; i++) {
-            availableShips[i].targetPlanet = targetPlanet;
-            availableShips[i].state = 'launching';
+        const idx = this.ships.indexOf(ship);
+        if (idx !== -1) {
+            this.ships.splice(idx, 1);
         }
     }
 
-    handlePlanetImpact(ship) {
-        const planet = ship.targetPlanet;
+    update(deltaTime) {
+        if (!this.isRunning) return;
 
-        if (planet.owner === ship.owner) {
-            ship.state = planet.isLanding ? 'landing' : 'orbit';
-            return;
-        }
-
-        planet.hp--;
-        if (planet.hp <= 0) {
-            planet.owner = ship.owner;
-            planet.hp = planet.maxHp;
-            planet.upgradeProgress = 0;
-            planet.isLanding = false;
-        }
-
-        this.destroyShip(ship);
-    }
-
-    checkWinCondition() {
-        if (this.gameOver) return;
-
-        // Count planets per team
-        const p1Planets = this.planets.filter(p => p.owner === 1).length;
-        const p2Planets = this.planets.filter(p => p.owner === 2).length;
-
-        // Count active ships per team
-        const p1Ships = this.ships.filter(s => s.owner === 1 && !s.dead).length;
-        const p2Ships = this.ships.filter(s => s.owner === 2 && !s.dead).length;
-
-        // Player has no planets and no active ships -> AI Wins
-        if (p1Planets === 0 && p1Ships === 0) {
-            this.gameOver = true;
-            this.winner = 2;
-        } 
-        // AI has no planets and no active ships -> Player Wins
-        else if (p2Planets === 0 && p2Ships === 0) {
-            this.gameOver = true;
-            this.winner = 1;
-        }
-    }
-
-    update(dt) {
-        if (this.gameOver) return;
-
-        const scaledDt = dt * this.gameSpeed;
         if (this.gameSpeed > 0) {
-            this.gameTime += scaledDt;
+            const scaledDelta = deltaTime * this.gameSpeed;
+
+            this.gameTime += scaledDelta;
+            this.updateTimerDisplay();
+
+            // Pass 'this' (gameManager) so planets and ships can access spawnShip and destroyShip
+            this.planets.forEach(p => p && p.update && p.update(scaledDelta, this));
+            this.ships.forEach(s => s && s.update && s.update(scaledDelta, this));
+
+            if (this.aiController && this.aiController.update) {
+                this.aiController.update(scaledDelta);
+            }
+
+            // Clean up dead ships using Ship.js 'dead' flag
+            this.ships = this.ships.filter(s => s && !s.dead);
+            this.checkWinCondition();
         }
 
-        this.planets.forEach(planet => planet.update(scaledDt, this));
+        if (this.renderer && this.renderer.render) {
+            this.renderer.render(this, this.controls);
+        }
+    }
 
-        for (let i = this.ships.length - 1; i >= 0; i--) {
-            if (this.ships[i].dead) {
-                this.ships.splice(i, 1);
-            } else {
-                this.ships[i].update(scaledDt, this);
+    updateTimerDisplay() {
+        if (!this.hudTimer) return;
+        const totalSecs = Math.floor(this.gameTime);
+        const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+        const secs = String(totalSecs % 60).padStart(2, '0');
+        this.hudTimer.textContent = `${mins}:${secs}`;
+    }
+
+    loadMap(mapData) {
+        this.planets = [];
+        this.ships = [];
+
+        if (!mapData) return;
+
+        let parsed = mapData;
+        if (typeof mapData === 'string') {
+            try {
+            parsed = JSON.parse(mapData);
+            } catch (e) {
+                console.error("GameManager: Failed to parse map JSON", e);
+                return;
             }
         }
 
-        this.checkWinCondition();
+        const rawPlanets = parsed.planets || (Array.isArray(parsed) ? parsed : []);
+
+        this.planets = rawPlanets.map(p => {
+            if (p instanceof Planet) return p;
+            return new Planet(p.x, p.y, p.level || 1, p.owner !== undefined ? p.owner : 0);
+        });
+    }
+
+    dispatchFleet(sourcePlanet, targetPlanet, ratio = 0.5) {
+        if (!sourcePlanet || !targetPlanet || sourcePlanet === targetPlanet) return;
+
+        // Find available orbiting ships at sourcePlanet owned by sourcePlanet.owner
+        const availableShips = this.ships.filter(s => 
+            s && !s.dead && 
+            s.owner === sourcePlanet.owner && 
+            (s.targetPlanet === sourcePlanet || s.orbitPlanet === sourcePlanet) &&
+            (s.state === 'orbit' || s.state === 'surface_launch')
+        );
+
+        if (availableShips.length === 0) return;
+
+        const count = Math.max(1, Math.floor(availableShips.length * ratio));
+        const fleet = availableShips.slice(0, count);
+
+        fleet.forEach(ship => {
+            ship.orbitPlanet = sourcePlanet;
+            ship.targetPlanet = targetPlanet;
+            ship.state = 'launching';
+            ship.launchProgress = 0;
+        });
+    }
+
+    checkWinCondition() {
+        // Win / loss condition checks
     }
 }

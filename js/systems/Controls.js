@@ -1,5 +1,13 @@
 class Controls {
     constructor(canvas, gameManager, playerOwner = 1) {
+        // Parameter safety guard: check if canvas was omitted or passed second
+        if (canvas && !(canvas instanceof HTMLElement) && canvas.planets) {
+            gameManager = canvas;
+            canvas = document.getElementById('game');
+        } else if (!canvas || !(canvas instanceof HTMLElement)) {
+            canvas = document.getElementById('game');
+        }
+
         this.canvas = canvas;
         this.gameManager = gameManager;
         this.playerOwner = playerOwner;
@@ -8,7 +16,11 @@ class Controls {
         this.isDragging = false;
         this.currentMousePos = { x: 0, y: 0 };
 
-        this.setupListeners();
+        if (this.canvas) {
+            this.setupListeners();
+        } else {
+            console.error("Controls: Could not find canvas element!");
+        }
     }
 
     getCanvasPos(e) {
@@ -23,6 +35,7 @@ class Controls {
     }
 
     getPlanetAtPos(pos) {
+        if (!this.gameManager || !this.gameManager.planets) return null;
         for (let planet of this.gameManager.planets) {
             const dx = planet.x - pos.x;
             const dy = planet.y - pos.y;
@@ -52,7 +65,9 @@ class Controls {
             if (this.isDragging && this.dragStartPlanet) {
                 const targetPlanet = this.getPlanetAtPos(this.currentMousePos);
                 if (targetPlanet && targetPlanet !== this.dragStartPlanet) {
-                    this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, 0.5);
+                    if (typeof this.gameManager.dispatchFleet === 'function') {
+                        this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, 0.5);
+                    }
                 }
             }
             this.isDragging = false;
@@ -62,7 +77,7 @@ class Controls {
         this.canvas.addEventListener('dblclick', (e) => {
             const pos = this.getCanvasPos(e);
             const planet = this.getPlanetAtPos(pos);
-            if (planet && planet.owner === this.playerOwner) {
+            if (planet && planet.owner === this.playerOwner && typeof planet.startUpgrade === 'function') {
                 planet.startUpgrade(this.gameManager.ships);
             }
         });
@@ -73,7 +88,7 @@ class Controls {
             ctx.beginPath();
             ctx.moveTo(this.dragStartPlanet.x, this.dragStartPlanet.y);
             ctx.lineTo(this.currentMousePos.x, this.currentMousePos.y);
-            ctx.strokeStyle = OWNER_COLORS[this.playerOwner];
+            ctx.strokeStyle = (typeof OWNER_COLORS !== 'undefined') ? OWNER_COLORS[this.playerOwner] : '#00aaff';
             ctx.lineWidth = 2.5;
             ctx.setLineDash([8, 5]);
             ctx.stroke();
