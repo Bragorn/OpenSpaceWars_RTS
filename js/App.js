@@ -7,7 +7,6 @@ class App {
         this.lastTime = performance.now();
 
         this.registry = new MapRegistry();
-        this.editor = new MapEditor(this.canvas, this.registry);
 
         this.bindEvents();
         this.showMainMenu();
@@ -16,16 +15,8 @@ class App {
 
     bindEvents() {
         document.getElementById('btn-main-play')?.addEventListener('click', () => this.showMapSelect());
-        document.getElementById('btn-main-editor')?.addEventListener('click', () => this.startMapEditor());
-
         document.getElementById('btn-map-back')?.addEventListener('click', () => this.showMainMenu());
         document.getElementById('btn-map-start')?.addEventListener('click', () => this.launchSelectedMap());
-
-        document.getElementById('btn-editor-exit')?.addEventListener('click', () => this.showMainMenu());
-        document.getElementById('btn-editor-save')?.addEventListener('click', () => this.editor.saveCurrentMap());
-        document.getElementById('btn-sym-none')?.addEventListener('click', () => this.editor.setSymmetry('NONE'));
-        document.getElementById('btn-sym-mirror')?.addEventListener('click', () => this.editor.setSymmetry('MIRROR_H'));
-        document.getElementById('btn-sym-rot')?.addEventListener('click', () => this.editor.setSymmetry('ROTATIONAL'));
     }
 
     clearScreen() {
@@ -37,11 +28,7 @@ class App {
     setHudVisible(visible) {
         const hud = document.getElementById('hud');
         if (hud) {
-            if (visible) {
-                hud.classList.remove('hidden');
-            } else {
-                hud.classList.add('hidden');
-            }
+            hud.classList.toggle('hidden', !visible);
         }
     }
 
@@ -53,7 +40,6 @@ class App {
 
         document.getElementById('menu-main').style.display = 'block';
         document.getElementById('menu-map-select').style.display = 'none';
-        document.getElementById('editor-toolbar').style.display = 'none';
     }
 
     showMapSelect() {
@@ -73,45 +59,33 @@ class App {
         if (!container) return;
 
         container.innerHTML = '';
-        for (let i = 1; i <= 5; i++) {
-            const map = this.registry.getMap(i);
+        const allMaps = this.registry.getAllMaps();
+
+        allMaps.forEach((map, idx) => {
+            const slotNum = idx + 1;
             const btn = document.createElement('button');
-            btn.className = `slot-btn ${i === this.selectedSlotNum ? 'selected' : ''}`;
-            btn.innerText = `Slot ${i}: ${map ? map.name : '[ Empty ]'}`;
+            btn.className = `slot-btn ${slotNum === this.selectedSlotNum ? 'selected' : ''}`;
+            btn.innerText = `Map ${slotNum}: ${map.name}`;
             btn.onclick = () => {
-                this.selectedSlotNum = i;
+                this.selectedSlotNum = slotNum;
                 this.renderMapSlots();
             };
             container.appendChild(btn);
-        }
-    }
-
-    startMapEditor() {
-        this.state = 'EDITOR';
-        if (window.gameManager) window.gameManager.stop();
-        this.clearScreen();
-        this.setHudVisible(false);
-
-        document.getElementById('menu-main').style.display = 'none';
-        document.getElementById('menu-map-select').style.display = 'none';
-        document.getElementById('editor-toolbar').style.display = 'block';
-
-        this.editor.initNewMap();
+        });
     }
 
     launchSelectedMap() {
-        const selectedMap = this.registry.getMap(this.selectedSlotNum);
-        if (!selectedMap) {
-            alert("This slot is empty! Design a map in the editor first.");
-            return;
-        }
+        const width = this.canvas ? this.canvas.width : window.innerWidth;
+        const height = this.canvas ? this.canvas.height : window.innerHeight;
+        
+        const scaledMap = this.registry.getScaledMap(this.selectedSlotNum, width, height);
 
         this.state = 'GAME';
         this.clearScreen();
         document.getElementById('menu-map-select').style.display = 'none';
 
         if (window.gameManager) {
-            window.gameManager.start(selectedMap);
+            window.gameManager.start(scaledMap);
         }
     }
 
@@ -121,8 +95,6 @@ class App {
 
         if (this.state === 'GAME' && window.gameManager) {
             window.gameManager.update(deltaTime);
-        } else if (this.state === 'EDITOR') {
-            this.editor.render();
         } else if (this.state === 'MENU' || this.state === 'MAP_SELECT') {
             this.clearScreen();
         }

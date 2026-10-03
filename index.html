@@ -19,10 +19,7 @@
 
     <!-- Top-Left In-Game HUD -->
     <div id="hud" class="hud-top-left hidden">
-        <!-- Timer on top -->
         <div id="game-timer" class="hud-timer">00:00</div>
-
-        <!-- Speed & Play/Pause Controls underneath -->
         <div class="hud-controls">
             <button id="btn-play-pause" class="hud-btn active">Pause</button>
             <button id="btn-speed-1" class="hud-btn active">1x</button>
@@ -38,13 +35,12 @@
         <button id="btn-restart" class="menu-btn">PLAY AGAIN</button>
     </div>
 
-    <!-- App Menu & Editor UI Overlay -->
+    <!-- App UI Overlay -->
     <div id="ui-overlay">
         <!-- 1. MAIN MENU -->
         <div id="menu-main" class="menu-card">
             <h2>OPEN SPACE WARS</h2>
             <button id="btn-main-play" class="menu-btn">PLAY GAME</button>
-            <button id="btn-main-editor" class="menu-btn btn-secondary">MAP EDITOR</button>
         </div>
 
         <!-- 2. MAP SELECT MENU -->
@@ -55,25 +51,6 @@
                 <button id="btn-map-back" class="menu-btn btn-secondary" style="flex: 1;">BACK</button>
                 <button id="btn-map-start" class="menu-btn" style="flex: 2;">PLAY MAP</button>
             </div>
-        </div>
-
-        <!-- 3. EDITOR TOOLBAR -->
-        <div id="editor-toolbar" style="display: none;">
-            <span class="editor-label">SYMMETRY:</span>
-            <button id="btn-sym-none" class="editor-btn">ASYMMETRIC</button>
-            <button id="btn-sym-mirror" class="editor-btn">MIRROR (H)</button>
-            <button id="btn-sym-rot" class="editor-btn">ROTATIONAL</button>
-
-            <span class="editor-label" style="margin-left: 12px;">SAVE TO:</span>
-            <select id="editor-save-slot" class="editor-select">
-                <option value="1">Slot 1</option>
-                <option value="2">Slot 2</option>
-                <option value="3">Slot 3</option>
-                <option value="4">Slot 4</option>
-                <option value="5">Slot 5</option>
-            </select>
-            <button id="btn-editor-save" class="editor-btn btn-save">SAVE</button>
-            <button id="btn-editor-exit" class="editor-btn btn-exit">EXIT</button>
         </div>
     </div>
 
@@ -87,8 +64,6 @@
     <script src="js/systems/Renderer.js"></script>
 
     <script src="js/MapRegistry.js"></script>
-    <script src="js/MapEditor.js"></script>
-
     <script src="js/GameManager.js"></script>
     <script src="js/main.js"></script>
     <script src="js/App.js"></script>

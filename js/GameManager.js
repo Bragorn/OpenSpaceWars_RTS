@@ -3,6 +3,7 @@ class GameManager {
         this.canvas = document.getElementById('game');
         this.planets = [];
         this.ships = [];
+        this.currentMapData = null; // Stored for restart button
 
         this.renderer = typeof Renderer === 'function' ? new Renderer(this.canvas) : null;
         this.controls = typeof Controls === 'function' ? new Controls(this.canvas, this, 1) : null;
@@ -54,6 +55,7 @@ class GameManager {
 
     start(mapData) {
         this.reset();
+        this.currentMapData = mapData;
         this.loadMap(mapData);
         this.isRunning = true;
         this.setSpeed(1);
@@ -70,9 +72,9 @@ class GameManager {
         this.ships = [];
         this.gameTime = 0;
         this.updateTimerDisplay();
+        document.getElementById('game-over-modal')?.classList.add('hidden');
     }
 
-    // Called directly by Planet.js to produce new ships
     spawnShip(sourcePlanet, targetPlanet) {
         if (!sourcePlanet || typeof Ship !== 'function') return null;
         const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet);
@@ -80,7 +82,6 @@ class GameManager {
         return ship;
     }
 
-    // Called directly by Ship.js / Planet.js when a ship dies
     destroyShip(ship) {
         if (!ship) return;
         ship.dead = true;
@@ -94,12 +95,13 @@ class GameManager {
         if (!this.isRunning) return;
 
         if (this.gameSpeed > 0) {
-            const scaledDelta = deltaTime * this.gameSpeed;
-
-            this.gameTime += scaledDelta;
+            // Track true real-time elapsed during active play
+            this.gameTime += deltaTime;
             this.updateTimerDisplay();
 
-            // Pass 'this' (gameManager) so planets and ships can access spawnShip and destroyShip
+            // Multiply simulation step speed separately
+            const scaledDelta = deltaTime * this.gameSpeed;
+
             this.planets.forEach(p => p && p.update && p.update(scaledDelta, this));
             this.ships.forEach(s => s && s.update && s.update(scaledDelta, this));
 
@@ -107,7 +109,6 @@ class GameManager {
                 this.aiController.update(scaledDelta);
             }
 
-            // Clean up dead ships using Ship.js 'dead' flag
             this.ships = this.ships.filter(s => s && !s.dead);
             this.checkWinCondition();
         }
@@ -134,7 +135,7 @@ class GameManager {
         let parsed = mapData;
         if (typeof mapData === 'string') {
             try {
-            parsed = JSON.parse(mapData);
+                parsed = JSON.parse(mapData);
             } catch (e) {
                 console.error("GameManager: Failed to parse map JSON", e);
                 return;
@@ -152,7 +153,6 @@ class GameManager {
     dispatchFleet(sourcePlanet, targetPlanet, ratio = 0.5) {
         if (!sourcePlanet || !targetPlanet || sourcePlanet === targetPlanet) return;
 
-        // Find available orbiting ships at sourcePlanet owned by sourcePlanet.owner
         const availableShips = this.ships.filter(s => 
             s && !s.dead && 
             s.owner === sourcePlanet.owner && 
@@ -174,6 +174,44 @@ class GameManager {
     }
 
     checkWinCondition() {
-        // Win / loss condition checks
+        if (!this.isRunning) return;
+
+        const playerPlanets = this.planets.filter(p => p.owner === 1).length;
+        const playerShips = this.ships.filter(s => s.owner === 1 && !s.dead).length;
+
+        const aiPlanets = this.planets.filter(p => p.owner === 2).length;
+        const aiShips = this.ships.filter(s => s.owner === 2 && !s.dead).length;
+
+        const playerAlive = playerPlanets > 0 || playerShips > 0;
+        const aiAlive = aiPlanets > 0 || aiShips > 0;
+
+        if (!aiAlive && playerAlive) {
+            this.endGame(true);
+        } else if (!playerAlive) {
+            this.endGame(false);
+        }
+    }
+
+    endGame(isVictory) {
+        this.isRunning = false;
+
+        const modal = document.getElementById('game-over-modal');
+        const title = document.getElementById('game-over-title');
+        const msg = document.getElementById('game-over-msg');
+
+        if (modal && title && msg) {
+            title.textContent = isVictory ? 'VICTORY' : 'DEFEAT';
+            title.style.color = isVictory ? '#00ffcc' : '#ff3355';
+
+            const totalSecs = Math.floor(this.gameTime);
+            const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+            const secs = String(totalSecs % 60).padStart(2, '0');
+
+            msg.textContent = isVictory 
+                ? `System secured in ${mins}:${secs}!` 
+                : `Fleet wiped out after ${mins}:${secs}.`;
+
+            modal.classList.remove('hidden');
+        }
     }
 }

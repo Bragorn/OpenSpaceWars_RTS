@@ -1,4 +1,4 @@
-const GAME_MAPS = [
+const Game_Maps = [
     {
         id: 1,
         name: "Direct Blitz",
@@ -7,7 +7,7 @@ const GAME_MAPS = [
             { nx: 0.15, ny: 0.50, level: 1, owner: 1 }, // Player Base
             { nx: 0.40, ny: 0.35, level: 1, owner: 0 }, // Neutral
             { nx: 0.40, ny: 0.65, level: 1, owner: 0 }, // Neutral
-            { nx: 0.85, ny: 0.50, level: 2, owner: 2 }  // AI Base
+            { nx: 0.85, ny: 0.50, level: 1, owner: 2 }  // AI Base
         ]
     },
     {
@@ -67,35 +67,21 @@ const GAME_MAPS = [
     }
 ];
 
-class MapRegistry {
-    constructor() {
-        this.maps = GAME_MAPS;
-    }
+// Resolves normalized positions to target pixel coordinates with edge padding
+function buildScaledLevel(levelIndex, width, height) {
+    const rawLevel = GAME_LEVELS[levelIndex] || GAME_LEVELS[0];
+    const paddingX = 80;
+    const paddingY = 80;
+    const usableWidth = Math.max(300, width - paddingX * 2);
+    const usableHeight = Math.max(300, height - paddingY * 2);
 
-    getAllMaps() {
-        return this.maps;
-    }
-
-    getMap(slotNum) {
-        const index = Math.max(0, parseInt(slotNum, 10) - 1);
-        return this.maps[index] || this.maps[0];
-    }
-
-    getScaledMap(slotNum, width, height) {
-        const rawMap = this.getMap(slotNum);
-        const paddingX = 80;
-        const paddingY = 80;
-        const usableWidth = Math.max(300, width - paddingX * 2);
-        const usableHeight = Math.max(300, height - paddingY * 2);
-
-        return {
-            ...rawMap,
-            planets: rawMap.planets.map(p => ({
-                x: Math.round(paddingX + (p.nx !== undefined ? p.nx * usableWidth : p.x)),
-                y: Math.round(paddingY + (p.ny !== undefined ? p.ny * usableHeight : p.y)),
-                level: p.level,
-                owner: p.owner
-            }))
-        };
-    }
+    return {
+        ...rawLevel,
+        planets: rawLevel.planets.map(p => ({
+            x: Math.round(paddingX + (p.nx !== undefined ? p.nx * usableWidth : p.x)),
+            y: Math.round(paddingY + (p.ny !== undefined ? p.ny * usableHeight : p.y)),
+            level: p.level,
+            owner: p.owner
+        }))
+    };
 }
