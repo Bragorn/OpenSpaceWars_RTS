@@ -1,3 +1,80 @@
+function hasLineOfSight(p1, p2, planets) {
+    if (!planets || !Array.isArray(planets)) return true;
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const lineLenSq = dx * dx + dy * dy;
+
+    if (lineLenSq === 0) return true;
+
+    for (let i = 0; i < planets.length; i++) {
+        const planet = planets[i];
+        if (!planet) continue;
+
+        const pdx = planet.x - p1.x;
+        const pdy = planet.y - p1.y;
+
+        // Project planet center onto the laser line segment (clamped 0 to 1)
+        const u = Math.max(0, Math.min(1, (pdx * dx + pdy * dy) / lineLenSq));
+
+        const closestX = p1.x + u * dx;
+        const closestY = p1.y + u * dy;
+
+        const distSq = (planet.x - closestX) * (planet.x - closestX) + (planet.y - closestY) * (planet.y - closestY);
+
+        // Planet radius + 2px buffer to keep lasers from clipping planet edges
+        const blockRadius = (planet.radius || 28) + 2;
+
+        if (distSq < blockRadius * blockRadius) {
+            return false; // Intersects a planet
+        }
+    }
+
+    return true;
+}
+
+function findBlockingPlanet(p1, p2, planets, ignoreList = []) {
+    if (!planets || !Array.isArray(planets)) return null;
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const lineLenSq = dx * dx + dy * dy;
+    if (lineLenSq === 0) return null;
+
+    let closestBlocker = null;
+    let minU = Infinity;
+
+    for (let i = 0; i < planets.length; i++) {
+        const planet = planets[i];
+        if (!planet || ignoreList.includes(planet)) continue;
+
+        const pdx = planet.x - p1.x;
+        const pdy = planet.y - p1.y;
+
+        // Projection factor u along path (0 = p1, 1 = p2)
+        const u = (pdx * dx + pdy * dy) / lineLenSq;
+
+        // Check obstacle planets lying ahead between start and destination
+        if (u > 0.05 && u < 0.92) {
+            const closestX = p1.x + u * dx;
+            const closestY = p1.y + u * dy;
+            const distSq = (planet.x - closestX) * (planet.x - closestX) + (planet.y - closestY) * (planet.y - closestY);
+
+            // Safety corridor radius
+            const corridorRadius = (planet.radius || 28) + 24;
+
+            if (distSq < corridorRadius * corridorRadius) {
+                if (u < minU) {
+                    minU = u;
+                    closestBlocker = planet;
+                }
+            }
+        }
+    }
+
+    return closestBlocker;
+}
+
 class Ship {
     constructor(sourcePlanet, targetPlanet) {
         this.owner = sourcePlanet ? sourcePlanet.owner : 0;
@@ -10,11 +87,11 @@ class Ship {
         const maxOrbitSpread = 22;
         this.targetOrbitRadius = baseRadius + minOrbitOffset + Math.random() * maxOrbitSpread;
 
-        // --- Tuned Physics Specs (Slower Pacing) ---
-        this.gravConst = 12000.0;     // Lowered from 28000.0 for slower orbital rotation
+        // --- Physics Specs ---
+        this.gravConst = 12000.0;
         this.mass = 1.0;
-        this.maxSpeed = 42.0;         // Lowered from 65.0 for slower interplanetary transit
-        this.enginePower = 70.0;      // Lowered from 120.0 for smoother acceleration arcing
+        this.maxSpeed = 42.0;
+        this.enginePower = 70.0;
         this.transitTurnRate = 5.0;
         this.combatTurnRate = 12.0;
 
@@ -28,6 +105,12 @@ class Ship {
         this.orbitDir = Math.random() < 0.5 ? 1 : -1;
         this.launchStartAngle = spawnAngle; 
         this.orbitAngle = spawnAngle;
+
+        // Flyby Navigation State
+        this.flybyPlanet = null;
+        this.lastFlybyPlanet = null;
+        this.flybySide = 1;
+        this.flybyTimer = 0;
 
         // Timers
         this.launchProgress = 0;
@@ -135,6 +218,7 @@ class Ship {
 
         let nearestEnemy = null;
         let minDist = maxRange;
+        const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
 
         if (gameManager && Array.isArray(gameManager.ships)) {
             for (let i = 0; i < gameManager.ships.length; i++) {
@@ -144,8 +228,10 @@ class Ship {
                     const edy = other.y - this.y;
                     const edist = Math.sqrt(edx * edx + edy * edy);
                     if (edist < minDist) {
-                        minDist = edist;
-                        nearestEnemy = other;
+                        if (hasLineOfSight(this, other, planets)) {
+                            minDist = edist;
+                            nearestEnemy = other;
+                        }
                     }
                 }
             }
@@ -155,6 +241,9 @@ class Ship {
 
     fireLaser(target, gameManager) {
         if (this.shootCooldown <= 0 && target && !target.dead) {
+            const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
+            if (!hasLineOfSight(this, target, planets)) return;
+
             target.takeDamage(10, gameManager);
             this.laserTarget = { x: target.x, y: target.y };
             this.laserTimer = 0.08;
@@ -169,6 +258,15 @@ class Ship {
 
         if (this.laserTimer > 0) this.laserTimer -= dt;
         if (this.shootCooldown > 0) this.shootCooldown -= dt;
+
+        // Reset lastFlybyPlanet when safely clear
+        if (this.lastFlybyPlanet) {
+            const ldx = this.x - this.lastFlybyPlanet.x;
+            const ldy = this.y - this.lastFlybyPlanet.y;
+            if (ldx * ldx + ldy * ldy > 180 * 180) {
+                this.lastFlybyPlanet = null;
+            }
+        }
 
         // 1. Surface Launch
         if (this.state === 'surface_launch') {
@@ -295,7 +393,7 @@ class Ship {
             return;
         }
 
-        // 4. Transit Movement
+        // 4. Transit Movement & Flyby Navigation
         let totalFx = 0;
         let totalFy = 0;
 
@@ -318,6 +416,7 @@ class Ship {
         const tx = -ry * this.orbitDir;
         const ty = rx * this.orbitDir;
 
+        // Gravity pull from current reference planet
         if (safeDist > 1.0) {
             const gAccel = this.gravConst / (safeDist * safeDist);
             totalFx -= rx * gAccel;
@@ -347,38 +446,100 @@ class Ship {
                 this.orbitPlanet = null;
             }
         } else if (this.state === 'moving') {
+            const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
+
+            // Detect blocking obstacle along direct path
+            if (!this.flybyPlanet && planets) {
+                const obstacle = findBlockingPlanet(this, this.targetPlanet, planets, [this.orbitPlanet, this.targetPlanet, this.lastFlybyPlanet]);
+                if (obstacle) {
+                    this.flybyPlanet = obstacle;
+                    this.flybyTimer = 0;
+
+                    // Pick offset side (-1 or +1) based on cross product
+                    const tdx = this.targetPlanet.x - this.x;
+                    const tdy = this.targetPlanet.y - this.y;
+                    const pdx = obstacle.x - this.x;
+                    const pdy = obstacle.y - this.y;
+                    const cross = tdx * pdy - tdy * pdx;
+                    this.flybySide = cross >= 0 ? -1 : 1;
+                }
+            }
+
             const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
             const safeR = Math.max(1, this.targetOrbitRadius);
             const vCirc = Math.sqrt(this.gravConst / safeR);
 
+            // Check if near final target destination for orbital insertion
             const decelDist = Math.max(16.0, (currentSpeed * currentSpeed - vCirc * vCirc) / (2.0 * this.enginePower)) + 20.0;
-
             const pdx = this.targetPlanet.x - this.x;
             const pdy = this.targetPlanet.y - this.y;
             const distToPlanet = Math.sqrt(pdx * pdx + pdy * pdy);
 
-            if (distToPlanet <= safeR + decelDist) {
+            if (distToPlanet <= safeR + decelDist && !this.flybyPlanet) {
                 this.state = 'insertion';
                 this.orbitPlanet = this.targetPlanet;
             }
 
-            const angleToShip = Math.atan2(this.y - this.targetPlanet.y, this.x - this.targetPlanet.x);
-            const tangentAngle = angleToShip + (this.orbitDir * Math.PI / 2);
+            // --- Flyby Waypoint Navigation ---
+            if (this.flybyPlanet) {
+                this.flybyTimer += dt;
 
-            const aimX = this.targetPlanet.x + Math.cos(tangentAngle) * safeR;
-            const aimY = this.targetPlanet.y + Math.sin(tangentAngle) * safeR;
+                const tdx = this.targetPlanet.x - this.x;
+                const tdy = this.targetPlanet.y - this.y;
+                const tDist = Math.max(0.001, Math.sqrt(tdx * tdx + tdy * tdy));
+                const tUx = tdx / tDist;
+                const tUy = tdy / tDist;
 
-            const aimDx = aimX - this.x;
-            const aimDy = aimY - this.y;
-            const aimDist = Math.max(0.001, Math.sqrt(aimDx * aimDx + aimDy * aimDy));
+                // Perpendicular vector to line of flight
+                const nx = -tUy;
+                const ny = tUx;
 
-            if (gameManager && gameManager.ships) {
-                this.computeBoidForces(gameManager.ships);
+                const safeRadius = (this.flybyPlanet.radius || 28) + 26;
+                const wayX = this.flybyPlanet.x + nx * this.flybySide * safeRadius;
+                const wayY = this.flybyPlanet.y + ny * this.flybySide * safeRadius;
+
+                const wdx = wayX - this.x;
+                const wdy = wayY - this.y;
+                const wDist = Math.max(0.001, Math.sqrt(wdx * wdx + wdy * wdy));
+
+                desiredVx = (wdx / wDist) * this.maxSpeed;
+                desiredVy = (wdy / wDist) * this.maxSpeed;
+                requiresThrust = true;
+
+                // Release condition:
+                // 1) Target planet has clear Line of Sight AND flyby planet center is no longer ahead
+                // OR 2) Safety timeout hit (3.0s)
+                const fdx = this.flybyPlanet.x - this.x;
+                const fdy = this.flybyPlanet.y - this.y;
+                const dotAhead = fdx * tUx + fdy * tUy; // Projection along target vector
+
+                const clearLoS = hasLineOfSight(this, this.targetPlanet, planets);
+
+                if ((clearLoS && dotAhead < 10.0) || this.flybyTimer > 3.0) {
+                    this.lastFlybyPlanet = this.flybyPlanet;
+                    this.flybyPlanet = null;
+                    this.flybyTimer = 0;
+                }
+            } else {
+                // Normal direct flight path to target planet
+                const angleToShip = Math.atan2(this.y - this.targetPlanet.y, this.x - this.targetPlanet.x);
+                const tangentAngle = angleToShip + (this.orbitDir * Math.PI / 2);
+
+                const aimX = this.targetPlanet.x + Math.cos(tangentAngle) * safeR;
+                const aimY = this.targetPlanet.y + Math.sin(tangentAngle) * safeR;
+
+                const aimDx = aimX - this.x;
+                const aimDy = aimY - this.y;
+                const aimDist = Math.max(0.001, Math.sqrt(aimDx * aimDx + aimDy * aimDy));
+
+                if (gameManager && gameManager.ships) {
+                    this.computeBoidForces(gameManager.ships);
+                }
+
+                desiredVx = (aimDx / aimDist) * this.maxSpeed + this.boidFx;
+                desiredVy = (aimDy / aimDist) * this.maxSpeed + this.boidFy;
+                requiresThrust = true;
             }
-
-            desiredVx = (aimDx / aimDist) * this.maxSpeed + this.boidFx;
-            desiredVy = (aimDy / aimDist) * this.maxSpeed + this.boidFy;
-            requiresThrust = true;
         } else if (this.state === 'insertion') {
             const planet = this.orbitPlanet || this.targetPlanet;
             const dxPos = this.x - planet.x;
@@ -439,7 +600,7 @@ class Ship {
         this.vy += (totalFy / this.mass) * dt;
 
         const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        const speedCap = this.state === 'moving' ? this.maxSpeed * 1.2 : this.maxSpeed;
+        const speedCap = this.state === 'moving' ? this.maxSpeed * 1.25 : this.maxSpeed;
         if (currentSpeed > speedCap && currentSpeed > 0) {
             this.vx = (this.vx / currentSpeed) * speedCap;
             this.vy = (this.vy / currentSpeed) * speedCap;
