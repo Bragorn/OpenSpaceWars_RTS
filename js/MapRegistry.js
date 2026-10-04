@@ -1,65 +1,71 @@
 const GAME_MAPS = [
     {
         id: 1,
-        name: "Direct Blitz",
-        description: "Small map. Quick frontline engagement with two low-level neutral buffers.",
-        planets: [
-            { nx: 0.15, ny: 0.50, level: 1, owner: 1 }, // Player Base
-            { nx: 0.40, ny: 0.35, level: 1, owner: 0 }, // Neutral
-            { nx: 0.40, ny: 0.65, level: 1, owner: 0 }, // Neutral
-            { nx: 0.85, ny: 0.50, level: 2, owner: 2 }  // AI Base
-        ]
-    },
-    {
-        id: 2,
         name: "Central Fortress",
-        description: "High-value Level 3 neutral in the center. Flanked by small neutral outposts.",
+        description: "Classic layout with a contested centerpiece planet flanked by outlying outposts.",
         planets: [
             { nx: 0.12, ny: 0.50, level: 1, owner: 1 }, // Player Base
             { nx: 0.30, ny: 0.25, level: 1, owner: 0 }, // Neutral North
             { nx: 0.30, ny: 0.75, level: 1, owner: 0 }, // Neutral South
-            { nx: 0.50, ny: 0.50, level: 3, owner: 0 }, // Fortress Center
+            { nx: 0.50, ny: 0.50, level: 1, owner: 0 }, // Center Fortress
             { nx: 0.70, ny: 0.25, level: 1, owner: 0 }, // Neutral North
             { nx: 0.70, ny: 0.75, level: 1, owner: 0 }, // Neutral South
             { nx: 0.88, ny: 0.50, level: 1, owner: 2 }  // AI Base
         ]
     },
     {
-        id: 3,
-        name: "Twin Pass",
-        description: "Two distinct attack lanes separated by neutral planets.",
+        id: 2,
+        name: "The Gauntlet",
+        description: "Tight linear frontline pushing directly through center, with high-risk flank paths.",
         planets: [
             { nx: 0.12, ny: 0.50, level: 1, owner: 1 }, // Player Base
-            { nx: 0.25, ny: 0.30, level: 1, owner: 1 }, // Player Expansion
-            { nx: 0.50, ny: 0.25, level: 2, owner: 0 }, // North Choke
-            { nx: 0.50, ny: 0.75, level: 2, owner: 0 }, // South Choke
-            { nx: 0.75, ny: 0.70, level: 1, owner: 2 }, // AI Expansion
+            { nx: 0.32, ny: 0.50, level: 1, owner: 0 }, // West Buffer
+            { nx: 0.50, ny: 0.50, level: 1, owner: 0 }, // Center Choke
+            { nx: 0.50, ny: 0.18, level: 1, owner: 0 }, // Top Flank
+            { nx: 0.50, ny: 0.82, level: 1, owner: 0 }, // Bottom Flank
+            { nx: 0.68, ny: 0.50, level: 1, owner: 0 }, // East Buffer
+            { nx: 0.88, ny: 0.50, level: 1, owner: 2 }  // AI Base
+        ]
+    },
+    {
+        id: 3,
+        name: "Twin Atolls",
+        description: "Two distinct home clusters separated by a wide central void and mid-point bridge.",
+        planets: [
+            { nx: 0.12, ny: 0.50, level: 1, owner: 1 }, // Player Base
+            { nx: 0.25, ny: 0.25, level: 1, owner: 0 }, // Player Island North
+            { nx: 0.25, ny: 0.75, level: 1, owner: 0 }, // Player Island South
+            { nx: 0.50, ny: 0.50, level: 1, owner: 0 }, // Central Gate Bridge
+            { nx: 0.75, ny: 0.25, level: 1, owner: 0 }, // AI Island North
+            { nx: 0.75, ny: 0.75, level: 1, owner: 0 }, // AI Island South
             { nx: 0.88, ny: 0.50, level: 1, owner: 2 }  // AI Base
         ]
     },
     {
         id: 4,
-        name: "Asymmetrical Choke",
-        description: "Defensive stronghold on one side vs fast neutral access on the other.",
+        name: "The Hourglass",
+        description: "Split-front map forcing players to manage top and bottom bottlenecks simultaneously.",
         planets: [
-            { nx: 0.15, ny: 0.25, level: 2, owner: 1 }, // Player Base
-            { nx: 0.15, ny: 0.75, level: 1, owner: 1 }, // Player Pocket
-            { nx: 0.45, ny: 0.50, level: 1, owner: 0 }, // Mid Choke
-            { nx: 0.65, ny: 0.30, level: 1, owner: 0 }, // Neutral
-            { nx: 0.65, ny: 0.70, level: 1, owner: 0 }, // Neutral
-            { nx: 0.85, ny: 0.50, level: 2, owner: 2 }  // AI Base
+            { nx: 0.12, ny: 0.50, level: 1, owner: 1 }, // Player Base
+            { nx: 0.25, ny: 0.20, level: 1, owner: 0 }, // Player Rear North
+            { nx: 0.25, ny: 0.80, level: 1, owner: 0 }, // Player Rear South
+            { nx: 0.50, ny: 0.30, level: 1, owner: 0 }, // Top Chokepoint
+            { nx: 0.50, ny: 0.70, level: 1, owner: 0 }, // Bottom Chokepoint
+            { nx: 0.75, ny: 0.20, level: 1, owner: 0 }, // AI Rear North
+            { nx: 0.75, ny: 0.80, level: 1, owner: 0 }, // AI Rear South
+            { nx: 0.88, ny: 0.50, level: 1, owner: 2 }  // AI Base
         ]
     },
     {
         id: 5,
         name: "Orbital Ring",
-        description: "Ring arrangement requiring advance fleet scouting.",
+        description: "Wide circular ring arrangement requiring long-range transit management.",
         planets: [
             { nx: 0.12, ny: 0.50, level: 1, owner: 1 }, // Player Base
             { nx: 0.30, ny: 0.25, level: 1, owner: 0 }, // Outer North
             { nx: 0.30, ny: 0.75, level: 1, owner: 0 }, // Outer South
-            { nx: 0.50, ny: 0.15, level: 2, owner: 0 }, // Top Apex
-            { nx: 0.50, ny: 0.85, level: 2, owner: 0 }, // Bottom Apex
+            { nx: 0.50, ny: 0.15, level: 1, owner: 0 }, // Top Apex
+            { nx: 0.50, ny: 0.85, level: 1, owner: 0 }, // Bottom Apex
             { nx: 0.70, ny: 0.25, level: 1, owner: 0 }, // Outer North
             { nx: 0.70, ny: 0.75, level: 1, owner: 0 }, // Outer South
             { nx: 0.88, ny: 0.50, level: 1, owner: 2 }  // AI Base
@@ -93,7 +99,7 @@ class MapRegistry {
             planets: rawMap.planets.map(p => ({
                 x: Math.round(paddingX + (p.nx !== undefined ? p.nx * usableWidth : p.x)),
                 y: Math.round(paddingY + (p.ny !== undefined ? p.ny * usableHeight : p.y)),
-                level: p.level,
+                level: 1, // Enforces Level 1 across all initial planet spawns
                 owner: p.owner
             }))
         };
