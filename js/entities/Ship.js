@@ -1,3 +1,33 @@
+function hasLineOfSight(p1, p2, planets) {
+    if (!planets || !Array.isArray(planets)) return true;
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const lineLenSq = dx * dx + dy * dy;
+    if (lineLenSq === 0) return true;
+
+    for (let i = 0; i < planets.length; i++) {
+        const planet = planets[i];
+        if (!planet) continue;
+
+        const pdx = planet.x - p1.x;
+        const pdy = planet.y - p1.y;
+        const u = Math.max(0, Math.min(1, (pdx * dx + pdy * dy) / lineLenSq));
+
+        const closestX = p1.x + u * dx;
+        const closestY = p1.y + u * dy;
+        const cdx = planet.x - closestX;
+        const cdy = planet.y - closestY;
+        const distSq = cdx * cdx + cdy * cdy;
+        const blockRadius = (planet.radius || 28) + 2; // Threshold buffer for planet obstruction
+
+        if (distSq < blockRadius * blockRadius) {
+            return false;
+        }
+    }
+    return true;
+}
+
 class Ship {
     constructor(sourcePlanet, targetPlanet) {
         this.owner = sourcePlanet ? sourcePlanet.owner : 0;
@@ -135,6 +165,7 @@ class Ship {
 
         let nearestEnemy = null;
         let minDist = maxRange;
+        const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
 
         if (gameManager && Array.isArray(gameManager.ships)) {
             for (let i = 0; i < gameManager.ships.length; i++) {
@@ -144,8 +175,10 @@ class Ship {
                     const edy = other.y - this.y;
                     const edist = Math.sqrt(edx * edx + edy * edy);
                     if (edist < minDist) {
-                        minDist = edist;
-                        nearestEnemy = other;
+                        if (hasLineOfSight(this, other, planets)) {
+                            minDist = edist;
+                            nearestEnemy = other;
+                        }
                     }
                 }
             }
@@ -155,6 +188,9 @@ class Ship {
 
     fireLaser(target, gameManager) {
         if (this.shootCooldown <= 0 && target && !target.dead) {
+            const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
+            if (!hasLineOfSight(this, target, planets)) return;
+
             target.takeDamage(10, gameManager);
             this.laserTarget = { x: target.x, y: target.y };
             this.laserTimer = 0.08;
@@ -241,7 +277,10 @@ class Ship {
                 if (this.orbitTimer > 0.5) {
                     const isUnclaimed = (this.targetPlanet.owner === 0);
                     const isEnemyPlanet = (this.targetPlanet.owner !== 0 && this.targetPlanet.owner !== this.owner);
-                    if (isUnclaimed || isEnemyPlanet) {
+                    const maxTier = (typeof TIER_STATS !== 'undefined' && Array.isArray(TIER_STATS)) ? TIER_STATS.length - 1 : 3;
+                    const isFriendlyUpgradeable = (this.targetPlanet.owner === this.owner && this.targetPlanet.level < maxTier && this.orbitPlanet !== this.targetPlanet);
+
+                    if (isUnclaimed || isEnemyPlanet || isFriendlyUpgradeable) {
                         this.state = 'landing';
                         this.landingProgress = 0;
                     }
