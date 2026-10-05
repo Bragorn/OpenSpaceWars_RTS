@@ -16,11 +16,11 @@ class Renderer {
             controls.draw(this.ctx);
         }
 
-        // Draw Planets — passes gameManager.ships into planet.draw()
+        // Draw Planets — pass gameManager as 3rd arg so planets use chosen faction colors
         if (Array.isArray(gameManager.planets)) {
             gameManager.planets.forEach(planet => {
                 if (planet && typeof planet.draw === 'function') {
-                    planet.draw(this.ctx, gameManager.ships);
+                    planet.draw(this.ctx, gameManager.ships, gameManager);
                 }
             });
         }
