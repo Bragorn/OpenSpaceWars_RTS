@@ -7,7 +7,14 @@ class GameManager {
         this.ships = [];
         this.currentMapData = null;
 
-        // Subsystems initialized with defensive fallbacks
+        // Faction Mapping per team owner ID (1 = Player, 2 = AI Enemy)
+        this.factionMap = {
+            0: 'NEUTRAL',
+            1: 'HUMAN',
+            2: 'PROTOCOL'
+        };
+
+        // Subsystems
         this.renderer = typeof Renderer === 'function' ? new Renderer(this.canvas) : null;
         this.controls = typeof Controls === 'function' ? new Controls(this.canvas, this, 1) : null;
         this.aiController = typeof AIController === 'function' ? new AIController(this) : null;
@@ -26,6 +33,14 @@ class GameManager {
         this.btnSpeed3 = document.getElementById(dom.BTN_SPEED_3 || 'btn-speed-3');
 
         this.initHUDListeners();
+    }
+
+    setFactionMap(playerFactionKey, enemyFactionKey) {
+        this.factionMap = {
+            0: 'NEUTRAL',
+            1: playerFactionKey || 'HUMAN',
+            2: enemyFactionKey || 'PROTOCOL'
+        };
     }
 
     initHUDListeners() {
@@ -56,8 +71,11 @@ class GameManager {
         this.btnSpeed3?.classList.toggle('active', !isPaused && this.gameSpeed === 3);
     }
 
-    start(mapData) {
+    start(mapData, playerFactionKey, enemyFactionKey) {
         this.reset();
+        if (playerFactionKey && enemyFactionKey) {
+            this.setFactionMap(playerFactionKey, enemyFactionKey);
+        }
         this.currentMapData = mapData;
         this.loadMap(mapData);
         this.isRunning = true;
@@ -106,7 +124,7 @@ class GameManager {
 
     spawnShip(sourcePlanet, targetPlanet) {
         if (!sourcePlanet || typeof Ship !== 'function') return null;
-        const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet);
+        const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet, this);
         this.ships.push(ship);
         return ship;
     }

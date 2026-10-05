@@ -262,3 +262,39 @@ html, body {
     color: #aaa;
     margin-bottom: 16px;
 }
+
+/* Add to styles.css */
+.faction-select-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+    text-align: left;
+}
+
+.faction-select-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.faction-select-group label {
+    font-size: 18px;
+    color: #8a9ba8;
+}
+
+.menu-select {
+    width: 100%;
+    padding: 8px;
+    background: #182232;
+    color: #00ffcc;
+    border: 1px solid #334466;
+    border-radius: 4px;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.menu-select:focus {
+    outline: none;
+    border-color: #00aaff;
+}

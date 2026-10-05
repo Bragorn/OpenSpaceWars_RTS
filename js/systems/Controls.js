@@ -88,7 +88,7 @@ class Controls {
             ctx.beginPath();
             ctx.moveTo(this.dragStartPlanet.x, this.dragStartPlanet.y);
             ctx.lineTo(this.currentMousePos.x, this.currentMousePos.y);
-            ctx.strokeStyle = (typeof OWNER_COLORS !== 'undefined') ? OWNER_COLORS[this.playerOwner] : '#00aaff';
+            ctx.strokeStyle = FactionManager.getColor(this.playerOwner, this.gameManager);
             ctx.lineWidth = 2.5;
             ctx.setLineDash([8, 5]);
             ctx.stroke();

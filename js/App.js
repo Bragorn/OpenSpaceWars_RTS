@@ -11,6 +11,7 @@ class App {
         this.registry = typeof MapRegistry === 'function' ? new MapRegistry() : null;
 
         this.bindEvents();
+        this.populateFactionDropdowns();
         this.showMainMenu();
         this.loop(performance.now());
     }
@@ -19,6 +20,31 @@ class App {
         document.getElementById('btn-main-play')?.addEventListener('click', () => this.showMapSelect());
         document.getElementById('btn-map-back')?.addEventListener('click', () => this.showMainMenu());
         document.getElementById('btn-map-start')?.addEventListener('click', () => this.launchSelectedMap());
+    }
+
+    populateFactionDropdowns() {
+        const playerSelect = document.getElementById('select-player-faction');
+        const enemySelect = document.getElementById('select-enemy-faction');
+        if (!playerSelect || !enemySelect || typeof FACTION_DATA === 'undefined') return;
+
+        playerSelect.innerHTML = '';
+        enemySelect.innerHTML = '';
+
+        Object.keys(FACTION_DATA).forEach((key) => {
+            const fac = FACTION_DATA[key];
+            
+            const optPlayer = document.createElement('option');
+            optPlayer.value = fac.id;
+            optPlayer.textContent = `${fac.name} (${fac.id})`;
+            if (fac.id === 'HUMAN') optPlayer.selected = true;
+            playerSelect.appendChild(optPlayer);
+
+            const optEnemy = document.createElement('option');
+            optEnemy.value = fac.id;
+            optEnemy.textContent = `${fac.name} (${fac.id})`;
+            if (fac.id === 'PROTOCOL') optEnemy.selected = true;
+            enemySelect.appendChild(optEnemy);
+        });
     }
 
     clearScreen() {
@@ -81,6 +107,9 @@ class App {
         
         const scaledMap = this.registry.getScaledMap(this.selectedSlotNum, width, height);
 
+        const playerFaction = document.getElementById('select-player-faction')?.value || 'HUMAN';
+        const enemyFaction = document.getElementById('select-enemy-faction')?.value || 'PROTOCOL';
+
         this.state = 'GAME';
         this.clearScreen();
         
@@ -88,7 +117,7 @@ class App {
         if (menuMap) menuMap.style.display = 'none';
 
         if (window.gameManager) {
-            window.gameManager.start(scaledMap);
+            window.gameManager.start(scaledMap, playerFaction, enemyFaction);
         }
     }
 

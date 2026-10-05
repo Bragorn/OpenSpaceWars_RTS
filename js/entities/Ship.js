@@ -19,7 +19,7 @@ function hasLineOfSight(p1, p2, planets) {
         const cdx = planet.x - closestX;
         const cdy = planet.y - closestY;
         const distSq = cdx * cdx + cdy * cdy;
-        const blockRadius = (planet.radius || 28) + 2; // Threshold buffer for planet obstruction
+        const blockRadius = (planet.radius || 28) + 2;
 
         if (distSq < blockRadius * blockRadius) {
             return false;
@@ -29,10 +29,22 @@ function hasLineOfSight(p1, p2, planets) {
 }
 
 class Ship {
-    constructor(sourcePlanet, targetPlanet) {
+    constructor(sourcePlanet, targetPlanet, gameManager) {
         this.owner = sourcePlanet ? sourcePlanet.owner : 0;
         this.orbitPlanet = sourcePlanet;
         this.targetPlanet = targetPlanet || sourcePlanet;
+
+        // Query Faction Stats
+        const faction = FactionManager.getFaction(this.owner, gameManager);
+        this.color = faction.color;
+        this.hp = faction.hp;
+        this.maxHp = faction.hp;
+        this.laserDamage = faction.laserDamage;
+        this.laserCooldownMax = faction.laserCooldown;
+        this.maxSpeed = faction.maxSpeed;
+        this.enginePower = faction.enginePower;
+        this.transitTurnRate = faction.transitTurnRate;
+        this.combatTurnRate = faction.combatTurnRate;
 
         const baseRadius = (sourcePlanet && sourcePlanet.radius) ? sourcePlanet.radius : 28;
         const spawnAngle = Math.random() * Math.PI * 2;
@@ -40,17 +52,9 @@ class Ship {
         const maxOrbitSpread = 22;
         this.targetOrbitRadius = baseRadius + minOrbitOffset + Math.random() * maxOrbitSpread;
 
-        // --- Tuned Physics Specs (Slower Pacing) ---
-        this.gravConst = 12000.0;     // Lowered from 28000.0 for slower orbital rotation
+        this.gravConst = 12000.0;
         this.mass = 1.0;
-        this.maxSpeed = 42.0;         // Lowered from 65.0 for slower interplanetary transit
-        this.enginePower = 70.0;      // Lowered from 120.0 for smoother acceleration arcing
-        this.transitTurnRate = 5.0;
-        this.combatTurnRate = 12.0;
 
-        // Combat Stats
-        this.hp = 20;
-        this.maxHp = 20;
         this.shootCooldown = Math.random() * 0.4;
         this.laserTarget = null;
         this.laserTimer = 0;
@@ -59,14 +63,12 @@ class Ship {
         this.launchStartAngle = spawnAngle; 
         this.orbitAngle = spawnAngle;
 
-        // Timers
         this.launchProgress = 0;
         this.launchDuration = 2.2;
         this.landingProgress = 0;
         this.landingDuration = 2.0;
         this.orbitTimer = 0;
 
-        // Surface spawn
         const startX = sourcePlanet ? sourcePlanet.x : 0;
         const startY = sourcePlanet ? sourcePlanet.y : 0;
         this.x = startX + Math.cos(spawnAngle) * (baseRadius + 2);
@@ -191,10 +193,10 @@ class Ship {
             const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
             if (!hasLineOfSight(this, target, planets)) return;
 
-            target.takeDamage(10, gameManager);
+            target.takeDamage(this.laserDamage, gameManager);
             this.laserTarget = { x: target.x, y: target.y };
             this.laserTimer = 0.08;
-            this.shootCooldown = 0.45 + Math.random() * 0.2;
+            this.shootCooldown = this.laserCooldownMax + Math.random() * 0.2;
         }
     }
 
@@ -289,7 +291,7 @@ class Ship {
             return;
         }
 
-        // 3. Retrograde Landing Touchdown
+        // 3. Landing Touchdown
         if (this.state === 'landing') {
             const planet = this.targetPlanet;
             if (!planet) return;
@@ -493,7 +495,7 @@ class Ship {
 
         if (this.laserTimer > 0 && this.laserTarget) {
             ctx.save();
-            ctx.strokeStyle = (typeof OWNER_COLORS !== 'undefined' && OWNER_COLORS[this.owner]) ? OWNER_COLORS[this.owner] : '#ff4444';
+            ctx.strokeStyle = this.color;
             ctx.lineWidth = 1.2;
             ctx.beginPath();
             ctx.moveTo(this.x + Math.cos(this.heading) * 3.5, this.y + Math.sin(this.heading) * 3.5);
@@ -506,7 +508,7 @@ class Ship {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.heading);
 
-        ctx.fillStyle = (typeof OWNER_COLORS !== 'undefined' && OWNER_COLORS[this.owner]) ? OWNER_COLORS[this.owner] : '#ffffff';
+        ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.moveTo(3.5, 0);
         ctx.lineTo(-2.5, -2.0);

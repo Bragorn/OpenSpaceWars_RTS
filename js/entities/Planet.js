@@ -1,5 +1,5 @@
 class Planet {
-    constructor(x, y, level = 1, owner = 0) { // FIX 1: Default to Level 1
+    constructor(x, y, level = 1, owner = 0) {
         this.x = x;
         this.y = y;
         this.level = level;
@@ -21,7 +21,6 @@ class Planet {
     }
 
     getMaxTier() {
-        // FIX 2: Fixed to Max Tier 3 (Level 1 -> Level 2 -> Level 3 = 2 upgrades)
         if (typeof TIER_STATS !== 'undefined') {
             if (Array.isArray(TIER_STATS)) return Math.min(3, TIER_STATS.length - 1);
             if (typeof TIER_STATS === 'object') {
@@ -57,7 +56,6 @@ class Planet {
 
         if (this.level >= maxTier || upgCost <= 0) return;
 
-        // Count ships ALREADY in transit landing for an upgrade
         const landingCount = ships.filter(s => 
             s && 
             !s.dead && 
@@ -66,9 +64,8 @@ class Planet {
             s.state === 'landing'
         ).length;
 
-        // FIX 3: Subtract both current progress AND in-flight landing ships
         const needed = upgCost - (this.upgradeProgress + landingCount);
-        if (needed <= 0) return; // Lockout extra requests if enough ships are en route
+        if (needed <= 0) return;
 
         const eligibleShips = ships.filter(s => 
             s &&
@@ -96,20 +93,18 @@ class Planet {
     onShipTouchdown(ship, gameManager) {
         if (!ship) return;
 
-        // 1. Unclaimed Planet Capture (Neutral 0)
         if (this.owner === 0) {
             this.upgradeProgress++;
             const claimRequirement = this.claimCost || 5;
             if (this.upgradeProgress >= claimRequirement) {
                 this.owner = ship.owner;
-                this.level = 1; // FIX 4: Captured planets start at Level 1
+                this.level = 1;
                 this.maxHp = 20;
                 this.hp = this.maxHp;
                 this.upgradeProgress = 0;
                 this.isLanding = false;
             }
         } 
-        // 2. Friendly Planet Upgrade
         else if (this.owner === ship.owner) {
             const maxTier = this.getMaxTier();
             const upgCost = this.getUpgradeCost();
@@ -121,12 +116,11 @@ class Planet {
                 }
             }
         } 
-        // 3. Enemy Planet Attack / Conquest
         else if (this.owner !== ship.owner) {
             this.hp -= 1;
             if (this.hp <= 0) {
                 this.owner = ship.owner;
-                this.level = 1; // FIX 5: Conquered planets reset to Level 1
+                this.level = 1;
                 const stats = (typeof TIER_STATS !== 'undefined' && TIER_STATS[1]) ? TIER_STATS[1] : { maxHP: 20 };
                 this.maxHp = stats.maxHP || 20;
                 this.hp = this.maxHp;
@@ -157,7 +151,10 @@ class Planet {
         if (this.owner !== 0) {
             this.spawnTimer += dt;
             const stats = (typeof TIER_STATS !== 'undefined' && TIER_STATS[this.level]) ? TIER_STATS[this.level] : null;
-            const interval = stats ? stats.spawnInterval : 3;
+            const baseInterval = stats ? stats.spawnInterval : 3;
+
+            const faction = FactionManager.getFaction(this.owner, gameManager);
+            const interval = baseInterval * (faction.spawnIntervalMult || 1.0);
 
             if (this.spawnTimer >= interval) {
                 this.spawnTimer = 0;
@@ -178,18 +175,16 @@ class Planet {
         }
     }
 
-    draw(ctx, ships) {
-        const activeColor = (typeof OWNER_COLORS !== 'undefined' && OWNER_COLORS[this.owner]) ? OWNER_COLORS[this.owner] : '#888888';
+    draw(ctx, ships, gameManager) {
+        const activeColor = FactionManager.getColor(this.owner, gameManager);
 
         ctx.save();
 
-        // 1. Core Planet Body
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = activeColor;
         ctx.fill();
 
-        // 2. Info Text Lines
         const maxTier = this.getMaxTier();
         const orbitCount = this.getOrbitingShipsCount(ships);
 
@@ -208,7 +203,6 @@ class Planet {
             lines.push(`Cap: ${this.upgradeProgress}/${claimCost}`);
         }
 
-        // 3. Render Solid Black Text Centered On Surface
         const fontSize = 9;
         const lineHeight = 11;
         const totalHeight = lines.length * lineHeight;

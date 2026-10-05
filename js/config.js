@@ -3,7 +3,6 @@ const GAME_CONFIG = {
     MAX_SPEED: 3,
     DEFAULT_FLEET_RATIO: 0.5,
     
-    // UI Selectors centralized in one place
     DOM: {
         CANVAS_ID: 'game',
         HUD_ID: 'hud',
@@ -16,12 +15,6 @@ const GAME_CONFIG = {
         GAME_OVER_TITLE: 'game-over-title',
         GAME_OVER_MSG: 'game-over-msg'
     }
-};
-
-const OWNER_COLORS = {
-    0: '#ffffff', // Neutral
-    1: '#0088ff', // Player Blue
-    2: '#ff3355'  // AI Red
 };
 
 const TIER_STATS = {

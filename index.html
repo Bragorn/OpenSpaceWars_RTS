@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenSpaceWars</title>
 
-    <!-- Retro Font: VT323 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
@@ -14,10 +13,8 @@
 </head>
 <body>
 
-    <!-- Main Game Canvas -->
     <canvas id="game"></canvas>
 
-    <!-- Top-Left In-Game HUD -->
     <div id="hud" class="hud-top-left hidden">
         <div id="game-timer" class="hud-timer">00:00</div>
         <div class="hud-controls">
@@ -28,33 +25,43 @@
         </div>
     </div>
 
-    <!-- Game Over Modal -->
     <div id="game-over-modal" class="hidden">
         <h1 id="game-over-title">VICTORY</h1>
         <p id="game-over-msg"></p>
         <button id="btn-restart" class="menu-btn">PLAY AGAIN</button>
     </div>
 
-    <!-- App UI Overlay -->
     <div id="ui-overlay">
-        <!-- 1. MAIN MENU -->
         <div id="menu-main" class="menu-card">
             <h2>OPEN SPACE WARS</h2>
             <button id="btn-main-play" class="menu-btn">PLAY GAME</button>
         </div>
 
-        <!-- 2. MAP SELECT MENU -->
         <div id="menu-map-select" class="menu-card" style="display: none;">
-            <h3>SELECT MAP</h3>
+            <h3>MATCH SETUP</h3>
+
+            <div class="faction-select-container">
+                <div class="faction-select-group">
+                    <label for="select-player-faction">Player Faction:</label>
+                    <select id="select-player-faction" class="menu-select"></select>
+                </div>
+                <div class="faction-select-group">
+                    <label for="select-enemy-faction">Enemy Faction:</label>
+                    <select id="select-enemy-faction" class="menu-select"></select>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 14px;">SELECT MAP</h3>
             <div id="slot-buttons"></div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
                 <button id="btn-map-back" class="menu-btn btn-secondary" style="flex: 1;">BACK</button>
-                <button id="btn-map-start" class="menu-btn" style="flex: 2;">PLAY MAP</button>
+                <button id="btn-map-start" class="menu-btn" style="flex: 2;">LAUNCH MATCH</button>
             </div>
         </div>
     </div>
 
     <script src="js/config.js"></script>
+    <script src="js/Factions.js"></script>
     
     <script src="js/entities/Planet.js"></script>
     <script src="js/entities/Ship.js"></script>
