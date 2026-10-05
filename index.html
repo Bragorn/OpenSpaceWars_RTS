@@ -32,30 +32,49 @@
     </div>
 
     <div id="ui-overlay">
+        <!-- Title Screen -->
         <div id="menu-main" class="menu-card">
             <h2>OPEN SPACE WARS</h2>
             <button id="btn-main-play" class="menu-btn">PLAY GAME</button>
         </div>
 
-        <div id="menu-map-select" class="menu-card" style="display: none;">
-            <h3>MATCH SETUP</h3>
+        <!-- Retro Sports Style Matchup Setup Screen -->
+        <div id="menu-map-select" class="menu-card menu-setup-card" style="display: none;">
+            <h2 class="menu-title">MATCH SETUP</h2>
 
-            <div class="faction-select-container">
-                <div class="faction-select-group">
-                    <label for="select-player-faction">Player Faction:</label>
-                    <select id="select-player-faction" class="menu-select"></select>
+            <div class="matchup-container">
+                <!-- Left: Player 1 Team -->
+                <div class="team-panel team-home">
+                    <div class="team-header">PLAYER 1</div>
+                    <div class="faction-select-group">
+                        <label for="select-player-faction">Faction:</label>
+                        <select id="select-player-faction" class="menu-select"></select>
+                    </div>
                 </div>
-                <div class="faction-select-group">
-                    <label for="select-enemy-faction">Enemy Faction:</label>
-                    <select id="select-enemy-faction" class="menu-select"></select>
+
+                <!-- Center: Arena / Map Selector -->
+                <div class="matchup-center">
+                    <div class="vs-badge">VS</div>
+                    <div class="map-select-box">
+                        <h3>SELECT ARENA</h3>
+                        <div id="slot-buttons" class="slot-buttons-list"></div>
+                    </div>
+                </div>
+
+                <!-- Right: CPU Team -->
+                <div class="team-panel team-away">
+                    <div class="team-header">CPU ENEMY</div>
+                    <div class="faction-select-group">
+                        <label for="select-enemy-faction">Faction:</label>
+                        <select id="select-enemy-faction" class="menu-select"></select>
+                    </div>
                 </div>
             </div>
 
-            <h3 style="margin-top: 14px;">SELECT MAP</h3>
-            <div id="slot-buttons"></div>
-            <div style="display: flex; gap: 8px; margin-top: 12px;">
-                <button id="btn-map-back" class="menu-btn btn-secondary" style="flex: 1;">BACK</button>
-                <button id="btn-map-start" class="menu-btn" style="flex: 2;">LAUNCH MATCH</button>
+            <!-- Bottom Action Row -->
+            <div class="menu-actions">
+                <button id="btn-map-back" class="menu-btn btn-secondary">BACK</button>
+                <button id="btn-map-start" class="menu-btn btn-primary">LAUNCH MATCH</button>
             </div>
         </div>
     </div>

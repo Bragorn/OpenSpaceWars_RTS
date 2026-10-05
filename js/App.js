@@ -45,6 +45,31 @@ class App {
             if (fac.id === 'PROTOCOL') optEnemy.selected = true;
             enemySelect.appendChild(optEnemy);
         });
+
+        // Initial sync to lock default selections
+        this.syncFactionDropdowns(playerSelect, enemySelect);
+
+        // Bi-directional event listeners
+        playerSelect.addEventListener('change', () => this.syncFactionDropdowns(playerSelect, enemySelect));
+        enemySelect.addEventListener('change', () => this.syncFactionDropdowns(enemySelect, playerSelect));
+    }
+
+    syncFactionDropdowns(sourceSelect, targetSelect) {
+        if (!sourceSelect || !targetSelect) return;
+        const selectedValue = sourceSelect.value;
+
+        // Disable selected faction in the opposing dropdown
+        Array.from(targetSelect.options).forEach(opt => {
+            opt.disabled = (opt.value === selectedValue);
+        });
+
+        // If the target dropdown was currently on this faction, auto-switch to first available option
+        if (targetSelect.value === selectedValue) {
+            const firstAvailable = Array.from(targetSelect.options).find(opt => !opt.disabled);
+            if (firstAvailable) {
+                targetSelect.value = firstAvailable.value;
+            }
+        }
     }
 
     clearScreen() {
@@ -74,7 +99,7 @@ class App {
         const menuMap = document.getElementById('menu-map-select');
 
         if (menuMain) menuMain.style.display = 'none';
-        if (menuMap) menuMap.style.display = 'block';
+        if (menuMap) menuMap.style.display = 'flex';
 
         this.renderMapSlots();
     }
