@@ -1,12 +1,14 @@
 class App {
     constructor() {
-        this.canvas = document.getElementById('game');
+        const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
+        this.canvas = document.getElementById(dom.CANVAS_ID || 'game');
         this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        
         this.state = 'MENU';
         this.selectedSlotNum = 1;
         this.lastTime = performance.now();
 
-        this.registry = new MapRegistry();
+        this.registry = typeof MapRegistry === 'function' ? new MapRegistry() : null;
 
         this.bindEvents();
         this.showMainMenu();
@@ -25,41 +27,38 @@ class App {
         }
     }
 
-    setHudVisible(visible) {
-        const hud = document.getElementById('hud');
-        if (hud) {
-            hud.classList.toggle('hidden', !visible);
-        }
-    }
-
     showMainMenu() {
         this.state = 'MENU';
         if (window.gameManager) window.gameManager.stop();
         this.clearScreen();
-        this.setHudVisible(false);
 
-        document.getElementById('menu-main').style.display = 'block';
-        document.getElementById('menu-map-select').style.display = 'none';
+        const menuMain = document.getElementById('menu-main');
+        const menuMap = document.getElementById('menu-map-select');
+
+        if (menuMain) menuMain.style.display = 'block';
+        if (menuMap) menuMap.style.display = 'none';
     }
 
     showMapSelect() {
         this.state = 'MAP_SELECT';
         if (window.gameManager) window.gameManager.stop();
         this.clearScreen();
-        this.setHudVisible(false);
 
-        document.getElementById('menu-main').style.display = 'none';
-        document.getElementById('menu-map-select').style.display = 'block';
+        const menuMain = document.getElementById('menu-main');
+        const menuMap = document.getElementById('menu-map-select');
+
+        if (menuMain) menuMain.style.display = 'none';
+        if (menuMap) menuMap.style.display = 'block';
 
         this.renderMapSlots();
     }
 
     renderMapSlots() {
         const container = document.getElementById('slot-buttons');
-        if (!container) return;
+        if (!container || !this.registry) return;
 
         container.innerHTML = '';
-        const allMaps = this.registry.getAllMaps();
+        const allMaps = this.registry.getAllMaps ? this.registry.getAllMaps() : [];
 
         allMaps.forEach((map, idx) => {
             const slotNum = idx + 1;
@@ -75,6 +74,8 @@ class App {
     }
 
     launchSelectedMap() {
+        if (!this.registry) return;
+
         const width = this.canvas ? this.canvas.width : window.innerWidth;
         const height = this.canvas ? this.canvas.height : window.innerHeight;
         
@@ -82,7 +83,9 @@ class App {
 
         this.state = 'GAME';
         this.clearScreen();
-        document.getElementById('menu-map-select').style.display = 'none';
+        
+        const menuMap = document.getElementById('menu-map-select');
+        if (menuMap) menuMap.style.display = 'none';
 
         if (window.gameManager) {
             window.gameManager.start(scaledMap);

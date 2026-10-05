@@ -1,10 +1,13 @@
 class GameManager {
     constructor() {
-        this.canvas = document.getElementById('game');
+        const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
+        
+        this.canvas = document.getElementById(dom.CANVAS_ID || 'game');
         this.planets = [];
         this.ships = [];
-        this.currentMapData = null; // Stored for restart button
+        this.currentMapData = null;
 
+        // Subsystems initialized with defensive fallbacks
         this.renderer = typeof Renderer === 'function' ? new Renderer(this.canvas) : null;
         this.controls = typeof Controls === 'function' ? new Controls(this.canvas, this, 1) : null;
         this.aiController = typeof AIController === 'function' ? new AIController(this) : null;
@@ -12,15 +15,15 @@ class GameManager {
         // Simulation State
         this.isRunning = false;
         this.gameTime = 0; 
-        this.gameSpeed = 1; 
+        this.gameSpeed = (window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1; 
 
         // HUD Elements
-        this.hudElement = document.getElementById('hud');
-        this.hudTimer = document.getElementById('game-timer');
-        this.btnPlayPause = document.getElementById('btn-play-pause');
-        this.btnSpeed1 = document.getElementById('btn-speed-1');
-        this.btnSpeed2 = document.getElementById('btn-speed-2');
-        this.btnSpeed3 = document.getElementById('btn-speed-3');
+        this.hudElement = document.getElementById(dom.HUD_ID || 'hud');
+        this.hudTimer = document.getElementById(dom.TIMER_ID || 'game-timer');
+        this.btnPlayPause = document.getElementById(dom.BTN_PLAY_PAUSE || 'btn-play-pause');
+        this.btnSpeed1 = document.getElementById(dom.BTN_SPEED_1 || 'btn-speed-1');
+        this.btnSpeed2 = document.getElementById(dom.BTN_SPEED_2 || 'btn-speed-2');
+        this.btnSpeed3 = document.getElementById(dom.BTN_SPEED_3 || 'btn-speed-3');
 
         this.initHUDListeners();
     }
@@ -58,7 +61,7 @@ class GameManager {
         this.currentMapData = mapData;
         this.loadMap(mapData);
         this.isRunning = true;
-        this.setSpeed(1);
+        this.setSpeed((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1);
         this.hudElement?.classList.remove('hidden');
     }
 
@@ -72,58 +75,9 @@ class GameManager {
         this.ships = [];
         this.gameTime = 0;
         this.updateTimerDisplay();
-        document.getElementById('game-over-modal')?.classList.add('hidden');
-    }
-
-    spawnShip(sourcePlanet, targetPlanet) {
-        if (!sourcePlanet || typeof Ship !== 'function') return null;
-        const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet);
-        this.ships.push(ship);
-        return ship;
-    }
-
-    destroyShip(ship) {
-        if (!ship) return;
-        ship.dead = true;
-        const idx = this.ships.indexOf(ship);
-        if (idx !== -1) {
-            this.ships.splice(idx, 1);
-        }
-    }
-
-    update(deltaTime) {
-        if (!this.isRunning) return;
-
-        if (this.gameSpeed > 0) {
-            // Track true real-time elapsed during active play
-            this.gameTime += deltaTime;
-            this.updateTimerDisplay();
-
-            // Multiply simulation step speed separately
-            const scaledDelta = deltaTime * this.gameSpeed;
-
-            this.planets.forEach(p => p && p.update && p.update(scaledDelta, this));
-            this.ships.forEach(s => s && s.update && s.update(scaledDelta, this));
-
-            if (this.aiController && this.aiController.update) {
-                this.aiController.update(scaledDelta);
-            }
-
-            this.ships = this.ships.filter(s => s && !s.dead);
-            this.checkWinCondition();
-        }
-
-        if (this.renderer && this.renderer.render) {
-            this.renderer.render(this, this.controls);
-        }
-    }
-
-    updateTimerDisplay() {
-        if (!this.hudTimer) return;
-        const totalSecs = Math.floor(this.gameTime);
-        const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
-        const secs = String(totalSecs % 60).padStart(2, '0');
-        this.hudTimer.textContent = `${mins}:${secs}`;
+        
+        const modalId = (window.GAME_CONFIG && window.GAME_CONFIG.DOM && window.GAME_CONFIG.DOM.GAME_OVER_MODAL) || 'game-over-modal';
+        document.getElementById(modalId)?.classList.add('hidden');
     }
 
     loadMap(mapData) {
@@ -150,8 +104,26 @@ class GameManager {
         });
     }
 
-    dispatchFleet(sourcePlanet, targetPlanet, ratio = 0.5) {
+    spawnShip(sourcePlanet, targetPlanet) {
+        if (!sourcePlanet || typeof Ship !== 'function') return null;
+        const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet);
+        this.ships.push(ship);
+        return ship;
+    }
+
+    destroyShip(ship) {
+        if (!ship) return;
+        ship.dead = true;
+        const idx = this.ships.indexOf(ship);
+        if (idx !== -1) {
+            this.ships.splice(idx, 1);
+        }
+    }
+
+    dispatchFleet(sourcePlanet, targetPlanet, ratio) {
         if (!sourcePlanet || !targetPlanet || sourcePlanet === targetPlanet) return;
+        
+        const effectiveRatio = ratio !== undefined ? ratio : ((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_FLEET_RATIO) || 0.5);
 
         const availableShips = this.ships.filter(s => 
             s && !s.dead && 
@@ -162,7 +134,7 @@ class GameManager {
 
         if (availableShips.length === 0) return;
 
-        const count = Math.max(1, Math.floor(availableShips.length * ratio));
+        const count = Math.max(1, Math.floor(availableShips.length * effectiveRatio));
         const fleet = availableShips.slice(0, count);
 
         fleet.forEach(ship => {
@@ -171,6 +143,39 @@ class GameManager {
             ship.state = 'launching';
             ship.launchProgress = 0;
         });
+    }
+
+    update(deltaTime) {
+        if (!this.isRunning) return;
+
+        if (this.gameSpeed > 0) {
+            this.gameTime += deltaTime;
+            this.updateTimerDisplay();
+
+            const scaledDelta = deltaTime * this.gameSpeed;
+
+            this.planets.forEach(p => p && p.update && p.update(scaledDelta, this));
+            this.ships.forEach(s => s && s.update && s.update(scaledDelta, this));
+
+            if (this.aiController && this.aiController.update) {
+                this.aiController.update(scaledDelta);
+            }
+
+            this.ships = this.ships.filter(s => s && !s.dead);
+            this.checkWinCondition();
+        }
+
+        if (this.renderer && this.renderer.render) {
+            this.renderer.render(this, this.controls);
+        }
+    }
+
+    updateTimerDisplay() {
+        if (!this.hudTimer) return;
+        const totalSecs = Math.floor(this.gameTime);
+        const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+        const secs = String(totalSecs % 60).padStart(2, '0');
+        this.hudTimer.textContent = `${mins}:${secs}`;
     }
 
     checkWinCondition() {
@@ -195,9 +200,10 @@ class GameManager {
     endGame(isVictory) {
         this.isRunning = false;
 
-        const modal = document.getElementById('game-over-modal');
-        const title = document.getElementById('game-over-title');
-        const msg = document.getElementById('game-over-msg');
+        const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
+        const modal = document.getElementById(dom.GAME_OVER_MODAL || 'game-over-modal');
+        const title = document.getElementById(dom.GAME_OVER_TITLE || 'game-over-title');
+        const msg = document.getElementById(dom.GAME_OVER_MSG || 'game-over-msg');
 
         if (modal && title && msg) {
             title.textContent = isVictory ? 'VICTORY' : 'DEFEAT';
