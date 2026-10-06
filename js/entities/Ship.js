@@ -41,10 +41,14 @@ class Ship {
         this.maxHp = faction.hp;
         this.laserDamage = faction.laserDamage;
         this.laserCooldownMax = faction.laserCooldown;
+        this.laserRange = faction.laserRange || 90.0;
         this.maxSpeed = faction.maxSpeed;
         this.enginePower = faction.enginePower;
         this.transitTurnRate = faction.transitTurnRate;
         this.combatTurnRate = faction.combatTurnRate;
+
+        // Touchdown weight scales based on baseline 20 HP
+        this.touchdownPower = Math.max(0.5, this.maxHp / 20.0);
 
         const baseRadius = (sourcePlanet && sourcePlanet.radius) ? sourcePlanet.radius : 28;
         const spawnAngle = Math.random() * Math.PI * 2;
@@ -162,11 +166,12 @@ class Ship {
         this.boidFy = isNaN(fy) ? 0 : fy;
     }
 
-    findNearestEnemy(gameManager, maxRange = 90.0) {
+    findNearestEnemy(gameManager, maxRange = null) {
         if (isNaN(this.x) || isNaN(this.y)) return null;
 
+        const effectiveRange = maxRange || this.laserRange;
         let nearestEnemy = null;
-        let minDist = maxRange;
+        let minDist = effectiveRange;
         const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
 
         if (gameManager && Array.isArray(gameManager.ships)) {
@@ -264,7 +269,7 @@ class Ship {
             this.vy = Math.cos(this.orbitAngle) * vCirc * this.orbitDir;
             this.thrustRatio = 0;
 
-            const enemy = this.findNearestEnemy(gameManager, 90.0);
+            const enemy = this.findNearestEnemy(gameManager, this.laserRange);
             if (enemy) {
                 const aimHeading = Math.atan2(enemy.y - this.y, enemy.x - this.x);
                 this.rotateTowards(aimHeading, dt);
@@ -369,7 +374,7 @@ class Ship {
         let desiredVy = 0;
         let requiresThrust = false;
 
-        const transitEnemy = this.findNearestEnemy(gameManager, 85.0);
+        const transitEnemy = this.findNearestEnemy(gameManager, this.laserRange);
         if (transitEnemy) this.fireLaser(transitEnemy, gameManager);
 
         if (this.state === 'launching') {

@@ -93,8 +93,10 @@ class Planet {
     onShipTouchdown(ship, gameManager) {
         if (!ship) return;
 
+        const power = ship.touchdownPower || 1.0;
+
         if (this.owner === 0) {
-            this.upgradeProgress++;
+            this.upgradeProgress += power;
             const claimRequirement = this.claimCost || 5;
             if (this.upgradeProgress >= claimRequirement) {
                 this.owner = ship.owner;
@@ -110,14 +112,14 @@ class Planet {
             const upgCost = this.getUpgradeCost();
 
             if (this.level < maxTier) {
-                this.upgradeProgress++;
+                this.upgradeProgress += power;
                 if (this.upgradeProgress >= upgCost) {
                     this.upgrade();
                 }
             }
         } 
         else if (this.owner !== ship.owner) {
-            this.hp -= 1;
+            this.hp -= power;
             if (this.hp <= 0) {
                 this.owner = ship.owner;
                 this.level = 1;
@@ -193,14 +195,14 @@ class Planet {
         lines.push(`Lvl: ${this.level}/${maxTier}`);
 
         if (this.owner !== 0) {
-            lines.push(`HP: ${this.hp}/${this.maxHp}`);
+            lines.push(`HP: ${Math.ceil(this.hp)}/${this.maxHp}`);
             const upgCost = this.getUpgradeCost();
             if (this.level < maxTier && upgCost > 0) {
-                lines.push(`Upg: ${this.upgradeProgress}/${upgCost}`);
+                lines.push(`Upg: ${Math.floor(this.upgradeProgress)}/${upgCost}`);
             }
         } else {
             const claimCost = this.claimCost || 5;
-            lines.push(`Cap: ${this.upgradeProgress}/${claimCost}`);
+            lines.push(`Cap: ${Math.floor(this.upgradeProgress)}/${claimCost}`);
         }
 
         const fontSize = 9;
