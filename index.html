@@ -15,6 +15,7 @@
 
     <canvas id="game"></canvas>
 
+    <!-- Top-Left In-Game HUD -->
     <div id="hud" class="hud-top-left hidden">
         <div id="game-timer" class="hud-timer">00:00</div>
         <div class="hud-controls">
@@ -25,27 +26,107 @@
         </div>
     </div>
 
+    <!-- Game Over Modal -->
     <div id="game-over-modal" class="hidden">
         <h1 id="game-over-title">VICTORY</h1>
         <p id="game-over-msg"></p>
-        <button id="btn-restart" class="menu-btn">PLAY AGAIN</button>
+        <button id="btn-restart" class="menu-btn">MAIN MENU</button>
     </div>
 
+    <!-- Batch Simulation Modal -->
+    <div id="sim-modal" class="sim-overlay hidden">
+        <div class="sim-dialog">
+            
+            <!-- VIEW 1: SIMULATION SETUP FORM -->
+            <div id="sim-setup-view">
+                <div class="sim-header">
+                    <h2>BATCH SIMULATION CONFIGURATION</h2>
+                </div>
+                
+                <div class="sim-body" style="display: flex; flex-direction: column; gap: 15px; padding: 20px 0;">
+                    <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
+                        <label for="sim-matches-count">Simulations Per Matchup:</label>
+                        <input type="number" id="sim-matches-count" value="10" min="1" max="100" style="width: 70px; text-align: center; background: #111; color: #00ffcc; border: 1px solid #00aaff; padding: 6px; font-family: inherit;" />
+                    </div>
+
+                    <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
+                        <label for="sim-combo-mode">Matchup Selection:</label>
+                        <select id="sim-combo-mode" class="menu-select" style="width: 240px;">
+                            <option value="ALL">All Faction Combos (Round-Robin)</option>
+                            <option value="SPECIFIC">Specific Matchup Choice</option>
+                        </select>
+                    </div>
+
+                    <!-- Options for Specific Match Choice -->
+                    <div id="sim-specific-options" class="hidden" style="display: flex; flex-direction: column; gap: 12px; background: rgba(0, 170, 255, 0.05); padding: 12px; border: 1px solid #00aaff; border-radius: 4px; margin-top: 5px;">
+                        <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
+                            <label for="sim-faction-1">Faction 1 (Team 1):</label>
+                            <select id="sim-faction-1" class="menu-select" style="width: 200px;"></select>
+                        </div>
+                        <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
+                            <label for="sim-faction-2">Faction 2 (Team 2):</label>
+                            <select id="sim-faction-2" class="menu-select" style="width: 200px;"></select>
+                        </div>
+                        <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
+                            <label for="sim-map-select">Arena / Map Target:</label>
+                            <select id="sim-map-select" class="menu-select" style="width: 200px;">
+                                <option value="ALL">All Maps</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sim-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <button id="btn-start-sim-run" class="menu-btn btn-primary">START SIMULATION</button>
+                    <button id="btn-close-sim" class="menu-btn btn-secondary">CANCEL</button>
+                </div>
+            </div>
+
+            <!-- VIEW 2: LIVE DASHBOARD & RESULTS -->
+            <div id="sim-running-view" class="hidden">
+                <div class="sim-header">
+                    <h2>HEADLESS BATCH SIMULATION DASHBOARD</h2>
+                    <span id="sim-progress" class="sim-progress-badge">0%</span>
+                </div>
+                <div id="sim-output" class="sim-body">
+                    <p class="sim-loading">Ready to simulate...</p>
+                </div>
+                <div class="sim-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                    <button id="btn-sim-reset" class="menu-btn btn-primary">NEW SETUP</button>
+                    <button id="btn-export-json" class="menu-btn btn-secondary">EXPORT JSON</button>
+                    <button id="btn-export-csv" class="menu-btn btn-secondary">EXPORT CSV</button>
+                    <button id="btn-close-sim-running" class="menu-btn btn-secondary">CLOSE DASHBOARD</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- UI Overlays -->
     <div id="ui-overlay">
         <!-- Title Screen -->
         <div id="menu-main" class="menu-card">
             <h2>OPEN SPACE WARS</h2>
-            <button id="btn-main-play" class="menu-btn">PLAY GAME</button>
+            <button id="btn-main-play" class="menu-btn">ENTER TACTICAL BAY</button>
         </div>
 
-        <!-- Retro Sports Style Matchup Setup Screen -->
+        <!-- Sci-Fi Matchup Setup Screen -->
         <div id="menu-map-select" class="menu-card menu-setup-card" style="display: none;">
-            <h2 class="menu-title">MATCH SETUP</h2>
+            <div class="setup-header-row">
+                <h2 class="menu-title">MATCH SETUP</h2>
+                <div class="mode-select-box">
+                    <label for="select-game-mode">MODE:</label>
+                    <select id="select-game-mode" class="menu-select mode-dropdown">
+                        <option value="PLAYER_VS_CPU">Player vs CPU</option>
+                        <option value="CPU_VS_CPU">Spectator (CPU vs CPU)</option>
+                    </select>
+                </div>
+            </div>
 
             <div class="matchup-container">
-                <!-- Left: Player 1 Team -->
+                <!-- Left: Team 1 -->
                 <div class="team-panel team-home">
-                    <div class="team-header">PLAYER 1</div>
+                    <div id="p1-header-label" class="team-header">PLAYER 1</div>
                     <div class="faction-select-group">
                         <label for="select-player-faction">Faction:</label>
                         <select id="select-player-faction" class="menu-select"></select>
@@ -61,9 +142,9 @@
                     </div>
                 </div>
 
-                <!-- Right: CPU Team -->
+                <!-- Right: Team 2 -->
                 <div class="team-panel team-away">
-                    <div class="team-header">CPU ENEMY</div>
+                    <div id="p2-header-label" class="team-header">CPU ENEMY</div>
                     <div class="faction-select-group">
                         <label for="select-enemy-faction">Faction:</label>
                         <select id="select-enemy-faction" class="menu-select"></select>
@@ -74,6 +155,7 @@
             <!-- Bottom Action Row -->
             <div class="menu-actions">
                 <button id="btn-map-back" class="menu-btn btn-secondary">BACK</button>
+                <button id="btn-batch-sim" class="menu-btn btn-sim">SIMULATE ALL MAPS</button>
                 <button id="btn-map-start" class="menu-btn btn-primary">LAUNCH MATCH</button>
             </div>
         </div>
@@ -91,6 +173,7 @@
 
     <script src="js/MapRegistry.js"></script>
     <script src="js/GameManager.js"></script>
+    <script src="js/utils/BatchSimulator.js"></script>
     <script src="js/main.js"></script>
     <script src="js/App.js"></script>
 </body>

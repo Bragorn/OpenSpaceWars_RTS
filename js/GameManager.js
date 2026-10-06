@@ -7,7 +7,10 @@ class GameManager {
         this.ships = [];
         this.currentMapData = null;
 
-        // Faction Mapping per team owner ID (1 = Player, 2 = AI Enemy)
+        // Mode: 'PLAYER_VS_CPU' | 'CPU_VS_CPU'
+        this.gameMode = 'PLAYER_VS_CPU';
+
+        // Faction Mapping per team owner ID (1 = Player/CPU 1, 2 = CPU 2)
         this.factionMap = {
             0: 'NEUTRAL',
             1: 'HUMAN',
@@ -15,9 +18,10 @@ class GameManager {
         };
 
         // Subsystems
-        this.renderer = typeof Renderer === 'function' ? new Renderer(this.canvas) : null;
-        this.controls = typeof Controls === 'function' ? new Controls(this.canvas, this, 1) : null;
-        this.aiController = typeof AIController === 'function' ? new AIController(this) : null;
+        this.renderer = (typeof Renderer === 'function' && this.canvas) ? new Renderer(this.canvas) : null;
+        this.controls = null;
+        this.aiController1 = null;
+        this.aiController2 = null;
 
         // Simulation State
         this.isRunning = false;
@@ -35,11 +39,11 @@ class GameManager {
         this.initHUDListeners();
     }
 
-    setFactionMap(playerFactionKey, enemyFactionKey) {
+    setFactionMap(team1FactionKey, team2FactionKey) {
         this.factionMap = {
             0: 'NEUTRAL',
-            1: playerFactionKey || 'HUMAN',
-            2: enemyFactionKey || 'PROTOCOL'
+            1: team1FactionKey || 'HUMAN',
+            2: team2FactionKey || 'PROTOCOL'
         };
     }
 
@@ -71,11 +75,22 @@ class GameManager {
         this.btnSpeed3?.classList.toggle('active', !isPaused && this.gameSpeed === 3);
     }
 
-    start(mapData, playerFactionKey, enemyFactionKey) {
+    start(mapData, team1FactionKey, team2FactionKey, gameMode = 'PLAYER_VS_CPU') {
         this.reset();
-        if (playerFactionKey && enemyFactionKey) {
-            this.setFactionMap(playerFactionKey, enemyFactionKey);
+        this.gameMode = gameMode;
+        this.setFactionMap(team1FactionKey, team2FactionKey);
+
+        // Configure Controllers based on Mode
+        if (this.gameMode === 'CPU_VS_CPU') {
+            this.controls = null;
+            this.aiController1 = typeof AIController === 'function' ? new AIController(this, 1) : null;
+            this.aiController2 = typeof AIController === 'function' ? new AIController(this, 2) : null;
+        } else {
+            this.controls = (typeof Controls === 'function' && this.canvas) ? new Controls(this.canvas, this, 1) : null;
+            this.aiController1 = null;
+            this.aiController2 = typeof AIController === 'function' ? new AIController(this, 2) : null;
         }
+
         this.currentMapData = mapData;
         this.loadMap(mapData);
         this.isRunning = true;
@@ -117,8 +132,10 @@ class GameManager {
         const rawPlanets = parsed.planets || (Array.isArray(parsed) ? parsed : []);
 
         this.planets = rawPlanets.map(p => {
-            if (p instanceof Planet) return p;
-            return new Planet(p.x, p.y, p.level || 1, p.owner !== undefined ? p.owner : 0);
+            if (typeof Planet === 'function') {
+                return new Planet(p.x, p.y, p.level || 1, p.owner !== undefined ? p.owner : 0);
+            }
+            return p;
         });
     }
 
@@ -175,8 +192,12 @@ class GameManager {
             this.planets.forEach(p => p && p.update && p.update(scaledDelta, this));
             this.ships.forEach(s => s && s.update && s.update(scaledDelta, this));
 
-            if (this.aiController && this.aiController.update) {
-                this.aiController.update(scaledDelta);
+            // Execute active AI controllers
+            if (this.aiController1 && this.aiController1.update) {
+                this.aiController1.update(scaledDelta);
+            }
+            if (this.aiController2 && this.aiController2.update) {
+                this.aiController2.update(scaledDelta);
             }
 
             this.ships = this.ships.filter(s => s && !s.dead);
@@ -199,23 +220,23 @@ class GameManager {
     checkWinCondition() {
         if (!this.isRunning) return;
 
-        const playerPlanets = this.planets.filter(p => p.owner === 1).length;
-        const playerShips = this.ships.filter(s => s.owner === 1 && !s.dead).length;
+        const team1Planets = this.planets.filter(p => p.owner === 1).length;
+        const team1Ships = this.ships.filter(s => s.owner === 1 && !s.dead).length;
 
-        const aiPlanets = this.planets.filter(p => p.owner === 2).length;
-        const aiShips = this.ships.filter(s => s.owner === 2 && !s.dead).length;
+        const team2Planets = this.planets.filter(p => p.owner === 2).length;
+        const team2Ships = this.ships.filter(s => s.owner === 2 && !s.dead).length;
 
-        const playerAlive = playerPlanets > 0 || playerShips > 0;
-        const aiAlive = aiPlanets > 0 || aiShips > 0;
+        const team1Alive = team1Planets > 0 || team1Ships > 0;
+        const team2Alive = team2Planets > 0 || team2Ships > 0;
 
-        if (!aiAlive && playerAlive) {
-            this.endGame(true);
-        } else if (!playerAlive) {
-            this.endGame(false);
+        if (!team2Alive && team1Alive) {
+            this.endGame(1);
+        } else if (!team1Alive && team2Alive) {
+            this.endGame(2);
         }
     }
 
-    endGame(isVictory) {
+    endGame(winningTeam) {
         this.isRunning = false;
 
         const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
@@ -224,16 +245,26 @@ class GameManager {
         const msg = document.getElementById(dom.GAME_OVER_MSG || 'game-over-msg');
 
         if (modal && title && msg) {
-            title.textContent = isVictory ? 'VICTORY' : 'DEFEAT';
-            title.style.color = isVictory ? '#00ffcc' : '#ff3355';
+            const fac1Name = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[this.factionMap[1]]) ? FACTION_DATA[this.factionMap[1]].name : 'Team 1';
+            const fac2Name = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[this.factionMap[2]]) ? FACTION_DATA[this.factionMap[2]].name : 'Team 2';
 
             const totalSecs = Math.floor(this.gameTime);
             const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
             const secs = String(totalSecs % 60).padStart(2, '0');
 
-            msg.textContent = isVictory 
-                ? `System secured in ${mins}:${secs}!` 
-                : `Fleet wiped out after ${mins}:${secs}.`;
+            if (this.gameMode === 'CPU_VS_CPU') {
+                const winnerName = winningTeam === 1 ? fac1Name : fac2Name;
+                title.textContent = `${winnerName.toUpperCase()} VICTORIOUS`;
+                title.style.color = winningTeam === 1 ? '#00aaff' : '#ff3355';
+                msg.textContent = `Automated spectator match ended in ${mins}:${secs}.`;
+            } else {
+                const isVictory = (winningTeam === 1);
+                title.textContent = isVictory ? 'VICTORY' : 'DEFEAT';
+                title.style.color = isVictory ? '#00ffcc' : '#ff3355';
+                msg.textContent = isVictory 
+                    ? `System secured in ${mins}:${secs}!` 
+                    : `Fleet wiped out after ${mins}:${secs}.`;
+            }
 
             modal.classList.remove('hidden');
         }
