@@ -1,8 +1,9 @@
 class GameManager {
-    constructor() {
-        const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
+    constructor(isHeadless = false) {
+        this.isHeadless = isHeadless;
+        const dom = (!this.isHeadless && window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
         
-        this.canvas = document.getElementById(dom.CANVAS_ID || 'game');
+        this.canvas = !this.isHeadless ? document.getElementById(dom.CANVAS_ID || 'game') : null;
         this.planets = [];
         this.ships = [];
         this.currentMapData = null;
@@ -10,15 +11,15 @@ class GameManager {
         // Mode: 'PLAYER_VS_CPU' | 'CPU_VS_CPU'
         this.gameMode = 'PLAYER_VS_CPU';
 
-        // Faction Mapping per team owner ID (1 = Player/CPU 1, 2 = CPU 2)
+        // Faction Mapping per team owner ID (1 = Team 1, 2 = Team 2)
         this.factionMap = {
             0: 'NEUTRAL',
             1: 'HUMAN',
             2: 'PROTOCOL'
         };
 
-        // Subsystems
-        this.renderer = (typeof Renderer === 'function' && this.canvas) ? new Renderer(this.canvas) : null;
+        // Subsystems (Skip in Headless Mode)
+        this.renderer = (!this.isHeadless && typeof Renderer === 'function' && this.canvas) ? new Renderer(this.canvas) : null;
         this.controls = null;
         this.aiController1 = null;
         this.aiController2 = null;
@@ -28,15 +29,16 @@ class GameManager {
         this.gameTime = 0; 
         this.gameSpeed = (window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1; 
 
-        // HUD Elements
-        this.hudElement = document.getElementById(dom.HUD_ID || 'hud');
-        this.hudTimer = document.getElementById(dom.TIMER_ID || 'game-timer');
-        this.btnPlayPause = document.getElementById(dom.BTN_PLAY_PAUSE || 'btn-play-pause');
-        this.btnSpeed1 = document.getElementById(dom.BTN_SPEED_1 || 'btn-speed-1');
-        this.btnSpeed2 = document.getElementById(dom.BTN_SPEED_2 || 'btn-speed-2');
-        this.btnSpeed3 = document.getElementById(dom.BTN_SPEED_3 || 'btn-speed-3');
-
-        this.initHUDListeners();
+        // HUD Elements (Skip DOM queries in Headless Mode)
+        if (!this.isHeadless) {
+            this.hudElement = document.getElementById(dom.HUD_ID || 'hud');
+            this.hudTimer = document.getElementById(dom.TIMER_ID || 'game-timer');
+            this.btnPlayPause = document.getElementById(dom.BTN_PLAY_PAUSE || 'btn-play-pause');
+            this.btnSpeed1 = document.getElementById(dom.BTN_SPEED_1 || 'btn-speed-1');
+            this.btnSpeed2 = document.getElementById(dom.BTN_SPEED_2 || 'btn-speed-2');
+            this.btnSpeed3 = document.getElementById(dom.BTN_SPEED_3 || 'btn-speed-3');
+            this.initHUDListeners();
+        }
     }
 
     setFactionMap(team1FactionKey, team2FactionKey) {
@@ -48,6 +50,8 @@ class GameManager {
     }
 
     initHUDListeners() {
+        if (this.isHeadless) return;
+
         this.btnPlayPause?.addEventListener('click', () => {
             this.setSpeed(this.gameSpeed === 0 ? 1 : 0);
         });
@@ -59,10 +63,11 @@ class GameManager {
 
     setSpeed(speed) {
         this.gameSpeed = speed;
-        this.updateHUDUI();
+        if (!this.isHeadless) this.updateHUDUI();
     }
 
     updateHUDUI() {
+        if (this.isHeadless) return;
         const isPaused = (this.gameSpeed === 0);
 
         if (this.btnPlayPause) {
@@ -86,7 +91,7 @@ class GameManager {
             this.aiController1 = typeof AIController === 'function' ? new AIController(this, 1) : null;
             this.aiController2 = typeof AIController === 'function' ? new AIController(this, 2) : null;
         } else {
-            this.controls = (typeof Controls === 'function' && this.canvas) ? new Controls(this.canvas, this, 1) : null;
+            this.controls = (!this.isHeadless && typeof Controls === 'function' && this.canvas) ? new Controls(this.canvas, this, 1) : null;
             this.aiController1 = null;
             this.aiController2 = typeof AIController === 'function' ? new AIController(this, 2) : null;
         }
@@ -95,22 +100,29 @@ class GameManager {
         this.loadMap(mapData);
         this.isRunning = true;
         this.setSpeed((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1);
-        this.hudElement?.classList.remove('hidden');
+        
+        if (!this.isHeadless) {
+            this.hudElement?.classList.remove('hidden');
+        }
     }
 
     stop() {
         this.isRunning = false;
-        this.hudElement?.classList.add('hidden');
+        if (!this.isHeadless) {
+            this.hudElement?.classList.add('hidden');
+        }
     }
 
     reset() {
         this.planets = [];
         this.ships = [];
         this.gameTime = 0;
-        this.updateTimerDisplay();
         
-        const modalId = (window.GAME_CONFIG && window.GAME_CONFIG.DOM && window.GAME_CONFIG.DOM.GAME_OVER_MODAL) || 'game-over-modal';
-        document.getElementById(modalId)?.classList.add('hidden');
+        if (!this.isHeadless) {
+            this.updateTimerDisplay();
+            const modalId = (window.GAME_CONFIG && window.GAME_CONFIG.DOM && window.GAME_CONFIG.DOM.GAME_OVER_MODAL) || 'game-over-modal';
+            document.getElementById(modalId)?.classList.add('hidden');
+        }
     }
 
     loadMap(mapData) {
@@ -185,7 +197,10 @@ class GameManager {
 
         if (this.gameSpeed > 0) {
             this.gameTime += deltaTime;
-            this.updateTimerDisplay();
+            
+            if (!this.isHeadless) {
+                this.updateTimerDisplay();
+            }
 
             const scaledDelta = deltaTime * this.gameSpeed;
 
@@ -204,13 +219,14 @@ class GameManager {
             this.checkWinCondition();
         }
 
-        if (this.renderer && this.renderer.render) {
+        // Only draw graphics if NOT headless
+        if (!this.isHeadless && this.renderer && this.renderer.render) {
             this.renderer.render(this, this.controls);
         }
     }
 
     updateTimerDisplay() {
-        if (!this.hudTimer) return;
+        if (this.isHeadless || !this.hudTimer) return;
         const totalSecs = Math.floor(this.gameTime);
         const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
         const secs = String(totalSecs % 60).padStart(2, '0');
@@ -238,6 +254,9 @@ class GameManager {
 
     endGame(winningTeam) {
         this.isRunning = false;
+        this.winnerId = winningTeam;
+
+        if (this.isHeadless) return; // Skip UI modal popup in headless simulation
 
         const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
         const modal = document.getElementById(dom.GAME_OVER_MODAL || 'game-over-modal');

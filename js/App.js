@@ -33,10 +33,6 @@ class App {
         document.getElementById('btn-start-sim-run')?.addEventListener('click', () => this.runConfiguredSimulation());
         document.getElementById('btn-sim-reset')?.addEventListener('click', () => this.showSimSetupView());
 
-        // Data Exporters
-        document.getElementById('btn-export-json')?.addEventListener('click', () => this.exportSimData('json'));
-        document.getElementById('btn-export-csv')?.addEventListener('click', () => this.exportSimData('csv'));
-
         document.getElementById('select-game-mode')?.addEventListener('change', (e) => {
             const p1Label = document.getElementById('p1-header-label');
             const p2Label = document.getElementById('p2-header-label');
@@ -199,7 +195,44 @@ class App {
         const output = document.getElementById('sim-output');
         if (!output || !report) return;
 
+        // 1. Build concise plain-text summary for copying
+        let textSummary = `=== BATCH SIMULATION REPORT (${report.totalMatches} MATCHES) ===\n\n`;
+        textSummary += `FACTION PERFORMANCE:\n`;
+        textSummary += `Faction       | Win Rate | Wins / Total | Avg Duration | Avg Control\n`;
+        textSummary += `--------------|----------|--------------|--------------|------------\n`;
+
+        const sortedFactions = [...(report.factions || [])].sort((a, b) => 
+            (report.factionStats[b]?.winRate || 0) - (report.factionStats[a]?.winRate || 0)
+        );
+
+        sortedFactions.forEach(fKey => {
+            const st = report.factionStats[fKey];
+            if (!st) return;
+            const facName = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[fKey]) ? FACTION_DATA[fKey].name : fKey;
+            
+            const namePad = facName.padEnd(13, ' ');
+            const wrPad = `${st.winRate}%`.padEnd(8, ' ');
+            const ratioPad = `${st.wins}/${st.matches}`.padEnd(12, ' ');
+            const durPad = `${st.avgDuration}s`.padEnd(12, ' ');
+            const sharePad = `${st.avgPlanetShare}%`;
+
+            textSummary += `${namePad} | ${wrPad} | ${ratioPad} | ${durPad} | ${sharePad}\n`;
+        });
+
+        textSummary += `\nMAP BREAKDOWN:\n`;
+        Object.keys(report.mapStats || {}).forEach(mapKey => {
+            const ms = report.mapStats[mapKey];
+            textSummary += `Map ${mapKey} (${ms.name}): Avg ${ms.avgDuration}s across ${ms.matches} matches\n`;
+        });
+
+        // 2. Render UI HTML + Text Copy Box
         let html = `
+            <div style="margin-bottom: 15px; text-align: right;">
+                <button id="btn-copy-sim-text" style="padding: 8px 16px; background: #00aaff; color: #000; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
+                    Copy
+                </button>
+            </div>
+
             <div class="sim-summary-grid">
                 <div class="sim-card">
                     <h4>TOTAL MATCHES</h4>
@@ -229,14 +262,10 @@ class App {
                 <tbody>
         `;
 
-        const sortedFactions = [...(report.factions || [])].sort((a, b) => 
-            (report.factionStats[b]?.winRate || 0) - (report.factionStats[a]?.winRate || 0)
-        );
-
         sortedFactions.forEach(fKey => {
             const st = report.factionStats[fKey];
             if (!st) return;
-            const facName = FACTION_DATA[fKey]?.name || fKey;
+            const facName = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[fKey]) ? FACTION_DATA[fKey].name : fKey;
             const winColor = st.winRate >= 55 ? '#00ffcc' : (st.winRate <= 45 ? '#ff4466' : '#ffffff');
 
             html += `
@@ -254,57 +283,22 @@ class App {
                 </tbody>
             </table>
 
-            <h3 class="sim-section-title">MAP DURATION BREAKDOWN</h3>
-            <div class="sim-map-grid">
+            <h3 class="sim-section-title">PLAIN-TEXT EXPORT</h3>
+            <textarea id="sim-text-export" readonly style="width: 100%; height: 120px; background: #111; color: #00ffcc; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #333; border-radius: 4px;">${textSummary}</textarea>
         `;
 
-        Object.keys(report.mapStats || {}).forEach(mapKey => {
-            const ms = report.mapStats[mapKey];
-            html += `
-                <div class="sim-card">
-                    <h4 style="color: #00ffcc;">Map ${mapKey}: ${ms.name}</h4>
-                    <p>Avg Length: <strong>${ms.avgDuration}s</strong></p>
-                    <p>Total Played: ${ms.matches}</p>
-                </div>
-            `;
-        });
-
-        html += `</div>`;
         output.innerHTML = html;
-    }
 
-    exportSimData(format = 'json') {
-        if (!this.lastSimReport) {
-            alert("No simulation data available to export. Run a simulation first.");
-            return;
-        }
-
-        const report = this.lastSimReport;
-        let dataStr = "";
-        let filename = `OpenSpaceWars_SimData_${Date.now()}`;
-
-        if (format === 'json') {
-            dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
-            filename += ".json";
-        } else if (format === 'csv') {
-            let csvLines = ["FactionKey,FactionName,MatchesPlayed,Wins,WinRatePercent,AvgDurationSec,AvgPlanetSharePercent"];
-            
-            Object.keys(report.factionStats || {}).forEach(fKey => {
-                const st = report.factionStats[fKey];
-                const name = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[fKey]) ? FACTION_DATA[fKey].name : fKey;
-                csvLines.push(`"${fKey}","${name}",${st.matches},${st.wins},${st.winRate},${st.avgDuration},${st.avgPlanetShare}`);
-            });
-
-            dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(csvLines.join("\n"));
-            filename += ".csv";
-        }
-
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", filename);
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
+        // Bind copy button event
+        document.getElementById('btn-copy-sim-text')?.addEventListener('click', () => {
+            const txt = document.getElementById('sim-text-export');
+            if (txt) {
+                txt.select();
+                navigator.clipboard.writeText(txt.value);
+                const btn = document.getElementById('btn-copy-sim-text');
+                if (btn) btn.textContent = '✓ Copied!';
+            }
+        });
     }
 
     clearScreen() {

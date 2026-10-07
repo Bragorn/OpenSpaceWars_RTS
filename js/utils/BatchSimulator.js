@@ -1,234 +1,198 @@
 class BatchSimulator {
     /**
-     * Executes headless batch matches based on numeric count or configuration object.
+     * Runs a full batch simulation suite headless with macro time-stepping.
+     * 
      * @param {MapRegistry} registry 
-     * @param {number|Object} options - Number of matches OR simulation configuration object
-     * @param {Function} onProgress - Progress callback (completed, total)
-     * @returns {Promise<Object>} Compiled report of win rates, durations, and map metrics
+     * @param {Object} options 
+     * @param {Function} onProgress 
+     * @returns {Promise<Object>}
      */
-    static async runFullSuite(registry, options, onProgress) {
-        if (!registry) {
-            console.error("BatchSimulator: No MapRegistry provided.");
-            return null;
-        }
+    static async runFullSuite(registry, options = {}, onProgress = null) {
+        const matchesPerPair = options.matchesPerPair || 10;
+        const mode = options.mode || 'ALL';
+        const faction1Override = options.faction1 || 'HUMAN';
+        const faction2Override = options.faction2 || 'PROTOCOL';
+        const mapTarget = options.mapTarget || 'ALL';
 
-        // 1. Parse Options & Default Values
-        let matchesPerPair = 10;
-        let mode = 'ALL';
-        let faction1 = null;
-        let faction2 = null;
-        let mapTarget = 'ALL';
+        const mapList = registry && typeof registry.getAllMaps === 'function' ? registry.getAllMaps() : [];
+        const factionKeys = typeof FACTION_DATA !== 'undefined' ? Object.keys(FACTION_DATA) : ['HUMAN', 'PROTOCOL'];
 
-        if (typeof options === 'number') {
-            matchesPerPair = options;
-        } else if (typeof options === 'object' && options !== null) {
-            matchesPerPair = parseInt(options.matchesPerPair, 10) || 10;
-            mode = options.mode || 'ALL';
-            faction1 = options.faction1 || null;
-            faction2 = options.faction2 || null;
-            mapTarget = options.mapTarget || 'ALL';
-        }
+        let matchups = [];
 
-        // 2. Resolve Maps to Test
-        const allMaps = registry.getAllMaps ? registry.getAllMaps() : [];
-        let mapsToTest = [];
+        if (mode === 'SPECIFIC') {
+            const mapsToRun = mapTarget === 'ALL' 
+                ? mapList.map((_, idx) => idx + 1) 
+                : [parseInt(mapTarget, 10)];
 
-        if (mapTarget !== 'ALL' && mapTarget !== null) {
-            const targetIdx = parseInt(mapTarget, 10) - 1;
-            if (allMaps[targetIdx]) {
-                mapsToTest = [{ slotNum: parseInt(mapTarget, 10), mapData: allMaps[targetIdx] }];
-            }
-        }
-
-        if (mapsToTest.length === 0) {
-            mapsToTest = allMaps.map((mapData, idx) => ({ slotNum: idx + 1, mapData }));
-        }
-
-        // 3. Resolve Matchup Pairs
-        const allFactionKeys = typeof FACTION_DATA !== 'undefined' ? Object.keys(FACTION_DATA) : ['HUMAN', 'PROTOCOL'];
-        let pairs = [];
-
-        if (mode === 'SPECIFIC' && faction1 && faction2) {
-            pairs = [{ f1: faction1, f2: faction2 }];
+            mapsToRun.forEach(slotNum => {
+                matchups.push({ slotNum, f1: faction1Override, f2: faction2Override });
+            });
         } else {
-            // Round-robin pairing across all registered factions
-            for (let i = 0; i < allFactionKeys.length; i++) {
-                for (let j = i + 1; j < allFactionKeys.length; j++) {
-                    pairs.push({ f1: allFactionKeys[i], f2: allFactionKeys[j] });
+            mapList.forEach((_, idx) => {
+                const slotNum = idx + 1;
+                for (let i = 0; i < factionKeys.length; i++) {
+                    for (let j = i + 1; j < factionKeys.length; j++) {
+                        matchups.push({ slotNum, f1: factionKeys[i], f2: factionKeys[j] });
+                    }
                 }
-            }
+            });
         }
 
-        const totalMatches = mapsToTest.length * pairs.length * matchesPerPair;
-        if (totalMatches === 0) {
-            console.warn("BatchSimulator: No matches to simulate with current criteria.");
-            return null;
+        if (matchups.length === 0) {
+            matchups.push({ slotNum: 1, f1: faction1Override, f2: faction2Override });
         }
 
+        const totalMatches = matchups.length * matchesPerPair;
         let completedMatches = 0;
-        const results = [];
 
-        // 4. Initialize Data Structures
-        const factionStats = {};
-        const activeFactionsSet = new Set();
+        const results = {
+            totalMatches,
+            factions: factionKeys,
+            factionStats: {},
+            mapStats: {}
+        };
 
-        pairs.forEach(p => {
-            activeFactionsSet.add(p.f1);
-            activeFactionsSet.add(p.f2);
-        });
-
-        activeFactionsSet.forEach(fKey => {
-            factionStats[fKey] = {
-                matches: 0,
-                wins: 0,
-                winRate: 0,
-                totalDuration: 0,
-                avgDuration: 0,
-                totalPlanetShare: 0,
-                avgPlanetShare: 0
+        factionKeys.forEach(f => {
+            results.factionStats[f] = { 
+                wins: 0, 
+                matches: 0, 
+                totalDuration: 0, 
+                planetShareSum: 0, 
+                winRate: 0, 
+                avgDuration: 0, 
+                avgPlanetShare: 0 
             };
         });
 
-        const mapStats = {};
-        mapsToTest.forEach(m => {
-            mapStats[m.slotNum] = {
-                name: m.mapData.name,
-                matches: 0,
-                totalDuration: 0,
-                avgDuration: 0
+        mapList.forEach((m, idx) => {
+            const slotNum = idx + 1;
+            results.mapStats[slotNum] = { 
+                name: m ? (m.name || `Arena ${slotNum}`) : `Arena ${slotNum}`, 
+                matches: 0, 
+                totalDuration: 0, 
+                avgDuration: 0 
             };
         });
 
-        // 5. Execution Loop
-        for (const mapObj of mapsToTest) {
-            for (const pair of pairs) {
-                for (let m = 0; m < matchesPerPair; m++) {
-                    // Alternate home/away starting positions on odd matches
-                    const p1Faction = (m % 2 === 0) ? pair.f1 : pair.f2;
-                    const p2Faction = (m % 2 === 0) ? pair.f2 : pair.f1;
+        // 10Hz logic steps (0.1s dt) for maximum speed
+        const MACRO_DT = 0.1; 
+        const MAX_TICKS = 1800; // 180 seconds cap per match
 
-                    const matchResult = await this.simulateSingleMatch(registry, mapObj.slotNum, p1Faction, p2Faction);
-                    results.push(matchResult);
+        const startTime = performance.now();
 
-                    completedMatches++;
+        for (const matchDef of matchups) {
+            const rawMap = registry && typeof registry.getScaledMap === 'function'
+                ? registry.getScaledMap(matchDef.slotNum, 1200, 800)
+                : null;
+
+            for (let m = 0; m < matchesPerPair; m++) {
+                const matchResult = this.runSingleMatchFast(rawMap, matchDef.f1, matchDef.f2, MACRO_DT, MAX_TICKS);
+                
+                const { winnerTeamId, durationSeconds, team1Share, team2Share } = matchResult;
+
+                // Team 1 Stats (f1)
+                const f1 = results.factionStats[matchDef.f1];
+                if (f1) {
+                    f1.matches++;
+                    f1.totalDuration += durationSeconds;
+                    f1.planetShareSum += team1Share;
+                    if (winnerTeamId === 1) f1.wins++;
+                }
+
+                // Team 2 Stats (f2)
+                const f2 = results.factionStats[matchDef.f2];
+                if (f2) {
+                    f2.matches++;
+                    f2.totalDuration += durationSeconds;
+                    f2.planetShareSum += team2Share;
+                    if (winnerTeamId === 2) f2.wins++;
+                }
+
+                // Map Stats
+                const mapSt = results.mapStats[matchDef.slotNum];
+                if (mapSt) {
+                    mapSt.matches++;
+                    mapSt.totalDuration += durationSeconds;
+                }
+
+                completedMatches++;
+
+                if (completedMatches % 20 === 0 || completedMatches === totalMatches) {
                     if (typeof onProgress === 'function') {
                         onProgress(completedMatches, totalMatches);
                     }
-
-                    // Yield to browser main thread briefly every 2 matches so UI updates progress smoothly
-                    if (completedMatches % 2 === 0) {
-                        await new Promise(resolve => setTimeout(resolve, 0));
-                    }
+                    await new Promise(resolve => setTimeout(resolve, 0));
                 }
             }
         }
 
-        // 6. Compile Aggregate Statistics
-        results.forEach(res => {
-            const duration = res.duration || 0;
-            const winner = res.winnerId; // 1 or 2
-
-            const p1Key = res.p1Faction;
-            const p2Key = res.p2Faction;
-
-            if (factionStats[p1Key]) {
-                factionStats[p1Key].matches++;
-                if (winner === 1) factionStats[p1Key].wins++;
-                factionStats[p1Key].totalDuration += duration;
-                factionStats[p1Key].totalPlanetShare += res.p1PlanetShare || 0;
-            }
-
-            if (factionStats[p2Key]) {
-                factionStats[p2Key].matches++;
-                if (winner === 2) factionStats[p2Key].wins++;
-                factionStats[p2Key].totalDuration += duration;
-                factionStats[p2Key].totalPlanetShare += res.p2PlanetShare || 0;
-            }
-
-            if (mapStats[res.mapSlot]) {
-                mapStats[res.mapSlot].matches++;
-                mapStats[res.mapSlot].totalDuration += duration;
-            }
-        });
-
-        // Compute averages and percentages
-        Object.keys(factionStats).forEach(fKey => {
-            const st = factionStats[fKey];
+        // Finalize percentages & averages
+        Object.keys(results.factionStats).forEach(f => {
+            const st = results.factionStats[f];
             if (st.matches > 0) {
                 st.winRate = Math.round((st.wins / st.matches) * 100);
                 st.avgDuration = Math.round(st.totalDuration / st.matches);
-                st.avgPlanetShare = Math.round(st.totalPlanetShare / st.matches);
+                st.avgPlanetShare = Math.round(st.planetShareSum / st.matches);
             }
         });
 
-        Object.keys(mapStats).forEach(mKey => {
-            const ms = mapStats[mKey];
-            if (ms.matches > 0) {
-                ms.avgDuration = Math.round(ms.totalDuration / ms.matches);
+        Object.keys(results.mapStats).forEach(m => {
+            const st = results.mapStats[m];
+            if (st.matches > 0) {
+                st.avgDuration = Math.round(st.totalDuration / st.matches);
             }
         });
 
-        return {
-            totalMatches: completedMatches,
-            factions: Array.from(activeFactionsSet),
-            factionStats,
-            mapStats,
-            rawResults: results
-        };
+        results.executionTimeMs = Math.round(performance.now() - startTime);
+        return results;
     }
 
     /**
-     * Runs a single headless simulation to completion without rendering canvas graphics.
+     * Fast single match execution directly interacting with GameManager state.
      */
-    static simulateSingleMatch(registry, mapSlotNum, p1Faction, p2Faction) {
-        return new Promise((resolve) => {
-            const scaledMap = registry.getScaledMap(mapSlotNum, 1280, 720);
-            const simManager = new GameManager();
+    static runSingleMatchFast(mapData, faction1Id, faction2Id, dt, maxTicks) {
+        // Instantiate headless GameManager
+        const simManager = new GameManager(true);
+        simManager.start(mapData, faction1Id, faction2Id, 'CPU_VS_CPU');
 
-            // Initialize game state in CPU vs CPU mode
-            simManager.start(scaledMap, p1Faction, p2Faction, 'CPU_VS_CPU');
+        let ticks = 0;
 
-            const fixedDelta = 0.05; // 20 updates/second logic step
-            let simTime = 0;
-            const maxSimTime = 600; // 10 minute timeout guard
+        // Run until game ends (simManager.isRunning set to false by endGame) or tick cap reached
+        while (simManager.isRunning && ticks < maxTicks) {
+            simManager.update(dt);
+            ticks++;
+        }
 
-            // Fast Headless Simulation Step Loop
-            while (simManager.isRunning && simTime < maxSimTime) {
-                simManager.update(fixedDelta);
-                simTime += fixedDelta;
+        let winnerTeamId = simManager.winnerId || 0; // 1 = Team 1, 2 = Team 2, 0 = Draw
 
-                // Determine match end (one team holds all non-neutral planets or target score)
-                const planets = simManager.planets || [];
-                const p1Planets = planets.filter(p => p.owner === 1).length;
-                const p2Planets = planets.filter(p => p.owner === 2).length;
+        // Calculate planet ownership
+        const totalPlanets = simManager.planets && simManager.planets.length > 0 ? simManager.planets.length : 1;
+        let t1Planets = 0;
+        let t2Planets = 0;
 
-                if (planets.length > 0) {
-                    if (p1Planets === planets.length || (p2Planets === 0 && simTime > 15)) {
-                        simManager.winnerId = 1;
-                        simManager.isRunning = false;
-                    } else if (p2Planets === planets.length || (p1Planets === 0 && simTime > 15)) {
-                        simManager.winnerId = 2;
-                        simManager.isRunning = false;
-                    }
-                }
-            }
+        if (simManager.planets) {
+            simManager.planets.forEach(p => {
+                if (p.owner === 1) t1Planets++;
+                if (p.owner === 2) t2Planets++;
+            });
+        }
 
-            const totalPlanets = simManager.planets ? simManager.planets.length : 1;
-            const p1Final = simManager.planets ? simManager.planets.filter(p => p.owner === 1).length : 0;
-            const p2Final = simManager.planets ? simManager.planets.filter(p => p.owner === 2).length : 0;
+        // Resolve timeouts via planet majority
+        if (winnerTeamId === 0) {
+            if (t1Planets > t2Planets) winnerTeamId = 1;
+            else if (t2Planets > t1Planets) winnerTeamId = 2;
+        }
 
-            const result = {
-                mapSlot: mapSlotNum,
-                p1Faction,
-                p2Faction,
-                winnerId: simManager.winnerId || (p1Final > p2Final ? 1 : (p2Final > p1Final ? 2 : 0)),
-                duration: Math.round(simTime),
-                p1PlanetShare: Math.round((p1Final / totalPlanets) * 100),
-                p2PlanetShare: Math.round((p2Final / totalPlanets) * 100)
-            };
-
-            simManager.stop();
-            resolve(result);
-        });
+        return {
+            winnerTeamId,
+            durationSeconds: Math.round(ticks * dt),
+            ticksProcessed: ticks,
+            team1Share: Math.round((t1Planets / totalPlanets) * 100),
+            team2Share: Math.round((t2Planets / totalPlanets) * 100)
+        };
     }
+}
+
+if (typeof window !== 'undefined') {
+    window.BatchSimulator = BatchSimulator;
 }
