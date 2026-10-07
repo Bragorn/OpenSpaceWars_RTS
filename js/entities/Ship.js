@@ -47,13 +47,13 @@ class Ship {
         this.transitTurnRate = faction.transitTurnRate;
         this.combatTurnRate = faction.combatTurnRate;
 
-        // Touchdown weight scales based on baseline 20 HP
-        this.touchdownPower = Math.max(0.5, this.maxHp / 20.0);
+        // Clean 1-to-1 touchdown value for all factions
+        this.touchdownPower = 1.0;
 
         const baseRadius = (sourcePlanet && sourcePlanet.radius) ? sourcePlanet.radius : 28;
         const spawnAngle = Math.random() * Math.PI * 2;
         const minOrbitOffset = 14;
-        const maxOrbitSpread = 22;
+        const maxOrbitSpread = 16;
         this.targetOrbitRadius = baseRadius + minOrbitOffset + Math.random() * maxOrbitSpread;
 
         this.gravConst = 12000.0;
@@ -68,9 +68,9 @@ class Ship {
         this.orbitAngle = spawnAngle;
 
         this.launchProgress = 0;
-        this.launchDuration = 2.2;
+        this.launchDuration = 2.0;
         this.landingProgress = 0;
-        this.landingDuration = 2.0;
+        this.landingDuration = 3.0;
         this.orbitTimer = 0;
 
         const startX = sourcePlanet ? sourcePlanet.x : 0;

@@ -64,7 +64,9 @@ class Planet {
             s.state === 'landing'
         ).length;
 
-        const needed = upgCost - (this.upgradeProgress + landingCount);
+        // Safely floor current progress to guarantee integer slice counts
+        const currentProgress = Math.floor(this.upgradeProgress);
+        const needed = upgCost - (currentProgress + landingCount);
         if (needed <= 0) return;
 
         const eligibleShips = ships.filter(s => 
@@ -93,7 +95,8 @@ class Planet {
     onShipTouchdown(ship, gameManager) {
         if (!ship) return;
 
-        const power = ship.touchdownPower || 1.0;
+        // Clean 1 ship = 1 power
+        const power = 1.0;
 
         if (this.owner === 0) {
             this.upgradeProgress += power;
