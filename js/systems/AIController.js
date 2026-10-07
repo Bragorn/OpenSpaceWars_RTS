@@ -20,11 +20,11 @@ class AIController {
 
             case 'GOLIATH':
                 return {
-                    updateInterval: 3.5,       // Slow, deliberate decisions
-                    fleetThreshold: 8,         // Waits for heavy fleet buildup
-                    dispatchRatio: 0.75,       // Sends massive deathballs
-                    upgradePriority: 'high',   // Upgrades heavy planet fortifications first
-                    targetStrategy: 'value'    // Seeks out enemy high-tier strongholds
+                    updateInterval: 3.0,
+                    fleetThreshold: 5,        // Dropped from 8 so they expand earlier
+                    dispatchRatio: 0.70,
+                    upgradePriority: 'medium', // Changed from high so they don't lock up early
+                    targetStrategy: 'value'
                 };
 
             case 'PROTOCOL':
@@ -47,10 +47,10 @@ class AIController {
 
             case 'ARCHON':
                 return {
-                    updateInterval: 3.0,
-                    fleetThreshold: 9,         // Turtle up first
-                    dispatchRatio: 0.70,
-                    upgradePriority: 'high',   // Maxes planet tiers before pushing out
+                    updateInterval: 2.8,
+                    fleetThreshold: 5,        // Dropped from 9 so they expand earlier
+                    dispatchRatio: 0.65,
+                    upgradePriority: 'medium',
                     targetStrategy: 'nearest'
                 };
 

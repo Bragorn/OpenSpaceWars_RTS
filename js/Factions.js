@@ -7,87 +7,87 @@ const FACTION_DATA = {
         hp: 20,
         laserDamage: 10,
         laserCooldown: 0.45,
-        laserRange: 45.0, // Halved from 90.0
+        laserRange: 45.0,
         maxSpeed: 45.0,
         enginePower: 70.0,
         transitTurnRate: 5.0,
         combatTurnRate: 12.0,
-        spawnIntervalMult: 1.0
+        spawnIntervalMult: 1.0 // Unchanged (50% Win Rate baseline)
     },
     GOLIATH: {
         id: 'GOLIATH',
         name: 'Iron Goliaths',
-        tagline: 'Heavy armor & brutal volley, low acceleration and slow turn rates.',
+        tagline: 'Heavy armor & brutal volley, low acceleration.',
         color: '#ff8800',
-        hp: 35,
-        laserDamage: 16,
-        laserCooldown: 0.65,
-        laserRange: 48.0, // Halved from 95.0
+        hp: 36,
+        laserDamage: 18, // Increased from 16 to reward heavy hits
+        laserCooldown: 0.60, // Slightly faster fire rate
+        laserRange: 48.0,
         maxSpeed: 45.0,
-        enginePower: 48.0,
-        transitTurnRate: 3.2,
-        combatTurnRate: 8.0,
-        spawnIntervalMult: 1.30
+        enginePower: 55.0,
+        transitTurnRate: 3.5,
+        combatTurnRate: 8.5,
+        spawnIntervalMult: 1.08 // Reduced from 1.30 so they aren't star-starved
     },
     HIVE: {
         id: 'HIVE',
         name: 'Hive Chitin',
-        tagline: 'Fragile swarm ships with rapid spawns and swift thrusters.',
+        tagline: 'Fragile swarm ships with rapid spawns.',
         color: '#33ff55',
         hp: 10,
-        laserDamage: 6,
-        laserCooldown: 0.28,
-        laserRange: 40.0, // Halved from 80.0
+        laserDamage: 5, // Reduced from 6
+        laserCooldown: 0.30,
+        laserRange: 40.0,
         maxSpeed: 45.0,
         enginePower: 95.0,
         transitTurnRate: 6.8,
         combatTurnRate: 16.0,
-        spawnIntervalMult: 0.50
+        spawnIntervalMult: 0.78 // Increased from 0.50 to stop overwhelming early swarms
     },
     PROTOCOL: {
         id: 'PROTOCOL',
         name: 'Protocol Zero',
-        tagline: 'Precision AI snipers with long range and quick response thrusters.',
+        tagline: 'Precision AI snipers with long range.',
         color: '#ff2255',
         hp: 15,
         laserDamage: 14,
-        laserCooldown: 0.50,
-        laserRange: 55.0, // Halved from 110.0
+        laserCooldown: 0.48,
+        laserRange: 55.0,
         maxSpeed: 45.0,
         enginePower: 82.0,
         transitTurnRate: 6.0,
         combatTurnRate: 14.0,
-        spawnIntervalMult: 1.10
+        spawnIntervalMult: 0.98 // Slightly tightened from 1.10
     },
     SCRAPPER: {
         id: 'SCRAPPER',
         name: 'Rust Scrappers',
-        tagline: 'Aggressive short-range brawlers with fast pulse fire.',
+        tagline: 'Aggressive short-range brawlers.',
         color: '#e6ad00',
         hp: 18,
         laserDamage: 9,
-        laserCooldown: 0.32,
-        laserRange: 38.0, // Halved from 75.0
+        laserCooldown: 0.34,
+        laserRange: 38.0,
         maxSpeed: 45.0,
         enginePower: 80.0,
         transitTurnRate: 5.0,
         combatTurnRate: 13.0,
-        spawnIntervalMult: 0.90
+        spawnIntervalMult: 0.92 // Increased from 0.90
     },
     ARCHON: {
         id: 'ARCHON',
         name: 'Archon Covenant',
-        tagline: 'Defensive turtles with extreme in-combat orbit rotation.',
+        tagline: 'Defensive turtles with extreme in-combat rotation.',
         color: '#aa44ff',
-        hp: 26,
-        laserDamage: 11,
-        laserCooldown: 0.42,
-        laserRange: 45.0, // Halved from 90.0
+        hp: 28, // Increased from 26
+        laserDamage: 12, // Increased from 11
+        laserCooldown: 0.38, // Decreased from 0.42
+        laserRange: 45.0,
         maxSpeed: 45.0,
-        enginePower: 55.0,
-        transitTurnRate: 4.0,
+        enginePower: 60.0,
+        transitTurnRate: 4.5,
         combatTurnRate: 18.0,
-        spawnIntervalMult: 1.25
+        spawnIntervalMult: 1.05 // Reduced from 1.25
     }
 };
 
