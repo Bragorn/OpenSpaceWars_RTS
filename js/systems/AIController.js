@@ -6,90 +6,31 @@ class AIController {
     }
 
     getFactionProfile() {
-        const faction = FactionManager.getFaction(this.teamOwner, this.gameManager);
-
-        switch (faction.id) {
-            case 'HIVE':
-                return {
-                    updateInterval: 1.8,       // Rapid decisions
-                    fleetThreshold: 3,         // Attacks in small swarm waves
-                    dispatchRatio: 0.45,       // Harassing wave sizes
-                    upgradePriority: 'low',    // Expansion > Upgrading
-                    targetStrategy: 'weakest'  // Picks off weak/unclaimed targets
-                };
-
-            case 'GOLIATH':
-                return {
-                    updateInterval: 3.0,
-                    fleetThreshold: 5,        // Dropped from 8 so they expand earlier
-                    dispatchRatio: 0.70,
-                    upgradePriority: 'medium', // Changed from high so they don't lock up early
-                    targetStrategy: 'value'
-                };
-
-            case 'PROTOCOL':
-                return {
-                    updateInterval: 2.2,       // Sharp, responsive decisions
-                    fleetThreshold: 5,         // Moderate fleet threshold
-                    dispatchRatio: 0.60,       // Focused strike forces
-                    upgradePriority: 'medium',
-                    targetStrategy: 'player'   // Direct sniper focus on player planets
-                };
-
-            case 'SCRAPPER':
-                return {
-                    updateInterval: 2.0,       // Relentless pressure
-                    fleetThreshold: 4,         // Fast, aggressive skirmishes
-                    dispatchRatio: 0.50,
-                    upgradePriority: 'low',    // Constant territory grabbing
-                    targetStrategy: 'nearest'  // Attacks whatever is closest
-                };
-
-            case 'ARCHON':
-                return {
-                    updateInterval: 2.8,
-                    fleetThreshold: 5,        // Dropped from 9 so they expand earlier
-                    dispatchRatio: 0.65,
-                    upgradePriority: 'medium',
-                    targetStrategy: 'nearest'
-                };
-
-            case 'HUMAN':
-            default:
-                return {
-                    updateInterval: 2.5,       // Balanced baseline
-                    fleetThreshold: 5,
-                    dispatchRatio: 0.50,
-                    upgradePriority: 'medium',
-                    targetStrategy: 'nearest'
-                };
-        }
+        // Universal baseline profiles for testing
+        return {
+            updateInterval: 2.0,
+            safetyMargin: 1.1,      // Requires 10% force advantage to attack occupied bases
+            dispatchRatio: 0.60,     // Dispatches 60% of orbiting fleet on attack
+            upgradeRatioThreshold: 0.8 // Saves for upgrade if near capacity
+        };
     }
 
-    selectTarget(source, targets, strategy) {
-        if (!targets || targets.length === 0) return null;
+    /**
+     * Calculates total HP/Combat Value of ships orbiting a planet for a specific owner.
+     */
+    calculateFleetPower(planet, ownerId) {
+        if (!this.gameManager || !this.gameManager.ships) return 0;
+        const faction = FactionManager.getFaction(ownerId, this.gameManager);
+        const shipHp = faction.hp || 20;
 
-        if (strategy === 'weakest') {
-            return targets.reduce((best, candidate) => {
-                const candidateVal = (candidate.owner === 0 ? 0 : 10) + candidate.hp + candidate.level * 5;
-                const bestVal = (best.owner === 0 ? 0 : 10) + best.hp + best.level * 5;
-                return candidateVal < bestVal ? candidate : best;
-            }, targets[0]);
-        }
-
-        if (strategy === 'player') {
-            const playerTargets = targets.filter(p => p.owner === 1);
-            if (playerTargets.length > 0) {
-                return this.getNearestTarget(source, playerTargets);
+        let count = 0;
+        this.gameManager.ships.forEach(s => {
+            if (s.owner === ownerId && s.orbitPlanet === planet && s.state === 'ORBIT') {
+                count++;
             }
-        }
+        });
 
-        if (strategy === 'value') {
-            const sortedByLevel = [...targets].sort((a, b) => b.level - a.level);
-            return sortedByLevel[0];
-        }
-
-        return this.getNearestTarget(source, targets);
+        return count * shipHp;
     }
 
     getNearestTarget(source, targets) {
@@ -121,59 +62,47 @@ class AIController {
 
         if (allEnemyTargets.length === 0) return;
 
-        // Separate unclaimed neutral planets from enemy-controlled planets
         const neutralTargets = allEnemyTargets.filter(p => p.owner === 0);
+        const myFaction = FactionManager.getFaction(this.teamOwner, this.gameManager);
+        const shipHp = myFaction.hp || 20;
 
         ownedPlanets.forEach(source => {
             const orbitingCount = source.getOrbitingShipsCount(this.gameManager.ships);
+            if (orbitingCount === 0) return;
+
+            const myPower = orbitingCount * shipHp;
             const maxTier = source.getMaxTier();
             const reqCost = source.getUpgradeCost();
 
-            // 1. Hold & Upgrade Evaluation
-            let isHoldingForUpgrade = false;
-
+            // 1. Check for Planet Upgrades First
             if (source.level < maxTier) {
-                const canAfford = (orbitingCount + source.upgradeProgress) >= reqCost;
-
-                if (canAfford) {
-                    let shouldUpgrade = false;
-                    if (profile.upgradePriority === 'high') {
-                        shouldUpgrade = true;
-                    } else if (profile.upgradePriority === 'medium') {
-                        shouldUpgrade = orbitingCount >= reqCost;
-                    } else if (profile.upgradePriority === 'low') {
-                        shouldUpgrade = orbitingCount >= reqCost + 4 || neutralTargets.length === 0;
-                    }
-
-                    if (shouldUpgrade) {
-                        source.startUpgrade(this.gameManager.ships);
-                        return; // Finished action for this planet on this update tick
-                    }
-                } else {
-                    // Garrison Hold: Prevent high/medium upgrade factions from burning ships on tiny dispatches while saving up
-                    if (profile.upgradePriority === 'high') {
-                        isHoldingForUpgrade = true;
-                    } else if (profile.upgradePriority === 'medium' && orbitingCount < reqCost) {
-                        isHoldingForUpgrade = true;
-                    }
+                if (orbitingCount >= reqCost) {
+                    source.startUpgrade(this.gameManager.ships);
+                    return;
                 }
             }
 
-            if (isHoldingForUpgrade) return;
+            // 2. Target Neutral Planets First (Low Defenses)
+            if (neutralTargets.length > 0) {
+                const target = this.getNearestTarget(source, neutralTargets);
+                const targetDefensePower = target.hp; // Neutrals have 0 defending ships
 
-            // 2. Fleet Dispatch & Neutral-First Target Selection
-            if (orbitingCount >= profile.fleetThreshold) {
-                let target = null;
-
-                // Priority 1: Secure nearest unclaimed neutral planets first
-                if (neutralTargets.length > 0) {
-                    target = this.getNearestTarget(source, neutralTargets);
-                } else {
-                    // Priority 2: Shift to faction target strategy once all neutrals are claimed
-                    target = this.selectTarget(source, allEnemyTargets, profile.targetStrategy);
+                // Dispatch if we have enough force to capture the neutral planet
+                if (myPower > targetDefensePower) {
+                    this.gameManager.dispatchFleet(source, target, profile.dispatchRatio);
+                    return;
                 }
+            }
 
-                if (target) {
+            // 3. Attack Enemy Planets (Requires Force Advantage)
+            if (allEnemyTargets.length > 0) {
+                const target = this.getNearestTarget(source, allEnemyTargets);
+                const enemyFaction = FactionManager.getFaction(target.owner, this.gameManager);
+                const enemyDefendingPower = this.calculateFleetPower(target, target.owner);
+                const totalTargetPower = target.hp + enemyDefendingPower;
+
+                // Force Evaluation: Only attack if Attacking Power > (Target Power * Safety Margin)
+                if (myPower >= totalTargetPower * profile.safetyMargin) {
                     this.gameManager.dispatchFleet(source, target, profile.dispatchRatio);
                 }
             }
