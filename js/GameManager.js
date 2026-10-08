@@ -214,6 +214,10 @@ class GameManager {
 
             const scaledDelta = deltaTime * this.gameSpeed;
 
+            if (this.telemetry) {
+                this.telemetry.updateTickMetrics(scaledDelta, this);
+            }
+
             this.planets.forEach(p => p && p.update && p.update(scaledDelta, this));
             this.ships.forEach(s => s && s.update && s.update(scaledDelta, this));
 

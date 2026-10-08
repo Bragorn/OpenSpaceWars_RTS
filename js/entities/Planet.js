@@ -1,15 +1,20 @@
 class Planet {
-    constructor(x, y, level = 1, owner = 0) {
+    static DEFAULT_TIER_STATS = {
+        1: { radius: 30, maxHP: 10, spawnInterval: 3.0, upgradeCost: 10 },
+        2: { radius: 30, maxHP: 20, spawnInterval: 1.8, upgradeCost: 20 },
+        3: { radius: 30, maxHP: 30, spawnInterval: 0.9, upgradeCost: 0 }
+    };
+
+    constructor(x, y, level = 1, owner = 0, customTierStats = null) {
         this.x = x;
         this.y = y;
         this.level = level;
         this.owner = owner;
+        this.tierStats = customTierStats || Planet.DEFAULT_TIER_STATS;
 
-        const stats = (typeof TIER_STATS !== 'undefined' && TIER_STATS[level]) 
-            ? TIER_STATS[level] 
-            : { radius: 28, maxHP: 20 + level * 10, spawnInterval: 3, upgradeCost: 10 };
+        const stats = this.tierStats[level] || { radius: 28, maxHP: 20, spawnInterval: 3, upgradeCost: 10 };
 
-        this.radius = 28; 
+        this.radius = stats.radius || 28; 
         this.maxHp = stats.maxHP || 20;
         this.hp = owner !== 0 ? this.maxHp : 5;
         this.claimCost = 5;
@@ -18,22 +23,20 @@ class Planet {
 
         this.upgradeProgress = 0;
         this.isLanding = false;
+        this.contestedTimer = 0;
     }
 
     getMaxTier() {
-        if (typeof TIER_STATS !== 'undefined') {
-            if (Array.isArray(TIER_STATS)) return Math.min(3, TIER_STATS.length - 1);
-            if (typeof TIER_STATS === 'object') {
-                const keys = Object.keys(TIER_STATS).filter(k => !isNaN(k));
-                if (keys.length > 0) return Math.min(3, Math.max(...keys.map(Number)));
-            }
+        if (this.tierStats) {
+            const keys = Object.keys(this.tierStats).map(Number).filter(k => !isNaN(k));
+            if (keys.length > 0) return Math.min(3, Math.max(...keys));
         }
         return 3;
     }
 
     getUpgradeCost() {
-        if (typeof TIER_STATS !== 'undefined' && TIER_STATS[this.level]) {
-            return TIER_STATS[this.level].upgradeCost || 10;
+        if (this.tierStats && this.tierStats[this.level]) {
+            return this.tierStats[this.level].upgradeCost || 10;
         }
         return 10;
     }
@@ -102,7 +105,8 @@ class Planet {
             if (this.upgradeProgress >= claimRequirement) {
                 this.owner = ship.owner;
                 this.level = 1;
-                this.maxHp = 20;
+                const stats = this.tierStats[1] || { maxHP: 20 };
+                this.maxHp = stats.maxHP || 20;
                 this.hp = this.maxHp;
                 this.upgradeProgress = 0;
                 this.isLanding = false;
@@ -127,7 +131,7 @@ class Planet {
             if (this.hp <= 0) {
                 this.owner = ship.owner;
                 this.level = 1;
-                const stats = (typeof TIER_STATS !== 'undefined' && TIER_STATS[1]) ? TIER_STATS[1] : { maxHP: 20 };
+                const stats = this.tierStats[1] || { maxHP: 20 };
                 this.maxHp = stats.maxHP || 20;
                 this.hp = this.maxHp;
                 this.upgradeProgress = 0;
@@ -143,9 +147,7 @@ class Planet {
         const maxTier = this.getMaxTier();
         if (this.level < maxTier) {
             this.level++;
-            const stats = (typeof TIER_STATS !== 'undefined' && TIER_STATS[this.level])
-                ? TIER_STATS[this.level]
-                : { maxHP: this.maxHp + 10 };
+            const stats = this.tierStats[this.level] || { maxHP: this.maxHp + 10 };
 
             this.maxHp = stats.maxHP || (this.maxHp + 10);
             this.hp = this.maxHp;
@@ -161,9 +163,16 @@ class Planet {
     update(dtUncapped, gameManager) {
         const dt = Math.min(dtUncapped || 0.016, 0.1);
 
+        if (this.owner === 0 || this.hp < this.maxHp) {
+            this.contestedTimer += dt;
+            if (gameManager && gameManager.telemetry) {
+                gameManager.telemetry.addContestedTime(dt);
+            }
+        }
+
         if (this.owner !== 0) {
             this.spawnTimer += dt;
-            const stats = (typeof TIER_STATS !== 'undefined' && TIER_STATS[this.level]) ? TIER_STATS[this.level] : null;
+            const stats = this.tierStats[this.level] || null;
             const baseInterval = stats ? stats.spawnInterval : 3;
 
             const faction = FactionManager.getFaction(this.owner, gameManager);

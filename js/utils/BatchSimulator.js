@@ -36,13 +36,28 @@ class BatchSimulator {
 
         const totalMatches = matchups.length * matchesPerPair;
         let completedMatches = 0;
+        let timeoutMatchesCount = 0;
+
+        const durations = [];
 
         const results = {
             totalMatches,
             factions: factionKeys,
             factionStats: {},
-            mapStats: {}
+            globalMetrics: {
+                minDuration: Infinity,
+                maxDuration: 0,
+                medianDuration: 0,
+                avgDuration: 0,
+                timeoutWinRate: 0,
+                avgFirstCaptureTime: 0,
+                avgContestedTime: 0
+            }
         };
+
+        let firstCaptureSum = 0;
+        let contestedTimeSum = 0;
+        let validCaptureCount = 0;
 
         factionKeys.forEach(f => {
             results.factionStats[f] = { 
@@ -52,21 +67,19 @@ class BatchSimulator {
                 planetShareSum: 0,
                 killsSum: 0,
                 lossesSum: 0, 
-                winRate: 0, 
-                avgDuration: 0, 
-                avgPlanetShare: 0,
-                avgKills: 0,
-                avgLosses: 0
-            };
-        });
-
-        mapList.forEach((m, idx) => {
-            const slotNum = idx + 1;
-            results.mapStats[slotNum] = { 
-                name: m ? (m.name || `Arena ${slotNum}`) : `Arena ${slotNum}`, 
-                matches: 0, 
-                totalDuration: 0, 
-                avgDuration: 0 
+                spawnedSum: 0,
+                combatParticipantsSum: 0,
+                damageDealtSum: 0,
+                damageReceivedSum: 0,
+                majorityTimeSum: 0,
+                comebackWins: 0,
+                comebackAttempts: 0,
+                transitTimeSum: 0,
+                activeTimeSum: 0,
+                idleTimeSum: 0,
+                orbitTimeSum: 0,
+                dispatchSum: 0,
+                dispatchCount: 0
             };
         });
 
@@ -83,39 +96,24 @@ class BatchSimulator {
             for (let m = 0; m < matchesPerPair; m++) {
                 const matchResult = this.runSingleMatchFast(rawMap, matchDef.f1, matchDef.f2, MACRO_DT, MAX_TICKS);
                 
-                const { winnerTeamId, durationSeconds, team1Share, team2Share, telemetrySummary } = matchResult;
+                const { winnerTeamId, durationSeconds, team1Share, team2Share, telemetrySummary, isTimeout } = matchResult;
 
-                const f1 = results.factionStats[matchDef.f1];
-                if (f1) {
-                    f1.matches++;
-                    f1.totalDuration += durationSeconds;
-                    f1.planetShareSum += team1Share;
-                    if (winnerTeamId === 1) f1.wins++;
+                durations.push(durationSeconds);
+                if (isTimeout) timeoutMatchesCount++;
 
-                    if (telemetrySummary && telemetrySummary.team1) {
-                        f1.killsSum += telemetrySummary.team1.shipsKilled || 0;
-                        f1.lossesSum += telemetrySummary.team1.shipsLost || 0;
+                if (telemetrySummary) {
+                    if (telemetrySummary.firstCaptureTime !== null) {
+                        firstCaptureSum += telemetrySummary.firstCaptureTime;
+                        validCaptureCount++;
                     }
+                    contestedTimeSum += telemetrySummary.contestedTimeTotal || 0;
                 }
 
-                const f2 = results.factionStats[matchDef.f2];
-                if (f2) {
-                    f2.matches++;
-                    f2.totalDuration += durationSeconds;
-                    f2.planetShareSum += team2Share;
-                    if (winnerTeamId === 2) f2.wins++;
+                // Process Team 1 (f1)
+                this.accumulateTeamStats(results.factionStats[matchDef.f1], 1, winnerTeamId, durationSeconds, team1Share, telemetrySummary);
 
-                    if (telemetrySummary && telemetrySummary.team2) {
-                        f2.killsSum += telemetrySummary.team2.shipsKilled || 0;
-                        f2.lossesSum += telemetrySummary.team2.shipsLost || 0;
-                    }
-                }
-
-                const mapSt = results.mapStats[matchDef.slotNum];
-                if (mapSt) {
-                    mapSt.matches++;
-                    mapSt.totalDuration += durationSeconds;
-                }
+                // Process Team 2 (f2)
+                this.accumulateTeamStats(results.factionStats[matchDef.f2], 2, winnerTeamId, durationSeconds, team2Share, telemetrySummary);
 
                 completedMatches++;
 
@@ -128,26 +126,77 @@ class BatchSimulator {
             }
         }
 
+        // Calculate Global Metrics
+        durations.sort((a, b) => a - b);
+        const sumDuration = durations.reduce((a, b) => a + b, 0);
+
+        results.globalMetrics.minDuration = durations[0] || 0;
+        results.globalMetrics.maxDuration = durations[durations.length - 1] || 0;
+        results.globalMetrics.medianDuration = durations[Math.floor(durations.length / 2)] || 0;
+        results.globalMetrics.avgDuration = Math.round(sumDuration / totalMatches);
+        results.globalMetrics.timeoutWinRate = Math.round((timeoutMatchesCount / totalMatches) * 100);
+        results.globalMetrics.avgFirstCaptureTime = validCaptureCount > 0 ? Math.round(firstCaptureSum / validCaptureCount) : 0;
+        results.globalMetrics.avgContestedTime = Math.round(contestedTimeSum / totalMatches);
+
+        // Finalize Faction Stats
         Object.keys(results.factionStats).forEach(f => {
             const st = results.factionStats[f];
             if (st.matches > 0) {
                 st.winRate = Math.round((st.wins / st.matches) * 100);
-                st.avgDuration = Math.round(st.totalDuration / st.matches);
-                st.avgPlanetShare = Math.round(st.planetShareSum / st.matches);
                 st.avgKills = Math.round(st.killsSum / st.matches);
                 st.avgLosses = Math.round(st.lossesSum / st.matches);
-            }
-        });
-
-        Object.keys(results.mapStats).forEach(m => {
-            const st = results.mapStats[m];
-            if (st.matches > 0) {
-                st.avgDuration = Math.round(st.totalDuration / st.matches);
+                st.kdr = st.lossesSum > 0 ? (st.killsSum / st.lossesSum).toFixed(2) : st.killsSum.toFixed(2);
+                st.damageEfficiency = st.damageReceivedSum > 0 ? (st.damageDealtSum / st.damageReceivedSum).toFixed(2) : st.damageDealtSum.toFixed(2);
+                st.prodCombatEfficiency = st.spawnedSum > 0 ? Math.round((st.combatParticipantsSum / st.spawnedSum) * 100) : 0;
+                st.spm = st.totalDuration > 0 ? ((st.spawnedSum / st.totalDuration) * 60).toFixed(1) : 0;
+                st.avgPlanetShare = Math.round(st.planetShareSum / st.matches);
+                st.controlMajorityPct = st.totalDuration > 0 ? Math.round((st.majorityTimeSum / st.totalDuration) * 100) : 0;
+                st.comebackRate = st.comebackAttempts > 0 ? Math.round((st.comebackWins / st.comebackAttempts) * 100) : 0;
+                st.transitRatio = st.activeTimeSum > 0 ? Math.round((st.transitTimeSum / st.activeTimeSum) * 100) : 0;
+                st.idleRatio = st.orbitTimeSum > 0 ? Math.round((st.idleTimeSum / st.orbitTimeSum) * 100) : 0;
+                st.avgDispatchSize = st.dispatchCount > 0 ? Math.round((st.dispatchSum / st.dispatchCount) * 100) : 50;
             }
         });
 
         results.executionTimeMs = Math.round(performance.now() - startTime);
         return results;
+    }
+
+    static accumulateTeamStats(st, teamId, winnerTeamId, durationSeconds, planetShare, telemetrySummary) {
+        if (!st) return;
+
+        st.matches++;
+        st.totalDuration += durationSeconds;
+        st.planetShareSum += planetShare;
+        if (winnerTeamId === teamId) st.wins++;
+
+        if (telemetrySummary && telemetrySummary.teams) {
+            const tData = telemetrySummary.teams[`team${teamId}`];
+            if (tData) {
+                st.killsSum += tData.shipsKilled || 0;
+                st.lossesSum += tData.shipsLost || 0;
+                st.spawnedSum += tData.shipsSpawned || 0;
+                st.combatParticipantsSum += tData.combatParticipants || 0;
+                st.damageDealtSum += tData.damageDealt || 0;
+                st.damageReceivedSum += tData.damageReceived || 0;
+                st.majorityTimeSum += tData.majorityTime || 0;
+                st.transitTimeSum += tData.transitTimeTotal || 0;
+                st.activeTimeSum += tData.activeShipSamples || 0;
+                st.idleTimeSum += tData.idleShipSamples || 0;
+                st.orbitTimeSum += tData.orbitTimeTotal || 0;
+
+                if (tData.wasBelow30Percent) {
+                    st.comebackAttempts++;
+                    if (winnerTeamId === teamId) st.comebackWins++;
+                }
+
+                if (tData.dispatchSizes && tData.dispatchSizes.length > 0) {
+                    const dispSum = tData.dispatchSizes.reduce((a, b) => a + b, 0);
+                    st.dispatchSum += dispSum;
+                    st.dispatchCount += tData.dispatchSizes.length;
+                }
+            }
+        }
     }
 
     static runSingleMatchFast(mapData, faction1Id, faction2Id, dt, maxTicks) {
@@ -161,6 +210,7 @@ class BatchSimulator {
             ticks++;
         }
 
+        const isTimeout = ticks >= maxTicks;
         let winnerTeamId = simManager.winnerId || 0;
 
         const totalPlanets = simManager.planets && simManager.planets.length > 0 ? simManager.planets.length : 1;
@@ -183,6 +233,7 @@ class BatchSimulator {
             winnerTeamId,
             durationSeconds: Math.round(ticks * dt),
             ticksProcessed: ticks,
+            isTimeout,
             team1Share: Math.round((t1Planets / totalPlanets) * 100),
             team2Share: Math.round((t2Planets / totalPlanets) * 100),
             telemetrySummary: simManager.telemetry ? simManager.telemetry.getSummary() : null

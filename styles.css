@@ -46,52 +46,79 @@ html, body {
     box-shadow: 0 0 15px rgba(0, 255, 204, 0.15);
 }
 
-/* Top Center Active Fleet Tracker HUD */
+/* Expanded In-Game Active Fleet & Telemetry HUD */
 .hud-top-center {
     position: fixed;
-    top: 14px;
+    top: 10px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
 
     display: flex;
-    align-items: center;
-    gap: 20px;
+    align-items: stretch;
+    gap: 16px;
 
-    padding: 8px 24px;
-    background: rgba(8, 14, 26, 0.92);
+    padding: 8px 16px;
+    background: rgba(8, 14, 26, 0.94);
     border: 1px solid #1e293b;
     border-top: 2px solid #00aaff;
-    border-radius: 4px;
+    border-radius: 6px;
     backdrop-filter: blur(8px);
-    box-shadow: 0 0 15px rgba(0, 170, 255, 0.2);
+    box-shadow: 0 0 20px rgba(0, 170, 255, 0.2);
 }
 
-.hud-team-score {
+.hud-team-card {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 20px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 170px;
 }
 
-.hud-team-score.t1 {
-    color: #00aaff;
+.hud-team-card.t1 {
+    border-left: 3px solid #00aaff;
+    padding-left: 8px;
 }
 
-.hud-team-score.t2 {
-    color: #ff3355;
+.hud-team-card.t2 {
+    border-right: 3px solid #ff3355;
+    padding-right: 8px;
+    text-align: right;
+}
+
+.hud-card-header {
+    font-size: 14px;
+    color: #94a3b8;
+    letter-spacing: 1px;
+}
+
+.hud-card-body {
+    display: flex;
+    gap: 12px;
+    font-size: 18px;
+}
+
+.hud-team-card.t2 .hud-card-body {
+    justify-content: flex-end;
 }
 
 .hud-ship-val {
-    font-size: 26px;
+    font-size: 22px;
     font-weight: bold;
-    text-shadow: 0 0 8px currentColor;
+    color: #00ffcc;
+}
+
+.hud-ai-state {
+    font-size: 13px;
+    color: #ffcc00;
+    letter-spacing: 1px;
 }
 
 .hud-vs-divider {
-    font-size: 16px;
+    font-size: 22px;
+    font-weight: bold;
     color: #64748b;
-    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
 }
 
 .hud-timer {
@@ -437,7 +464,7 @@ html, body {
     margin-bottom: 18px;
 }
 
-/* ================= BATCH SIMULATION OVERLAY FIX ================= */
+/* ================= BATCH SIMULATION OVERLAY ================= */
 .sim-overlay {
     position: fixed;
     top: 0;
@@ -453,8 +480,8 @@ html, body {
 }
 
 .sim-dialog {
-    width: 90%;
-    max-width: 850px;
+    width: 92%;
+    max-width: 900px;
     max-height: 85vh;
     background: #080e1a;
     border: 1px solid #10b981;
@@ -498,6 +525,32 @@ html, body {
     gap: 10px;
 }
 
+.sim-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.sim-card {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+}
+
+.sim-card h4 {
+    font-size: 14px;
+    color: #94a3b8;
+    margin-bottom: 2px;
+}
+
+.sim-num {
+    font-size: 24px;
+    color: #00ffcc;
+    font-weight: bold;
+}
+
 .sim-table {
     width: 100%;
     border-collapse: collapse;
@@ -524,20 +577,6 @@ html, body {
     border-bottom: 1px solid #1e293b;
     padding-bottom: 4px;
     margin-top: 4px;
-}
-
-#sim-text-export {
-    width: 100%;
-    height: 80px;
-    background: #111;
-    color: #00ffcc;
-    font-family: monospace;
-    font-size: 11px;
-    padding: 8px;
-    border: 1px solid #333;
-    border-radius: 4px;
-    resize: none;
-    flex-shrink: 0;
 }
 
 .sim-footer {

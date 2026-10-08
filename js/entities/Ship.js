@@ -87,6 +87,7 @@ class Ship {
         this.thrustRatio = 0;
         this.boidFx = 0;
         this.boidFy = 0;
+        this.hasEngagedCombat = false;
     }
 
     get currentTurnRate() {
@@ -95,7 +96,20 @@ class Ship {
 
     takeDamage(amount, gameManager, attackerOwner = null) {
         if (this.dead) return;
+
         this.hp -= amount;
+
+        if (gameManager && gameManager.telemetry) {
+            gameManager.telemetry.logEvent(gameManager.gameTime, 'DAMAGE_RECEIVED', this.owner, { amount });
+            if (attackerOwner) {
+                gameManager.telemetry.logEvent(gameManager.gameTime, 'DAMAGE_DEALT', attackerOwner, { amount });
+            }
+            if (!this.hasEngagedCombat) {
+                this.hasEngagedCombat = true;
+                gameManager.telemetry.logEvent(gameManager.gameTime, 'COMBAT_PARTICIPANT', this.owner);
+            }
+        }
+
         if (this.hp <= 0) {
             this.dead = true;
 
@@ -205,6 +219,11 @@ class Ship {
             const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
             if (!hasLineOfSight(this, target, planets)) return;
 
+            if (gameManager && gameManager.telemetry && !this.hasEngagedCombat) {
+                this.hasEngagedCombat = true;
+                gameManager.telemetry.logEvent(gameManager.gameTime, 'COMBAT_PARTICIPANT', this.owner);
+            }
+
             target.takeDamage(this.laserDamage, gameManager, this.owner);
             this.laserTarget = { x: target.x, y: target.y };
             this.laserTimer = 0.08;
@@ -291,7 +310,7 @@ class Ship {
                 if (this.orbitTimer > 0.5) {
                     const isUnclaimed = (this.targetPlanet.owner === 0);
                     const isEnemyPlanet = (this.targetPlanet.owner !== 0 && this.targetPlanet.owner !== this.owner);
-                    const maxTier = (typeof TIER_STATS !== 'undefined' && Array.isArray(TIER_STATS)) ? TIER_STATS.length - 1 : 3;
+                    const maxTier = this.targetPlanet.getMaxTier ? this.targetPlanet.getMaxTier() : 3;
                     const isFriendlyUpgradeable = (this.targetPlanet.owner === this.owner && this.targetPlanet.level < maxTier && this.orbitPlanet !== this.targetPlanet);
 
                     if (isUnclaimed || isEnemyPlanet || isFriendlyUpgradeable) {
@@ -338,6 +357,10 @@ class Ship {
 
             if (p >= 1.0) {
                 this.dead = true;
+                if (gameManager && gameManager.telemetry && !this.hasEngagedCombat) {
+                    this.hasEngagedCombat = true;
+                    gameManager.telemetry.logEvent(gameManager.gameTime, 'COMBAT_PARTICIPANT', this.owner);
+                }
                 if (planet && typeof planet.onShipTouchdown === 'function') {
                     planet.onShipTouchdown(this, gameManager);
                 }

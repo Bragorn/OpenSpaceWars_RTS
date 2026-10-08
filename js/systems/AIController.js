@@ -3,21 +3,18 @@ class AIController {
         this.gameManager = gameManager;
         this.teamOwner = teamOwner;
         this.aiTimer = 0;
+        this.currentState = 'HOLDING_RESERVES';
     }
 
     getFactionProfile() {
-        // Universal baseline profiles for testing
         return {
-            updateInterval: 2.0,
-            safetyMargin: 1.1,      // Requires 10% force advantage to attack occupied bases
-            dispatchRatio: 0.60,     // Dispatches 60% of orbiting fleet on attack
-            upgradeRatioThreshold: 0.8 // Saves for upgrade if near capacity
+            updateInterval: 1.5,
+            safetyMargin: 1.1,
+            dispatchRatio: 0.60,
+            upgradeRatioThreshold: 0.8
         };
     }
 
-    /**
-     * Calculates total HP/Combat Value of ships orbiting a planet for a specific owner.
-     */
     calculateFleetPower(planet, ownerId) {
         if (!this.gameManager || !this.gameManager.ships) return 0;
         const faction = FactionManager.getFaction(ownerId, this.gameManager);
@@ -60,11 +57,20 @@ class AIController {
         const ownedPlanets = this.gameManager.planets.filter(p => p.owner === this.teamOwner);
         const allEnemyTargets = this.gameManager.planets.filter(p => p.owner !== this.teamOwner);
 
-        if (allEnemyTargets.length === 0) return;
+        if (ownedPlanets.length > 1 && this.gameManager.telemetry) {
+            this.gameManager.telemetry.logEvent(this.gameManager.gameTime, 'EXPANSION', this.teamOwner, { planetCount: ownedPlanets.length });
+        }
+
+        if (allEnemyTargets.length === 0) {
+            this.currentState = 'SYSTEM_SECURED';
+            return;
+        }
 
         const neutralTargets = allEnemyTargets.filter(p => p.owner === 0);
         const myFaction = FactionManager.getFaction(this.teamOwner, this.gameManager);
         const shipHp = myFaction.hp || 20;
+
+        let actionTaken = false;
 
         ownedPlanets.forEach(source => {
             const orbitingCount = source.getOrbitingShipsCount(this.gameManager.ships);
@@ -74,38 +80,49 @@ class AIController {
             const maxTier = source.getMaxTier();
             const reqCost = source.getUpgradeCost();
 
-            // 1. Check for Planet Upgrades First
+            // 1. Upgrade Decision
             if (source.level < maxTier) {
                 if (orbitingCount >= reqCost) {
                     source.startUpgrade(this.gameManager.ships);
+                    this.currentState = `UPGRADING_PLANET_${source.level + 1}`;
+                    actionTaken = true;
                     return;
                 }
             }
 
-            // 2. Target Neutral Planets First (Low Defenses)
+            // 2. Neutral Expansion
             if (neutralTargets.length > 0) {
                 const target = this.getNearestTarget(source, neutralTargets);
-                const targetDefensePower = target.hp; // Neutrals have 0 defending ships
-
-                // Dispatch if we have enough force to capture the neutral planet
-                if (myPower > targetDefensePower) {
+                if (myPower > target.hp) {
                     this.gameManager.dispatchFleet(source, target, profile.dispatchRatio);
+                    this.currentState = 'EXPANDING_NEUTRAL';
+                    actionTaken = true;
+                    if (this.gameManager.telemetry) {
+                        this.gameManager.telemetry.logEvent(this.gameManager.gameTime, 'DISPATCH', this.teamOwner, { ratio: profile.dispatchRatio });
+                    }
                     return;
                 }
             }
 
-            // 3. Attack Enemy Planets (Requires Force Advantage)
+            // 3. Enemy Assault
             if (allEnemyTargets.length > 0) {
                 const target = this.getNearestTarget(source, allEnemyTargets);
-                const enemyFaction = FactionManager.getFaction(target.owner, this.gameManager);
                 const enemyDefendingPower = this.calculateFleetPower(target, target.owner);
                 const totalTargetPower = target.hp + enemyDefendingPower;
 
-                // Force Evaluation: Only attack if Attacking Power > (Target Power * Safety Margin)
                 if (myPower >= totalTargetPower * profile.safetyMargin) {
                     this.gameManager.dispatchFleet(source, target, profile.dispatchRatio);
+                    this.currentState = 'ASSAULTING_ENEMY';
+                    actionTaken = true;
+                    if (this.gameManager.telemetry) {
+                        this.gameManager.telemetry.logEvent(this.gameManager.gameTime, 'DISPATCH', this.teamOwner, { ratio: profile.dispatchRatio });
+                    }
                 }
             }
         });
+
+        if (!actionTaken) {
+            this.currentState = 'BUILDING_RESERVES';
+        }
     }
 }

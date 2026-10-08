@@ -9,6 +9,9 @@ class App {
         this.lastTime = performance.now();
         this.lastSimReport = null;
 
+        this.t1SpawnCount = 0;
+        this.t2SpawnCount = 0;
+
         this.registry = typeof MapRegistry === 'function' ? new MapRegistry() : null;
 
         this.bindEvents();
@@ -24,14 +27,24 @@ class App {
             topHud.id = 'hud-top-center';
             topHud.className = 'hud-top-center hidden';
             topHud.innerHTML = `
-                <div class="hud-team-score t1">
-                    <span>T1 SHIPS:</span>
-                    <span id="hud-val-t1" class="hud-ship-val">0</span>
+                <div class="hud-team-card t1">
+                    <div class="hud-card-header">T1 FACTION</div>
+                    <div class="hud-card-body">
+                        <span>SHIPS: <b id="hud-val-t1" class="hud-ship-val">0</b></span>
+                        <span>SPM: <b id="hud-spm-t1">0.0</b></span>
+                    </div>
+                    <div id="hud-state-t1" class="hud-ai-state">STATE: IDLE</div>
                 </div>
-                <div class="hud-vs-divider">|</div>
-                <div class="hud-team-score t2">
-                    <span>T2 SHIPS:</span>
-                    <span id="hud-val-t2" class="hud-ship-val">0</span>
+
+                <div class="hud-vs-divider">VS</div>
+
+                <div class="hud-team-card t2">
+                    <div class="hud-card-header">T2 FACTION</div>
+                    <div class="hud-card-body">
+                        <span>SHIPS: <b id="hud-val-t2" class="hud-ship-val">0</b></span>
+                        <span>SPM: <b id="hud-spm-t2">0.0</b></span>
+                    </div>
+                    <div id="hud-state-t2" class="hud-ai-state">STATE: IDLE</div>
                 </div>
             `;
             document.body.appendChild(topHud);
@@ -197,7 +210,7 @@ class App {
         };
 
         this.showSimRunningView();
-        output.innerHTML = '<p class="sim-loading">INITIALIZING HEADLESS BATCH SIMULATION...</p>';
+        output.innerHTML = '<p class="sim-loading">INITIALIZING BATCH SIMULATION SUITE...</p>';
         progress.textContent = '0%';
 
         const report = await BatchSimulator.runFullSuite(this.registry, simOptions, (done, total) => {
@@ -213,45 +226,71 @@ class App {
         const output = document.getElementById('sim-output');
         if (!output || !report) return;
 
-        let textSummary = `=== BATCH SIMULATION SUMMARY (${report.totalMatches} MATCHES) ===\n\n`;
-        textSummary += `Faction       | Win Rate | Wins/Total | Avg Kills | Avg Losses | Avg Control\n`;
-        textSummary += `--------------|----------|------------|-----------|------------|------------\n`;
-
+        const gm = report.globalMetrics || {};
         const sortedFactions = [...(report.factions || [])].sort((a, b) => 
             (report.factionStats[b]?.winRate || 0) - (report.factionStats[a]?.winRate || 0)
         );
+
+        // 1. Build Clean Text Export
+        let textSummary = `=== BATCH SIMULATION REPORT (${report.totalMatches} MATCHES) ===\n\n`;
+        textSummary += `MATCH PACING & GLOBAL METRICS:\n`;
+        textSummary += `• Match Duration Spread: Min ${gm.minDuration}s | Median ${gm.medianDuration}s | Max ${gm.maxDuration}s | Avg ${gm.avgDuration}s\n`;
+        textSummary += `• Timeout Resolved Matches: ${gm.timeoutWinRate}%\n`;
+        textSummary += `• First Neutral Capture Time: ${gm.avgFirstCaptureTime || 'N/A'}s\n`;
+        textSummary += `• Avg Contested Planet Time: ${gm.avgContestedTime}s\n\n`;
+
+        textSummary += `FACTION PERFORMANCE DETAILS:\n`;
 
         sortedFactions.forEach(fKey => {
             const st = report.factionStats[fKey];
             if (!st) return;
             const facName = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[fKey]) ? FACTION_DATA[fKey].name : fKey;
-            
-            const namePad = facName.padEnd(13, ' ');
-            const wrPad = `${st.winRate}%`.padEnd(8, ' ');
-            const ratioPad = `${st.wins}/${st.matches}`.padEnd(10, ' ');
-            const killsPad = `${st.avgKills || 0}`.padEnd(9, ' ');
-            const lossesPad = `${st.avgLosses || 0}`.padEnd(10, ' ');
-            const sharePad = `${st.avgPlanetShare}%`;
 
-            textSummary += `${namePad} | ${wrPad} | ${ratioPad} | ${killsPad} | ${lossesPad} | ${sharePad}\n`;
+            textSummary += `[${facName.toUpperCase()} (${fKey})]\n`;
+            textSummary += `  - Win Rate: ${st.winRate}% (${st.wins}/${st.matches} wins)\n`;
+            textSummary += `  - Combat: KDR ${st.kdr} | Dmg Eff ${st.damageEfficiency} | Kills ${st.avgKills} | Losses ${st.avgLosses}\n`;
+            textSummary += `  - Economy: SPM ${st.spm} | Prod-to-Combat Eff ${st.prodCombatEfficiency}%\n`;
+            textSummary += `  - Macro: Avg Control ${st.avgPlanetShare}% | Majority Time ${st.controlMajorityPct}% | Comeback Win Rate ${st.comebackRate}%\n`;
+            textSummary += `  - Movement: Transit Ratio ${st.transitRatio}% | Idle Fleet Ratio ${st.idleRatio}% | Avg Dispatch ${st.avgDispatchSize}%\n\n`;
         });
 
+        // 2. Build HTML Output Cards & Tables
         let html = `
-            <div style="margin-bottom: 12px; text-align: right;">
+            <div style="margin-bottom: 10px; text-align: right;">
                 <button id="btn-copy-sim-text" style="padding: 6px 14px; background: #00aaff; color: #000; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
-                    Copy Summary
+                    Copy Structured Summary
                 </button>
             </div>
 
+            <div class="sim-summary-grid">
+                <div class="sim-card">
+                    <h4>DURATION SPREAD</h4>
+                    <p class="sim-num">${gm.minDuration}s - ${gm.maxDuration}s</p>
+                    <span style="font-size: 12px; color: #94a3b8;">Avg: ${gm.avgDuration}s | Med: ${gm.medianDuration}s</span>
+                </div>
+                <div class="sim-card">
+                    <h4>TIMEOUT RATE</h4>
+                    <p class="sim-num">${gm.timeoutWinRate}%</p>
+                    <span style="font-size: 12px; color: #94a3b8;">Resolved by Majority</span>
+                </div>
+                <div class="sim-card">
+                    <h4>FIRST CAPTURE</h4>
+                    <p class="sim-num">${gm.avgFirstCaptureTime || 'N/A'}s</p>
+                    <span style="font-size: 12px; color: #94a3b8;">Contested: ${gm.avgContestedTime}s</span>
+                </div>
+            </div>
+
+            <h3 class="sim-section-title">FACTION OVERVIEW TABLE</h3>
             <table class="sim-table">
                 <thead>
                     <tr>
                         <th>FACTION</th>
                         <th>WIN RATE</th>
-                        <th>WINS / TOTAL</th>
-                        <th>AVG KILLS</th>
-                        <th>AVG LOSSES</th>
-                        <th>AVG CONTROL</th>
+                        <th>KDR</th>
+                        <th>DMG EFF</th>
+                        <th>PROD EFF</th>
+                        <th>SPM</th>
+                        <th>CONTROL</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -265,11 +304,12 @@ class App {
 
             html += `
                 <tr>
-                    <td style="font-weight: bold; color: #00aaff;">${facName} (${fKey})</td>
+                    <td style="font-weight: bold; color: #00aaff;">${facName}</td>
                     <td style="color: ${winColor}; font-weight: bold;">${st.winRate}%</td>
-                    <td>${st.wins} / ${st.matches}</td>
-                    <td>${st.avgKills || 0}</td>
-                    <td>${st.avgLosses || 0}</td>
+                    <td>${st.kdr}</td>
+                    <td>${st.damageEfficiency}</td>
+                    <td>${st.prodCombatEfficiency}%</td>
+                    <td>${st.spm}</td>
                     <td>${st.avgPlanetShare}%</td>
                 </tr>
             `;
@@ -279,8 +319,8 @@ class App {
                 </tbody>
             </table>
 
-            <h3 class="sim-section-title">SUMMARY TEXT</h3>
-            <textarea id="sim-text-export" readonly style="width: 100%; height: 100px; background: #111; color: #00ffcc; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #333; border-radius: 4px;">${textSummary}</textarea>
+            <h3 class="sim-section-title">FORMATTED REPORT COPY</h3>
+            <textarea id="sim-text-export" readonly style="width: 100%; height: 110px; background: #111; color: #00ffcc; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #333; border-radius: 4px; resize: none;">${textSummary}</textarea>
         `;
 
         output.innerHTML = html;
@@ -377,17 +417,42 @@ class App {
         }
     }
 
-    updateShipCountHUD() {
+    updateInGameHUD() {
         if (!window.gameManager || !window.gameManager.ships) return;
 
-        const t1Count = window.gameManager.ships.filter(s => s && !s.dead && s.owner === 1).length;
-        const t2Count = window.gameManager.ships.filter(s => s && !s.dead && s.owner === 2).length;
+        const gm = window.gameManager;
+        const t1Count = gm.ships.filter(s => s && !s.dead && s.owner === 1).length;
+        const t2Count = gm.ships.filter(s => s && !s.dead && s.owner === 2).length;
 
         const valT1 = document.getElementById('hud-val-t1');
         const valT2 = document.getElementById('hud-val-t2');
 
         if (valT1) valT1.textContent = t1Count;
         if (valT2) valT2.textContent = t2Count;
+
+        // Calculate Live SPM
+        const durationMins = Math.max(0.05, gm.gameTime / 60);
+        const t1Spawned = gm.telemetry ? gm.telemetry.summary.team1.shipsSpawned : 0;
+        const t2Spawned = gm.telemetry ? gm.telemetry.summary.team2.shipsSpawned : 0;
+
+        const spmT1 = document.getElementById('hud-spm-t1');
+        const spmT2 = document.getElementById('hud-spm-t2');
+
+        if (spmT1) spmT1.textContent = (t1Spawned / durationMins).toFixed(1);
+        if (spmT2) spmT2.textContent = (t2Spawned / durationMins).toFixed(1);
+
+        // Display AI State Strings
+        const stateT1 = document.getElementById('hud-state-t1');
+        const stateT2 = document.getElementById('hud-state-t2');
+
+        if (stateT1) {
+            const stStr = gm.aiController1 ? gm.aiController1.currentState : 'HUMAN_PLAYER';
+            stateT1.textContent = `STATE: ${stStr}`;
+        }
+        if (stateT2) {
+            const stStr = gm.aiController2 ? gm.aiController2.currentState : 'HUMAN_PLAYER';
+            stateT2.textContent = `STATE: ${stStr}`;
+        }
     }
 
     loop(timestamp) {
@@ -396,7 +461,7 @@ class App {
 
         if (this.state === 'GAME' && window.gameManager) {
             window.gameManager.update(deltaTime);
-            this.updateShipCountHUD();
+            this.updateInGameHUD();
         } else if (this.state === 'MENU' || this.state === 'MAP_SELECT') {
             this.clearScreen();
         }
