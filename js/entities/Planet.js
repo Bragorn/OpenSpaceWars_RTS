@@ -64,7 +64,6 @@ class Planet {
             s.state === 'landing'
         ).length;
 
-        // Safely floor current progress to guarantee integer slice counts
         const currentProgress = Math.floor(this.upgradeProgress);
         const needed = upgCost - (currentProgress + landingCount);
         if (needed <= 0) return;
@@ -95,7 +94,6 @@ class Planet {
     onShipTouchdown(ship, gameManager) {
         if (!ship) return;
 
-        // Clean 1 ship = 1 power
         const power = 1.0;
 
         if (this.owner === 0) {
@@ -108,6 +106,9 @@ class Planet {
                 this.hp = this.maxHp;
                 this.upgradeProgress = 0;
                 this.isLanding = false;
+                if (gameManager && gameManager.telemetry) {
+                    gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', ship.owner);
+                }
             }
         } 
         else if (this.owner === ship.owner) {
@@ -117,7 +118,7 @@ class Planet {
             if (this.level < maxTier) {
                 this.upgradeProgress += power;
                 if (this.upgradeProgress >= upgCost) {
-                    this.upgrade();
+                    this.upgrade(gameManager);
                 }
             }
         } 
@@ -131,11 +132,14 @@ class Planet {
                 this.hp = this.maxHp;
                 this.upgradeProgress = 0;
                 this.isLanding = false;
+                if (gameManager && gameManager.telemetry) {
+                    gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', ship.owner);
+                }
             }
         }
     }
 
-    upgrade() {
+    upgrade(gameManager = null) {
         const maxTier = this.getMaxTier();
         if (this.level < maxTier) {
             this.level++;
@@ -147,6 +151,10 @@ class Planet {
             this.hp = this.maxHp;
             this.upgradeProgress = 0;
             this.isLanding = false;
+
+            if (gameManager && gameManager.telemetry) {
+                gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_UPGRADE', this.owner);
+            }
         }
     }
 

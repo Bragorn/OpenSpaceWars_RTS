@@ -25,7 +25,7 @@ html, body {
     display: none !important;
 }
 
-/* ================= TOP-LEFT HUD ================= */
+/* ================= TOP HUD ================= */
 .hud-top-left {
     position: fixed;
     top: 14px;
@@ -44,6 +44,54 @@ html, body {
     border-radius: 4px;
     backdrop-filter: blur(8px);
     box-shadow: 0 0 15px rgba(0, 255, 204, 0.15);
+}
+
+/* Top Center Active Fleet Tracker HUD */
+.hud-top-center {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+
+    display: flex;
+    align-items: center;
+    gap: 20px;
+
+    padding: 8px 24px;
+    background: rgba(8, 14, 26, 0.92);
+    border: 1px solid #1e293b;
+    border-top: 2px solid #00aaff;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 15px rgba(0, 170, 255, 0.2);
+}
+
+.hud-team-score {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 20px;
+}
+
+.hud-team-score.t1 {
+    color: #00aaff;
+}
+
+.hud-team-score.t2 {
+    color: #ff3355;
+}
+
+.hud-ship-val {
+    font-size: 26px;
+    font-weight: bold;
+    text-shadow: 0 0 8px currentColor;
+}
+
+.hud-vs-divider {
+    font-size: 16px;
+    color: #64748b;
+    letter-spacing: 2px;
 }
 
 .hud-timer {
@@ -123,7 +171,6 @@ html, body {
     backdrop-filter: blur(10px);
 }
 
-/* Title Screen Card */
 #menu-main {
     width: 380px;
 }
@@ -136,7 +183,6 @@ html, body {
     text-shadow: 0 0 12px rgba(0, 170, 255, 0.5);
 }
 
-/* ================= MATCHUP SETUP SCREEN ================= */
 .menu-setup-card {
     width: 92%;
     max-width: 860px;
@@ -339,7 +385,6 @@ html, body {
     margin-top: 6px;
 }
 
-/* Slot Buttons in Map Select */
 .slot-btn {
     width: 100%;
     padding: 8px 12px;
@@ -365,7 +410,6 @@ html, body {
     box-shadow: 0 0 8px rgba(29, 78, 216, 0.5);
 }
 
-/* Game Over Modal */
 #game-over-modal {
     position: absolute;
     top: 50%;
@@ -393,7 +437,7 @@ html, body {
     margin-bottom: 18px;
 }
 
-/* ================= BATCH SIMULATION OVERLAY ================= */
+/* ================= BATCH SIMULATION OVERLAY FIX ================= */
 .sim-overlay {
     position: fixed;
     top: 0;
@@ -410,7 +454,7 @@ html, body {
 
 .sim-dialog {
     width: 90%;
-    max-width: 900px;
+    max-width: 850px;
     max-height: 85vh;
     background: #080e1a;
     border: 1px solid #10b981;
@@ -418,8 +462,9 @@ html, body {
     box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
     display: flex;
     flex-direction: column;
-    padding: 20px;
-    gap: 16px;
+    padding: 16px 20px;
+    gap: 12px;
+    overflow: hidden;
 }
 
 .sim-header {
@@ -427,22 +472,14 @@ html, body {
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #1e293b;
-    padding-bottom: 10px;
+    padding-bottom: 8px;
+    flex-shrink: 0;
 }
 
 .sim-header h2 {
-    font-size: 26px;
+    font-size: 24px;
     color: #10b981;
     letter-spacing: 2px;
-}
-
-.sim-progress-badge {
-    font-size: 20px;
-    color: #00ffcc;
-    background: rgba(0, 255, 204, 0.1);
-    padding: 4px 12px;
-    border: 1px solid #00ffcc;
-    border-radius: 4px;
 }
 
 .sim-body {
@@ -450,49 +487,15 @@ html, body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding-right: 6px;
-}
-
-.sim-loading {
-    font-size: 24px;
-    color: #a7f3d0;
-    text-align: center;
-    margin: 40px 0;
-}
-
-.sim-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
+    padding-right: 6px;
+    max-height: calc(85vh - 100px);
 }
 
-.sim-card {
-    background: #0f172a;
-    border: 1px solid #1e293b;
-    border-radius: 6px;
-    padding: 12px;
-    text-align: center;
-}
-
-.sim-card h4 {
-    font-size: 16px;
-    color: #94a3b8;
-    margin-bottom: 4px;
-}
-
-.sim-num {
-    font-size: 28px;
-    color: #00ffcc;
-    font-weight: bold;
-}
-
-.sim-section-title {
-    font-size: 22px;
-    color: #00aaff;
-    border-bottom: 1px solid #1e293b;
-    padding-bottom: 4px;
-    margin-top: 8px;
+#sim-output {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .sim-table {
@@ -502,25 +505,45 @@ html, body {
 }
 
 .sim-table th, .sim-table td {
-    padding: 10px;
+    padding: 6px 10px;
     border-bottom: 1px solid #1e293b;
-    font-size: 18px;
+    font-size: 16px;
 }
 
 .sim-table th {
     color: #94a3b8;
     background: #0f172a;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
-.sim-map-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 10px;
+.sim-section-title {
+    font-size: 18px;
+    color: #00aaff;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 4px;
+    margin-top: 4px;
+}
+
+#sim-text-export {
+    width: 100%;
+    height: 80px;
+    background: #111;
+    color: #00ffcc;
+    font-family: monospace;
+    font-size: 11px;
+    padding: 8px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    resize: none;
+    flex-shrink: 0;
 }
 
 .sim-footer {
     display: flex;
     justify-content: flex-end;
     border-top: 1px solid #1e293b;
-    padding-top: 10px;
+    padding-top: 8px;
+    flex-shrink: 0;
 }

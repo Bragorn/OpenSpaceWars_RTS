@@ -34,7 +34,6 @@ class Ship {
         this.orbitPlanet = sourcePlanet;
         this.targetPlanet = targetPlanet || sourcePlanet;
 
-        // Query Faction Stats
         const faction = FactionManager.getFaction(this.owner, gameManager);
         this.color = faction.color;
         this.hp = faction.hp;
@@ -47,7 +46,6 @@ class Ship {
         this.transitTurnRate = faction.transitTurnRate;
         this.combatTurnRate = faction.combatTurnRate;
 
-        // Clean 1-to-1 touchdown value for all factions
         this.touchdownPower = 1.0;
 
         const baseRadius = (sourcePlanet && sourcePlanet.radius) ? sourcePlanet.radius : 28;
@@ -95,13 +93,22 @@ class Ship {
         return (this.state === 'insertion' || this.state === 'orbit') ? this.combatTurnRate : this.transitTurnRate;
     }
 
-    takeDamage(amount, gameManager) {
+    takeDamage(amount, gameManager, attackerOwner = null) {
         if (this.dead) return;
         this.hp -= amount;
         if (this.hp <= 0) {
             this.dead = true;
-            if (gameManager && typeof gameManager.destroyShip === 'function') {
-                gameManager.destroyShip(this);
+
+            if (gameManager) {
+                if (gameManager.telemetry) {
+                    gameManager.telemetry.logEvent(gameManager.gameTime, 'SHIP_DESTROYED', this.owner);
+                    if (attackerOwner && attackerOwner !== this.owner) {
+                        gameManager.telemetry.logEvent(gameManager.gameTime, 'SHIP_KILLED', attackerOwner);
+                    }
+                }
+                if (typeof gameManager.destroyShip === 'function') {
+                    gameManager.destroyShip(this);
+                }
             }
         }
     }
@@ -198,7 +205,7 @@ class Ship {
             const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
             if (!hasLineOfSight(this, target, planets)) return;
 
-            target.takeDamage(this.laserDamage, gameManager);
+            target.takeDamage(this.laserDamage, gameManager, this.owner);
             this.laserTarget = { x: target.x, y: target.y };
             this.laserTimer = 0.08;
             this.shootCooldown = this.laserCooldownMax + Math.random() * 0.2;

@@ -8,28 +8,25 @@ class GameManager {
         this.ships = [];
         this.currentMapData = null;
 
-        // Mode: 'PLAYER_VS_CPU' | 'CPU_VS_CPU'
+        this.telemetry = typeof TelemetryCollector === 'function' ? new TelemetryCollector() : null;
+
         this.gameMode = 'PLAYER_VS_CPU';
 
-        // Faction Mapping per team owner ID (1 = Team 1, 2 = Team 2)
         this.factionMap = {
             0: 'NEUTRAL',
             1: 'HUMAN',
             2: 'PROTOCOL'
         };
 
-        // Subsystems (Skip in Headless Mode)
         this.renderer = (!this.isHeadless && typeof Renderer === 'function' && this.canvas) ? new Renderer(this.canvas) : null;
         this.controls = null;
         this.aiController1 = null;
         this.aiController2 = null;
 
-        // Simulation State
         this.isRunning = false;
         this.gameTime = 0; 
         this.gameSpeed = (window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1; 
 
-        // HUD Elements (Skip DOM queries in Headless Mode)
         if (!this.isHeadless) {
             this.hudElement = document.getElementById(dom.HUD_ID || 'hud');
             this.hudTimer = document.getElementById(dom.TIMER_ID || 'game-timer');
@@ -85,7 +82,6 @@ class GameManager {
         this.gameMode = gameMode;
         this.setFactionMap(team1FactionKey, team2FactionKey);
 
-        // Configure Controllers based on Mode
         if (this.gameMode === 'CPU_VS_CPU') {
             this.controls = null;
             this.aiController1 = typeof AIController === 'function' ? new AIController(this, 1) : null;
@@ -118,6 +114,10 @@ class GameManager {
         this.ships = [];
         this.gameTime = 0;
         
+        if (this.telemetry) {
+            this.telemetry.reset();
+        }
+
         if (!this.isHeadless) {
             this.updateTimerDisplay();
             const modalId = (window.GAME_CONFIG && window.GAME_CONFIG.DOM && window.GAME_CONFIG.DOM.GAME_OVER_MODAL) || 'game-over-modal';
@@ -155,11 +155,21 @@ class GameManager {
         if (!sourcePlanet || typeof Ship !== 'function') return null;
         const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet, this);
         this.ships.push(ship);
+
+        if (this.telemetry && sourcePlanet.owner) {
+            this.telemetry.logEvent(this.gameTime, 'SHIP_SPAWN', sourcePlanet.owner);
+        }
+
         return ship;
     }
 
     destroyShip(ship) {
         if (!ship) return;
+
+        if (this.telemetry && ship.owner) {
+            this.telemetry.logEvent(this.gameTime, 'SHIP_DESTROYED', ship.owner);
+        }
+
         ship.dead = true;
         const idx = this.ships.indexOf(ship);
         if (idx !== -1) {
@@ -207,7 +217,6 @@ class GameManager {
             this.planets.forEach(p => p && p.update && p.update(scaledDelta, this));
             this.ships.forEach(s => s && s.update && s.update(scaledDelta, this));
 
-            // Execute active AI controllers
             if (this.aiController1 && this.aiController1.update) {
                 this.aiController1.update(scaledDelta);
             }
@@ -219,7 +228,6 @@ class GameManager {
             this.checkWinCondition();
         }
 
-        // Only draw graphics if NOT headless
         if (!this.isHeadless && this.renderer && this.renderer.render) {
             this.renderer.render(this, this.controls);
         }
@@ -256,7 +264,7 @@ class GameManager {
         this.isRunning = false;
         this.winnerId = winningTeam;
 
-        if (this.isHeadless) return; // Skip UI modal popup in headless simulation
+        if (this.isHeadless) return;
 
         const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
         const modal = document.getElementById(dom.GAME_OVER_MODAL || 'game-over-modal');
@@ -288,4 +296,8 @@ class GameManager {
             modal.classList.remove('hidden');
         }
     }
+}
+
+if (typeof window !== 'undefined') {
+    window.GameManager = GameManager;
 }

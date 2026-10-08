@@ -1,12 +1,4 @@
 class BatchSimulator {
-    /**
-     * Runs a full batch simulation suite headless with macro time-stepping.
-     * 
-     * @param {MapRegistry} registry 
-     * @param {Object} options 
-     * @param {Function} onProgress 
-     * @returns {Promise<Object>}
-     */
     static async runFullSuite(registry, options = {}, onProgress = null) {
         const matchesPerPair = options.matchesPerPair || 10;
         const mode = options.mode || 'ALL';
@@ -57,10 +49,14 @@ class BatchSimulator {
                 wins: 0, 
                 matches: 0, 
                 totalDuration: 0, 
-                planetShareSum: 0, 
+                planetShareSum: 0,
+                killsSum: 0,
+                lossesSum: 0, 
                 winRate: 0, 
                 avgDuration: 0, 
-                avgPlanetShare: 0 
+                avgPlanetShare: 0,
+                avgKills: 0,
+                avgLosses: 0
             };
         });
 
@@ -74,9 +70,8 @@ class BatchSimulator {
             };
         });
 
-        // 10Hz logic steps (0.1s dt) for maximum speed
         const MACRO_DT = 0.1; 
-        const MAX_TICKS = 1800; // 180 seconds cap per match
+        const MAX_TICKS = 1800;
 
         const startTime = performance.now();
 
@@ -88,27 +83,34 @@ class BatchSimulator {
             for (let m = 0; m < matchesPerPair; m++) {
                 const matchResult = this.runSingleMatchFast(rawMap, matchDef.f1, matchDef.f2, MACRO_DT, MAX_TICKS);
                 
-                const { winnerTeamId, durationSeconds, team1Share, team2Share } = matchResult;
+                const { winnerTeamId, durationSeconds, team1Share, team2Share, telemetrySummary } = matchResult;
 
-                // Team 1 Stats (f1)
                 const f1 = results.factionStats[matchDef.f1];
                 if (f1) {
                     f1.matches++;
                     f1.totalDuration += durationSeconds;
                     f1.planetShareSum += team1Share;
                     if (winnerTeamId === 1) f1.wins++;
+
+                    if (telemetrySummary && telemetrySummary.team1) {
+                        f1.killsSum += telemetrySummary.team1.shipsKilled || 0;
+                        f1.lossesSum += telemetrySummary.team1.shipsLost || 0;
+                    }
                 }
 
-                // Team 2 Stats (f2)
                 const f2 = results.factionStats[matchDef.f2];
                 if (f2) {
                     f2.matches++;
                     f2.totalDuration += durationSeconds;
                     f2.planetShareSum += team2Share;
                     if (winnerTeamId === 2) f2.wins++;
+
+                    if (telemetrySummary && telemetrySummary.team2) {
+                        f2.killsSum += telemetrySummary.team2.shipsKilled || 0;
+                        f2.lossesSum += telemetrySummary.team2.shipsLost || 0;
+                    }
                 }
 
-                // Map Stats
                 const mapSt = results.mapStats[matchDef.slotNum];
                 if (mapSt) {
                     mapSt.matches++;
@@ -126,13 +128,14 @@ class BatchSimulator {
             }
         }
 
-        // Finalize percentages & averages
         Object.keys(results.factionStats).forEach(f => {
             const st = results.factionStats[f];
             if (st.matches > 0) {
                 st.winRate = Math.round((st.wins / st.matches) * 100);
                 st.avgDuration = Math.round(st.totalDuration / st.matches);
                 st.avgPlanetShare = Math.round(st.planetShareSum / st.matches);
+                st.avgKills = Math.round(st.killsSum / st.matches);
+                st.avgLosses = Math.round(st.lossesSum / st.matches);
             }
         });
 
@@ -147,25 +150,19 @@ class BatchSimulator {
         return results;
     }
 
-    /**
-     * Fast single match execution directly interacting with GameManager state.
-     */
     static runSingleMatchFast(mapData, faction1Id, faction2Id, dt, maxTicks) {
-        // Instantiate headless GameManager
         const simManager = new GameManager(true);
         simManager.start(mapData, faction1Id, faction2Id, 'CPU_VS_CPU');
 
         let ticks = 0;
 
-        // Run until game ends (simManager.isRunning set to false by endGame) or tick cap reached
         while (simManager.isRunning && ticks < maxTicks) {
             simManager.update(dt);
             ticks++;
         }
 
-        let winnerTeamId = simManager.winnerId || 0; // 1 = Team 1, 2 = Team 2, 0 = Draw
+        let winnerTeamId = simManager.winnerId || 0;
 
-        // Calculate planet ownership
         const totalPlanets = simManager.planets && simManager.planets.length > 0 ? simManager.planets.length : 1;
         let t1Planets = 0;
         let t2Planets = 0;
@@ -177,7 +174,6 @@ class BatchSimulator {
             });
         }
 
-        // Resolve timeouts via planet majority
         if (winnerTeamId === 0) {
             if (t1Planets > t2Planets) winnerTeamId = 1;
             else if (t2Planets > t1Planets) winnerTeamId = 2;
@@ -188,7 +184,8 @@ class BatchSimulator {
             durationSeconds: Math.round(ticks * dt),
             ticksProcessed: ticks,
             team1Share: Math.round((t1Planets / totalPlanets) * 100),
-            team2Share: Math.round((t2Planets / totalPlanets) * 100)
+            team2Share: Math.round((t2Planets / totalPlanets) * 100),
+            telemetrySummary: simManager.telemetry ? simManager.telemetry.getSummary() : null
         };
     }
 }

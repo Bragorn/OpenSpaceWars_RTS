@@ -13,8 +13,29 @@ class App {
 
         this.bindEvents();
         this.populateFactionDropdowns();
+        this.ensureTopCenterHUD();
         this.showMainMenu();
         this.loop(performance.now());
+    }
+
+    ensureTopCenterHUD() {
+        if (!document.getElementById('hud-top-center')) {
+            const topHud = document.createElement('div');
+            topHud.id = 'hud-top-center';
+            topHud.className = 'hud-top-center hidden';
+            topHud.innerHTML = `
+                <div class="hud-team-score t1">
+                    <span>T1 SHIPS:</span>
+                    <span id="hud-val-t1" class="hud-ship-val">0</span>
+                </div>
+                <div class="hud-vs-divider">|</div>
+                <div class="hud-team-score t2">
+                    <span>T2 SHIPS:</span>
+                    <span id="hud-val-t2" class="hud-ship-val">0</span>
+                </div>
+            `;
+            document.body.appendChild(topHud);
+        }
     }
 
     bindEvents() {
@@ -23,12 +44,10 @@ class App {
         document.getElementById('btn-map-start')?.addEventListener('click', () => this.launchSelectedMap());
         document.getElementById('btn-restart')?.addEventListener('click', () => this.showMapSelect());
 
-        // Simulation Modal Triggers
         document.getElementById('btn-batch-sim')?.addEventListener('click', () => this.openSimSetupModal());
         document.getElementById('btn-close-sim')?.addEventListener('click', () => this.closeSimModal());
         document.getElementById('btn-close-sim-running')?.addEventListener('click', () => this.closeSimModal());
         
-        // Simulation Controls
         document.getElementById('sim-combo-mode')?.addEventListener('change', (e) => this.toggleSimMatchOptions(e.target.value));
         document.getElementById('btn-start-sim-run')?.addEventListener('click', () => this.runConfiguredSimulation());
         document.getElementById('btn-sim-reset')?.addEventListener('click', () => this.showSimSetupView());
@@ -181,7 +200,6 @@ class App {
         output.innerHTML = '<p class="sim-loading">INITIALIZING HEADLESS BATCH SIMULATION...</p>';
         progress.textContent = '0%';
 
-        // Execute batch test using configured options
         const report = await BatchSimulator.runFullSuite(this.registry, simOptions, (done, total) => {
             const pct = Math.round((done / total) * 100);
             progress.textContent = `${pct}% (${done}/${total} MATCHES)`;
@@ -195,11 +213,9 @@ class App {
         const output = document.getElementById('sim-output');
         if (!output || !report) return;
 
-        // 1. Build concise plain-text summary for copying
-        let textSummary = `=== BATCH SIMULATION REPORT (${report.totalMatches} MATCHES) ===\n\n`;
-        textSummary += `FACTION PERFORMANCE:\n`;
-        textSummary += `Faction       | Win Rate | Wins / Total | Avg Duration | Avg Control\n`;
-        textSummary += `--------------|----------|--------------|--------------|------------\n`;
+        let textSummary = `=== BATCH SIMULATION SUMMARY (${report.totalMatches} MATCHES) ===\n\n`;
+        textSummary += `Faction       | Win Rate | Wins/Total | Avg Kills | Avg Losses | Avg Control\n`;
+        textSummary += `--------------|----------|------------|-----------|------------|------------\n`;
 
         const sortedFactions = [...(report.factions || [])].sort((a, b) => 
             (report.factionStats[b]?.winRate || 0) - (report.factionStats[a]?.winRate || 0)
@@ -212,51 +228,30 @@ class App {
             
             const namePad = facName.padEnd(13, ' ');
             const wrPad = `${st.winRate}%`.padEnd(8, ' ');
-            const ratioPad = `${st.wins}/${st.matches}`.padEnd(12, ' ');
-            const durPad = `${st.avgDuration}s`.padEnd(12, ' ');
+            const ratioPad = `${st.wins}/${st.matches}`.padEnd(10, ' ');
+            const killsPad = `${st.avgKills || 0}`.padEnd(9, ' ');
+            const lossesPad = `${st.avgLosses || 0}`.padEnd(10, ' ');
             const sharePad = `${st.avgPlanetShare}%`;
 
-            textSummary += `${namePad} | ${wrPad} | ${ratioPad} | ${durPad} | ${sharePad}\n`;
+            textSummary += `${namePad} | ${wrPad} | ${ratioPad} | ${killsPad} | ${lossesPad} | ${sharePad}\n`;
         });
 
-        textSummary += `\nMAP BREAKDOWN:\n`;
-        Object.keys(report.mapStats || {}).forEach(mapKey => {
-            const ms = report.mapStats[mapKey];
-            textSummary += `Map ${mapKey} (${ms.name}): Avg ${ms.avgDuration}s across ${ms.matches} matches\n`;
-        });
-
-        // 2. Render UI HTML + Text Copy Box
         let html = `
-            <div style="margin-bottom: 15px; text-align: right;">
-                <button id="btn-copy-sim-text" style="padding: 8px 16px; background: #00aaff; color: #000; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
-                    Copy
+            <div style="margin-bottom: 12px; text-align: right;">
+                <button id="btn-copy-sim-text" style="padding: 6px 14px; background: #00aaff; color: #000; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
+                    Copy Summary
                 </button>
             </div>
 
-            <div class="sim-summary-grid">
-                <div class="sim-card">
-                    <h4>TOTAL MATCHES</h4>
-                    <p class="sim-num">${report.totalMatches}</p>
-                </div>
-                <div class="sim-card">
-                    <h4>FACTIONS TESTED</h4>
-                    <p class="sim-num">${report.factions ? report.factions.length : 0}</p>
-                </div>
-                <div class="sim-card">
-                    <h4>MAPS TESTED</h4>
-                    <p class="sim-num">${Object.keys(report.mapStats || {}).length}</p>
-                </div>
-            </div>
-
-            <h3 class="sim-section-title">FACTION PERFORMANCE OVERVIEW</h3>
             <table class="sim-table">
                 <thead>
                     <tr>
                         <th>FACTION</th>
                         <th>WIN RATE</th>
-                        <th>WINS / MATCHES</th>
-                        <th>AVG MATCH DURATION</th>
-                        <th>AVG PLANET CONTROL</th>
+                        <th>WINS / TOTAL</th>
+                        <th>AVG KILLS</th>
+                        <th>AVG LOSSES</th>
+                        <th>AVG CONTROL</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -273,7 +268,8 @@ class App {
                     <td style="font-weight: bold; color: #00aaff;">${facName} (${fKey})</td>
                     <td style="color: ${winColor}; font-weight: bold;">${st.winRate}%</td>
                     <td>${st.wins} / ${st.matches}</td>
-                    <td>${st.avgDuration}s</td>
+                    <td>${st.avgKills || 0}</td>
+                    <td>${st.avgLosses || 0}</td>
                     <td>${st.avgPlanetShare}%</td>
                 </tr>
             `;
@@ -283,20 +279,19 @@ class App {
                 </tbody>
             </table>
 
-            <h3 class="sim-section-title">PLAIN-TEXT EXPORT</h3>
-            <textarea id="sim-text-export" readonly style="width: 100%; height: 120px; background: #111; color: #00ffcc; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #333; border-radius: 4px;">${textSummary}</textarea>
+            <h3 class="sim-section-title">SUMMARY TEXT</h3>
+            <textarea id="sim-text-export" readonly style="width: 100%; height: 100px; background: #111; color: #00ffcc; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #333; border-radius: 4px;">${textSummary}</textarea>
         `;
 
         output.innerHTML = html;
 
-        // Bind copy button event
         document.getElementById('btn-copy-sim-text')?.addEventListener('click', () => {
             const txt = document.getElementById('sim-text-export');
             if (txt) {
                 txt.select();
                 navigator.clipboard.writeText(txt.value);
                 const btn = document.getElementById('btn-copy-sim-text');
-                if (btn) btn.textContent = '✓ Copied!';
+                if (btn) btn.textContent = '✓ Copied Summary!';
             }
         });
     }
@@ -312,6 +307,8 @@ class App {
         if (window.gameManager) window.gameManager.stop();
         this.clearScreen();
 
+        document.getElementById('hud-top-center')?.classList.add('hidden');
+
         const menuMain = document.getElementById('menu-main');
         const menuMap = document.getElementById('menu-map-select');
 
@@ -323,6 +320,8 @@ class App {
         this.state = 'MAP_SELECT';
         if (window.gameManager) window.gameManager.stop();
         this.clearScreen();
+
+        document.getElementById('hud-top-center')?.classList.add('hidden');
 
         const menuMain = document.getElementById('menu-main');
         const menuMap = document.getElementById('menu-map-select');
@@ -371,9 +370,24 @@ class App {
         const menuMap = document.getElementById('menu-map-select');
         if (menuMap) menuMap.style.display = 'none';
 
+        document.getElementById('hud-top-center')?.classList.remove('hidden');
+
         if (window.gameManager) {
             window.gameManager.start(scaledMap, playerFaction, enemyFaction, gameMode);
         }
+    }
+
+    updateShipCountHUD() {
+        if (!window.gameManager || !window.gameManager.ships) return;
+
+        const t1Count = window.gameManager.ships.filter(s => s && !s.dead && s.owner === 1).length;
+        const t2Count = window.gameManager.ships.filter(s => s && !s.dead && s.owner === 2).length;
+
+        const valT1 = document.getElementById('hud-val-t1');
+        const valT2 = document.getElementById('hud-val-t2');
+
+        if (valT1) valT1.textContent = t1Count;
+        if (valT2) valT2.textContent = t2Count;
     }
 
     loop(timestamp) {
@@ -382,6 +396,7 @@ class App {
 
         if (this.state === 'GAME' && window.gameManager) {
             window.gameManager.update(deltaTime);
+            this.updateShipCountHUD();
         } else if (this.state === 'MENU' || this.state === 'MAP_SELECT') {
             this.clearScreen();
         }
