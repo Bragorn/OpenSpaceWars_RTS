@@ -9,10 +9,24 @@ class AIController {
     getFactionProfile() {
         return {
             updateInterval: 1.5,
-            safetyMargin: 1.1,
-            dispatchRatio: 0.60,
-            upgradeRatioThreshold: 0.8
+            safetyMargin: 1.15,
+            dispatchRatio: 0.60
         };
+    }
+
+    getGlobalSpawnRate(ownerId) {
+        if (!this.gameManager || !this.gameManager.planets) return 0.01;
+        const owned = this.gameManager.planets.filter(p => p.owner === ownerId);
+        let totalSpawnsPerSec = 0;
+
+        owned.forEach(p => {
+            const faction = FactionManager.getFaction(ownerId, this.gameManager);
+            const stats = p.tierStats ? p.tierStats[p.level] : { spawnInterval: 3.0 };
+            const actualInterval = stats.spawnInterval * (faction.spawnIntervalMult || 1.0);
+            if (actualInterval > 0) totalSpawnsPerSec += (1.0 / actualInterval);
+        });
+
+        return Math.max(0.01, totalSpawnsPerSec);
     }
 
     calculateFleetPower(planet, ownerId) {
@@ -30,7 +44,15 @@ class AIController {
         return count * shipHp;
     }
 
+    getIncomingShipsCount(targetPlanet) {
+        if (!this.gameManager || !this.gameManager.ships) return 0;
+        return this.gameManager.ships.filter(s => 
+            s && !s.dead && s.owner === this.teamOwner && s.targetPlanet === targetPlanet && s.state !== 'ORBIT'
+        ).length;
+    }
+
     getNearestTarget(source, targets) {
+        if (!targets || targets.length === 0) return null;
         let target = targets[0];
         let minDistSq = Infinity;
         targets.forEach(t => {
@@ -67,6 +89,14 @@ class AIController {
         }
 
         const neutralTargets = allEnemyTargets.filter(p => p.owner === 0);
+        const activeEnemyBases = allEnemyTargets.filter(p => p.owner !== 0);
+        const enemyOwner = activeEnemyBases.length > 0 ? activeEnemyBases[0].owner : 0;
+
+        const mySpawnRate = this.getGlobalSpawnRate(this.teamOwner);
+        const enemySpawnRate = enemyOwner !== 0 ? this.getGlobalSpawnRate(enemyOwner) : 0.01;
+        const prodRatio = mySpawnRate / enemySpawnRate;
+        const isBehindEconomically = prodRatio < 0.85;
+
         const myFaction = FactionManager.getFaction(this.teamOwner, this.gameManager);
         const shipHp = myFaction.hp || 20;
 
@@ -81,32 +111,45 @@ class AIController {
             const reqCost = source.getUpgradeCost();
 
             // 1. Upgrade Decision
-            if (source.level < maxTier) {
-                if (orbitingCount >= reqCost) {
-                    source.startUpgrade(this.gameManager.ships);
-                    this.currentState = `UPGRADING_PLANET_${source.level + 1}`;
-                    actionTaken = true;
-                    return;
-                }
+            if (source.level < maxTier && orbitingCount >= reqCost) {
+                source.startUpgrade(this.gameManager.ships);
+                this.currentState = `UPGRADING_PLANET_${source.level + 1}`;
+                actionTaken = true;
+                return;
             }
 
             // 2. Neutral Expansion
             if (neutralTargets.length > 0) {
-                const target = this.getNearestTarget(source, neutralTargets);
-                if (myPower > target.hp) {
-                    this.gameManager.dispatchFleet(source, target, profile.dispatchRatio);
-                    this.currentState = 'EXPANDING_NEUTRAL';
-                    actionTaken = true;
-                    if (this.gameManager.telemetry) {
-                        this.gameManager.telemetry.logEvent(this.gameManager.gameTime, 'DISPATCH', this.teamOwner, { ratio: profile.dispatchRatio });
+                const availableNeutrals = neutralTargets.filter(n => {
+                    const claimCost = n.claimCost || 5;
+                    const inTransit = this.getIncomingShipsCount(n);
+                    return inTransit < claimCost;
+                });
+
+                if (availableNeutrals.length > 0) {
+                    const target = this.getNearestTarget(source, availableNeutrals);
+                    if (target && myPower > target.hp) {
+                        this.gameManager.dispatchFleet(source, target, profile.dispatchRatio);
+                        this.currentState = 'EXPANDING_NEUTRAL';
+                        actionTaken = true;
+                        if (this.gameManager.telemetry) {
+                            this.gameManager.telemetry.logEvent(this.gameManager.gameTime, 'DISPATCH', this.teamOwner, { ratio: profile.dispatchRatio });
+                        }
+                        return;
                     }
-                    return;
                 }
             }
 
-            // 3. Enemy Assault
-            if (allEnemyTargets.length > 0) {
-                const target = this.getNearestTarget(source, allEnemyTargets);
+            // 3. Economic Catch-Up Gate
+            if (isBehindEconomically && source.level < maxTier && orbitingCount < reqCost) {
+                this.currentState = 'SAVING_TO_CLOSE_SPAWN_GAP';
+                actionTaken = true;
+                return;
+            }
+
+            // 4. Enemy Assault
+            if (activeEnemyBases.length > 0) {
+                const target = this.getNearestTarget(source, activeEnemyBases);
                 const enemyDefendingPower = this.calculateFleetPower(target, target.owner);
                 const totalTargetPower = target.hp + enemyDefendingPower;
 
