@@ -9,15 +9,28 @@ class App {
         this.lastTime = performance.now();
         this.lastSimReport = null;
 
-        this.t1SpawnCount = 0;
-        this.t2SpawnCount = 0;
+        this.factionsList = [];
+        this.p1FactionIndex = 0;
+        this.p2FactionIndex = 1;
+        this.gameMode = 'PLAYER_VS_CPU';
 
         this.registry = typeof MapRegistry === 'function' ? new MapRegistry() : null;
 
+        this.initFactions();
         this.bindEvents();
-        this.populateFactionDropdowns();
         this.showMainMenu();
         this.loop(performance.now());
+    }
+
+    initFactions() {
+        if (typeof FACTION_DATA !== 'undefined') {
+            this.factionsList = Object.keys(FACTION_DATA);
+        } else {
+            this.factionsList = ['HUMAN', 'PROTOCOL'];
+        }
+        // Ensure defaults don't match if possible
+        this.p1FactionIndex = this.factionsList.indexOf('HUMAN') !== -1 ? this.factionsList.indexOf('HUMAN') : 0;
+        this.p2FactionIndex = this.factionsList.indexOf('PROTOCOL') !== -1 ? this.factionsList.indexOf('PROTOCOL') : Math.min(1, this.factionsList.length - 1);
     }
 
     bindEvents() {
@@ -26,72 +39,99 @@ class App {
         document.getElementById('btn-map-start')?.addEventListener('click', () => this.launchSelectedMap());
         document.getElementById('btn-restart')?.addEventListener('click', () => this.showMapSelect());
 
+        // Batch Simulation Events with Abort Handling
         document.getElementById('btn-batch-sim')?.addEventListener('click', () => this.openSimSetupModal());
-        document.getElementById('btn-close-sim')?.addEventListener('click', () => this.closeSimModal());
-        document.getElementById('btn-close-sim-running')?.addEventListener('click', () => this.closeSimModal());
+        document.getElementById('btn-close-sim')?.addEventListener('click', () => {
+            if (typeof BatchSimulator !== 'undefined') BatchSimulator.cancel();
+            this.closeSimModal();
+        });
+        document.getElementById('btn-close-sim-running')?.addEventListener('click', () => {
+            if (typeof BatchSimulator !== 'undefined') BatchSimulator.cancel();
+            this.closeSimModal();
+        });
         
         document.getElementById('sim-combo-mode')?.addEventListener('change', (e) => this.toggleSimMatchOptions(e.target.value));
         document.getElementById('btn-start-sim-run')?.addEventListener('click', () => this.runConfiguredSimulation());
         document.getElementById('btn-sim-reset')?.addEventListener('click', () => this.showSimSetupView());
 
-        document.getElementById('select-game-mode')?.addEventListener('change', (e) => {
+        // Arcade Faction Selector Arrows
+        document.getElementById('p1-prev')?.addEventListener('click', () => this.cycleFaction(1, -1));
+        document.getElementById('p1-next')?.addEventListener('click', () => this.cycleFaction(1, 1));
+        document.getElementById('p2-prev')?.addEventListener('click', () => this.cycleFaction(2, -1));
+        document.getElementById('p2-next')?.addEventListener('click', () => this.cycleFaction(2, 1));
+
+        // Arcade Mode Toggle Button
+        document.getElementById('btn-toggle-gamemode')?.addEventListener('click', () => {
+            this.gameMode = (this.gameMode === 'PLAYER_VS_CPU') ? 'CPU_VS_CPU' : 'PLAYER_VS_CPU';
+            const btn = document.getElementById('btn-toggle-gamemode');
             const p1Label = document.getElementById('p1-header-label');
             const p2Label = document.getElementById('p2-header-label');
-            if (e.target.value === 'CPU_VS_CPU') {
+
+            if (this.gameMode === 'CPU_VS_CPU') {
+                if (btn) btn.textContent = 'SPECTATOR (CPU VS CPU)';
                 if (p1Label) p1Label.textContent = 'CPU 1 (TEAM 1)';
                 if (p2Label) p2Label.textContent = 'CPU 2 (TEAM 2)';
             } else {
+                if (btn) btn.textContent = 'PLAYER VS CPU';
                 if (p1Label) p1Label.textContent = 'PLAYER 1';
                 if (p2Label) p2Label.textContent = 'CPU ENEMY';
             }
         });
+
+        // In-Game ESC Exit Menu Bindings
+        document.getElementById('btn-esc-menu')?.addEventListener('click', () => this.openExitModal());
+        document.getElementById('btn-exit-yes')?.addEventListener('click', () => {
+            this.closeExitModal();
+            this.showMainMenu();
+        });
+        document.getElementById('btn-exit-no')?.addEventListener('click', () => {
+            this.closeExitModal();
+            if (window.gameManager) window.gameManager.setSpeed(1); // Resume game speed
+        });
     }
 
-    populateFactionDropdowns() {
-        const playerSelect = document.getElementById('select-player-faction');
-        const enemySelect = document.getElementById('select-enemy-faction');
-        if (!playerSelect || !enemySelect || typeof FACTION_DATA === 'undefined') return;
+    cycleFaction(teamNum, direction) {
+        if (this.factionsList.length === 0) return;
 
-        playerSelect.innerHTML = '';
-        enemySelect.innerHTML = '';
+        if (teamNum === 1) {
+            this.p1FactionIndex = (this.p1FactionIndex + direction + this.factionsList.length) % this.factionsList.length;
+            if (this.p1FactionIndex === this.p2FactionIndex) {
+                this.p1FactionIndex = (this.p1FactionIndex + direction + this.factionsList.length) % this.factionsList.length;
+            }
+        } else {
+            this.p2FactionIndex = (this.p2FactionIndex + direction + this.factionsList.length) % this.factionsList.length;
+            if (this.p2FactionIndex === this.p1FactionIndex) {
+                this.p2FactionIndex = (this.p2FactionIndex + direction + this.factionsList.length) % this.factionsList.length;
+            }
+        }
 
-        Object.keys(FACTION_DATA).forEach((key) => {
-            const fac = FACTION_DATA[key];
-            
-            const optPlayer = document.createElement('option');
-            optPlayer.value = fac.id;
-            optPlayer.textContent = `${fac.name} (${fac.id})`;
-            if (fac.id === 'HUMAN') optPlayer.selected = true;
-            playerSelect.appendChild(optPlayer);
-
-            const optEnemy = document.createElement('option');
-            optEnemy.value = fac.id;
-            optEnemy.textContent = `${fac.name} (${fac.id})`;
-            if (fac.id === 'PROTOCOL') optEnemy.selected = true;
-            enemySelect.appendChild(optEnemy);
-        });
-
-        this.syncFactionDropdowns(playerSelect, enemySelect);
+        this.updateArcadeFactionDisplays();
         this.updateMenuFactionTheme();
+    }
 
-        playerSelect.addEventListener('change', () => {
-            this.syncFactionDropdowns(playerSelect, enemySelect);
-            this.updateMenuFactionTheme();
-        });
-        enemySelect.addEventListener('change', () => {
-            this.syncFactionDropdowns(enemySelect, playerSelect);
-            this.updateMenuFactionTheme();
-        });
+    updateArcadeFactionDisplays() {
+        const p1Key = this.factionsList[this.p1FactionIndex] || 'HUMAN';
+        const p2Key = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
+
+        const p1Display = document.getElementById('p1-faction-display');
+        const p2Display = document.getElementById('p2-faction-display');
+
+        if (p1Display && typeof FACTION_DATA !== 'undefined' && FACTION_DATA[p1Key]) {
+            p1Display.textContent = FACTION_DATA[p1Key].name.toUpperCase();
+        }
+        if (p2Display && typeof FACTION_DATA !== 'undefined' && FACTION_DATA[p2Key]) {
+            p2Display.textContent = FACTION_DATA[p2Key].name.toUpperCase();
+        }
     }
 
     updateMenuFactionTheme() {
         if (typeof FACTION_DATA === 'undefined') return;
 
-        const p1Val = document.getElementById('select-player-faction')?.value || 'HUMAN';
-        const p2Val = document.getElementById('select-enemy-faction')?.value || 'PROTOCOL';
+        const p1Key = this.factionsList[this.p1FactionIndex] || 'HUMAN';
+        const p2Key = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
 
-        const f1 = FACTION_DATA[p1Val] || FACTION_DATA.HUMAN;
-        const f2 = FACTION_DATA[p2Val] || FACTION_DATA.PROTOCOL;
+        const f1 = FACTION_DATA[p1Key] || FACTION_DATA.HUMAN;
+        const f2 = FACTION_DATA[p2Key] || FACTION_DATA.PROTOCOL;
 
         const teamHome = document.querySelector('.team-home');
         if (teamHome) {
@@ -108,20 +148,13 @@ class App {
         }
     }
 
-    syncFactionDropdowns(sourceSelect, targetSelect) {
-        if (!sourceSelect || !targetSelect) return;
-        const selectedValue = sourceSelect.value;
+    openExitModal() {
+        if (window.gameManager) window.gameManager.setSpeed(0); // Auto-pause
+        document.getElementById('exit-confirm-modal')?.classList.remove('hidden');
+    }
 
-        Array.from(targetSelect.options).forEach(opt => {
-            opt.disabled = (opt.value === selectedValue);
-        });
-
-        if (targetSelect.value === selectedValue) {
-            const firstAvailable = Array.from(targetSelect.options).find(opt => !opt.disabled);
-            if (firstAvailable) {
-                targetSelect.value = firstAvailable.value;
-            }
-        }
+    closeExitModal() {
+        document.getElementById('exit-confirm-modal')?.classList.add('hidden');
     }
 
     openSimSetupModal() {
@@ -134,6 +167,7 @@ class App {
     }
 
     closeSimModal() {
+        if (typeof BatchSimulator !== 'undefined') BatchSimulator.cancel();
         const modal = document.getElementById('sim-modal');
         if (modal) modal.classList.add('hidden');
     }
@@ -218,6 +252,8 @@ class App {
             progress.textContent = `${pct}% (${done}/${total} MATCHES)`;
         });
 
+        if (!report) return; // Aborted cleanly
+
         this.lastSimReport = report;
         this.renderSimReport(report);
     }
@@ -231,50 +267,19 @@ class App {
             (report.factionStats[b]?.winRate || 0) - (report.factionStats[a]?.winRate || 0)
         );
 
-        let textSummary = `=== BATCH SIMULATION REPORT (${report.totalMatches} MATCHES) ===\n\n`;
-        textSummary += `MATCH PACING & GLOBAL METRICS:\n`;
-        textSummary += `• Match Duration Spread: Min ${gm.minDuration}s | Median ${gm.medianDuration}s | Max ${gm.maxDuration}s | Avg ${gm.avgDuration}s\n`;
-        textSummary += `• Timeout Resolved Matches: ${gm.timeoutWinRate}%\n`;
-        textSummary += `• First Neutral Capture Time: ${gm.avgFirstCaptureTime || 'N/A'}s\n`;
-        textSummary += `• Avg Contested Planet Time: ${gm.avgContestedTime}s\n\n`;
-
-        textSummary += `FACTION PERFORMANCE DETAILS:\n`;
-
-        sortedFactions.forEach(fKey => {
-            const st = report.factionStats[fKey];
-            if (!st) return;
-            const facName = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[fKey]) ? FACTION_DATA[fKey].name : fKey;
-
-            textSummary += `[${facName.toUpperCase()} (${fKey})]\n`;
-            textSummary += `  - Win Rate: ${st.winRate}% (${st.wins}/${st.matches} wins)\n`;
-            textSummary += `  - Combat: KDR ${st.kdr} | Dmg Eff ${st.damageEfficiency} | Kills ${st.avgKills} | Losses ${st.avgLosses}\n`;
-            textSummary += `  - Economy: SPM ${st.spm} | Prod-to-Combat Eff ${st.prodCombatEfficiency}%\n`;
-            textSummary += `  - Macro: Avg Control ${st.avgPlanetShare}% | Majority Time ${st.controlMajorityPct}% | Comeback Win Rate ${st.comebackRate}%\n`;
-            textSummary += `  - Movement: Transit Ratio ${st.transitRatio}% | Idle Fleet Ratio ${st.idleRatio}% | Avg Dispatch ${st.avgDispatchSize}%\n\n`;
-        });
-
         let html = `
-            <div style="margin-bottom: 10px; text-align: right;">
-                <button id="btn-copy-sim-text" style="padding: 6px 14px; background: #00aaff; color: #000; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
-                    Copy Structured Summary
-                </button>
-            </div>
-
             <div class="sim-summary-grid">
                 <div class="sim-card">
                     <h4>DURATION SPREAD</h4>
                     <p class="sim-num">${gm.minDuration}s - ${gm.maxDuration}s</p>
-                    <span style="font-size: 9px; color: #94a3b8;">Avg: ${gm.avgDuration}s | Med: ${gm.medianDuration}s</span>
                 </div>
                 <div class="sim-card">
                     <h4>TIMEOUT RATE</h4>
                     <p class="sim-num">${gm.timeoutWinRate}%</p>
-                    <span style="font-size: 9px; color: #94a3b8;">Resolved by Majority</span>
                 </div>
                 <div class="sim-card">
                     <h4>FIRST CAPTURE</h4>
                     <p class="sim-num">${gm.avgFirstCaptureTime || 'N/A'}s</p>
-                    <span style="font-size: 9px; color: #94a3b8;">Contested: ${gm.avgContestedTime}s</span>
                 </div>
             </div>
 
@@ -285,8 +290,6 @@ class App {
                         <th>FACTION</th>
                         <th>WIN RATE</th>
                         <th>KDR</th>
-                        <th>DMG EFF</th>
-                        <th>PROD EFF</th>
                         <th>SPM</th>
                         <th>CONTROL</th>
                     </tr>
@@ -298,40 +301,20 @@ class App {
             const st = report.factionStats[fKey];
             if (!st) return;
             const facName = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[fKey]) ? FACTION_DATA[fKey].name : fKey;
-            const winColor = st.winRate >= 55 ? '#00ffcc' : (st.winRate <= 45 ? '#ff4466' : '#ffffff');
 
             html += `
                 <tr>
                     <td style="font-weight: bold; color: #00aaff;">${facName}</td>
-                    <td style="color: ${winColor}; font-weight: bold;">${st.winRate}%</td>
+                    <td style="color: #00ffcc; font-weight: bold;">${st.winRate}%</td>
                     <td>${st.kdr}</td>
-                    <td>${st.damageEfficiency}</td>
-                    <td>${st.prodCombatEfficiency}%</td>
                     <td>${st.spm}</td>
                     <td>${st.avgPlanetShare}%</td>
                 </tr>
             `;
         });
 
-        html += `
-                </tbody>
-            </table>
-
-            <h3 class="sim-section-title">FORMATTED REPORT COPY</h3>
-            <textarea id="sim-text-export" readonly style="width: 100%; height: 110px; background: #111; color: #00ffcc; font-family: monospace; font-size: 9px; padding: 8px; border: 1px solid #333; border-radius: 4px; resize: none;">${textSummary}</textarea>
-        `;
-
+        html += `</tbody></table>`;
         output.innerHTML = html;
-
-        document.getElementById('btn-copy-sim-text')?.addEventListener('click', () => {
-            const txt = document.getElementById('sim-text-export');
-            if (txt) {
-                txt.select();
-                navigator.clipboard.writeText(txt.value);
-                const btn = document.getElementById('btn-copy-sim-text');
-                if (btn) btn.textContent = '✓ Copied Summary!';
-            }
-        });
     }
 
     clearScreen() {
@@ -346,6 +329,7 @@ class App {
         this.clearScreen();
 
         document.getElementById('hud-top-center')?.classList.add('hidden');
+        document.getElementById('exit-confirm-modal')?.classList.add('hidden');
 
         const menuMain = document.getElementById('menu-main');
         const menuMap = document.getElementById('menu-map-select');
@@ -367,6 +351,8 @@ class App {
         if (menuMain) menuMain.style.display = 'none';
         if (menuMap) menuMap.style.display = 'flex';
 
+        this.updateArcadeFactionDisplays();
+        this.updateMenuFactionTheme();
         this.renderMapSlots();
     }
 
@@ -398,9 +384,8 @@ class App {
         
         const scaledMap = this.registry.getScaledMap(this.selectedSlotNum, width, height);
 
-        const playerFaction = document.getElementById('select-player-faction')?.value || 'HUMAN';
-        const enemyFaction = document.getElementById('select-enemy-faction')?.value || 'PROTOCOL';
-        const gameMode = document.getElementById('select-game-mode')?.value || 'PLAYER_VS_CPU';
+        const playerFaction = this.factionsList[this.p1FactionIndex] || 'HUMAN';
+        const enemyFaction = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
 
         this.state = 'GAME';
         this.clearScreen();
@@ -408,7 +393,6 @@ class App {
         const menuMap = document.getElementById('menu-map-select');
         if (menuMap) menuMap.style.display = 'none';
 
-        // Apply dynamic faction colors to the in-game HUD cards
         const f1 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[playerFaction]) ? FACTION_DATA[playerFaction] : { name: playerFaction, color: '#00aaff' };
         const f2 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[enemyFaction]) ? FACTION_DATA[enemyFaction] : { name: enemyFaction, color: '#ff3355' };
 
@@ -435,7 +419,7 @@ class App {
         document.getElementById('hud-top-center')?.classList.remove('hidden');
 
         if (window.gameManager) {
-            window.gameManager.start(scaledMap, playerFaction, enemyFaction, gameMode);
+            window.gameManager.start(scaledMap, playerFaction, enemyFaction, this.gameMode);
         }
     }
 
@@ -452,7 +436,6 @@ class App {
         if (valT1) valT1.textContent = t1Count;
         if (valT2) valT2.textContent = t2Count;
 
-        // Calculate Live SPM
         const durationMins = Math.max(0.05, gm.gameTime / 60);
         const t1Spawned = gm.telemetry ? gm.telemetry.summary.team1.shipsSpawned : 0;
         const t2Spawned = gm.telemetry ? gm.telemetry.summary.team2.shipsSpawned : 0;
@@ -463,7 +446,6 @@ class App {
         if (spmT1) spmT1.textContent = (t1Spawned / durationMins).toFixed(1);
         if (spmT2) spmT2.textContent = (t2Spawned / durationMins).toFixed(1);
 
-        // Display AI State Strings
         const stateT1 = document.getElementById('hud-state-t1');
         const stateT2 = document.getElementById('hud-state-t2');
 

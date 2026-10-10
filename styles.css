@@ -12,7 +12,7 @@
     padding: 0;
     user-select: none;
     font-family: 'pinballin-scan', monospace;
-    font-size: 9px; /* Single uniform font size for everything */
+    font-size: 9px;
 }
 
 html, body {
@@ -37,10 +37,10 @@ html, body {
     display: none !important;
 }
 
-/* ================= SLIM TOP COMMAND BAR ================= */
+/* ================= ULTRA-SLIM TOP COMMAND BAR ================= */
 .hud-top-center {
     position: fixed;
-    top: 8px;
+    top: 2px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 100;
@@ -49,34 +49,34 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
 
-    padding: 6px 10px;
-    background: rgba(8, 14, 26, 0.94);
+    padding: 3px 8px;
+    background: rgba(8, 14, 26, 0.95);
     border: 1px solid #1e293b;
     border-top: 2px solid #00aaff;
-    border-radius: 6px;
+    border-radius: 0 0 6px 6px;
     backdrop-filter: blur(8px);
-    box-shadow: 0 0 20px rgba(0, 170, 255, 0.2);
-    min-width: 580px;
+    box-shadow: 0 2px 10px rgba(0, 170, 255, 0.2);
+    min-width: 540px;
 }
 
 .hud-team-card {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    min-width: 140px;
+    gap: 1px;
+    min-width: 130px;
 }
 
 .hud-team-card.t1 {
     border-left: 3px solid #00aaff;
-    padding-left: 6px;
+    padding-left: 5px;
     text-align: left;
 }
 
 .hud-team-card.t2 {
     border-right: 3px solid #ff3355;
-    padding-right: 6px;
+    padding-right: 5px;
     text-align: right;
 }
 
@@ -87,7 +87,7 @@ html, body {
 
 .hud-card-body {
     display: flex;
-    gap: 8px;
+    gap: 6px;
 }
 
 .hud-team-card.t2 .hud-card-body {
@@ -101,7 +101,6 @@ html, body {
 
 .hud-ai-state {
     color: #ffcc00;
-    letter-spacing: 0.5px;
 }
 
 .hud-center-cluster {
@@ -110,13 +109,13 @@ html, body {
     align-items: center;
     justify-content: center;
     gap: 2px;
-    min-width: 120px;
+    min-width: 110px;
 }
 
 .hud-timer {
     line-height: 1;
     color: #00ffcc;
-    text-shadow: 0 0 6px rgba(0, 255, 204, 0.5);
+    text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
     letter-spacing: 1px;
     text-align: center;
 }
@@ -124,7 +123,7 @@ html, body {
 .hud-controls {
     display: flex;
     flex-direction: row;
-    gap: 4px;
+    gap: 3px;
     justify-content: center;
     align-items: center;
 }
@@ -134,8 +133,8 @@ html, body {
     background: #0f172a;
     border: 1px solid #334155;
     border-radius: 3px;
-    height: 20px;
-    padding: 0 5px;
+    height: 18px;
+    padding: 0 4px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -153,48 +152,48 @@ html, body {
     background: #00ffcc;
     color: #060912;
     border-color: #00ffcc;
-    box-shadow: 0 0 6px rgba(0, 255, 204, 0.4);
+    box-shadow: 0 0 5px rgba(0, 255, 204, 0.4);
     font-weight: bold;
 }
 
-/* In-Game Menu / Exit Dropdown Styles */
-.hud-menu-wrapper {
-    position: relative;
-    display: inline-block;
+.hud-btn-esc {
+    background: #3f1d1d;
+    border-color: #ff3355;
+    color: #ff8899;
 }
 
-.hud-menu-dropdown {
-    display: none;
+.hud-btn-esc:hover {
+    background: #ff3355;
+    color: #ffffff;
+}
+
+/* Exit Confirmation Popup Modal */
+#exit-confirm-modal {
     position: absolute;
-    right: 0;
-    top: 24px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     background: rgba(8, 14, 26, 0.98);
-    border: 1px solid #1e3a5f;
-    border-radius: 4px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-    z-index: 110;
-    min-width: 110px;
-    padding: 4px 0;
+    border: 2px solid #ff3355;
+    padding: 20px 28px;
+    text-align: center;
+    z-index: 300;
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 25px rgba(255, 51, 85, 0.3);
+    width: 280px;
 }
 
-.hud-menu-wrapper:hover .hud-menu-dropdown {
-    display: block;
-}
-
-.hud-dropdown-item {
-    width: 100%;
-    text-align: left;
-    padding: 5px 10px;
-    background: none;
-    border: none;
+#exit-confirm-modal p {
     color: #e2e8f0;
-    cursor: pointer;
-    font-family: inherit;
+    margin-bottom: 14px;
+    line-height: 1.4;
 }
 
-.hud-dropdown-item:hover {
-    background: #1e293b;
-    color: #00ffcc;
+.exit-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
 }
 
 /* ================= MENUS & OVERLAYS ================= */
@@ -225,22 +224,22 @@ html, body {
 }
 
 #menu-main {
-    width: 340px;
+    width: 320px;
 }
 
 #menu-main h2 {
     letter-spacing: 2px;
     color: #00aaff;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
     text-shadow: 0 0 10px rgba(0, 170, 255, 0.5);
 }
 
 .menu-setup-card {
     width: 92%;
-    max-width: 800px;
+    max-width: 780px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
 }
 
 .setup-header-row {
@@ -248,7 +247,7 @@ html, body {
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #1e293b;
-    padding-bottom: 8px;
+    padding-bottom: 6px;
 }
 
 .menu-title {
@@ -264,21 +263,12 @@ html, body {
     gap: 6px;
 }
 
-.mode-select-box label {
-    color: #00ffcc;
-}
-
-.mode-dropdown {
-    width: auto !important;
-    padding: 4px 8px !important;
-}
-
 .matchup-container {
     display: flex;
     flex-direction: row;
     align-items: stretch;
     justify-content: space-between;
-    gap: 14px;
+    gap: 12px;
 }
 
 .team-panel {
@@ -286,11 +276,11 @@ html, body {
     background: rgba(15, 23, 42, 0.8);
     border: 1px solid #1e293b;
     border-radius: 6px;
-    padding: 14px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .team-home {
@@ -306,28 +296,20 @@ html, body {
     letter-spacing: 1px;
 }
 
-.team-home .team-header {
-    color: #00aaff;
-}
-
-.team-away .team-header {
-    color: #ff3355;
-}
-
 .matchup-center {
     flex: 1.2;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 10px;
+    gap: 8px;
 }
 
 .vs-badge {
     font-weight: bold;
     color: #ffcc00;
     text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
-    padding: 2px 12px;
+    padding: 2px 10px;
     background: rgba(255, 204, 0, 0.08);
     border: 1px solid #ffcc00;
     border-radius: 4px;
@@ -339,32 +321,73 @@ html, body {
 
 .map-select-box h3 {
     color: #94a3b8;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .slot-buttons-list {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    max-height: 160px;
+    gap: 4px;
+    max-height: 150px;
     overflow-y: auto;
 }
 
-.faction-select-group {
+/* Arcade Hockey-Style Faction Selector */
+.arcade-selector {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    align-items: center;
+    justify-content: space-between;
     width: 100%;
-    text-align: left;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 4px;
+    padding: 3px;
+    margin-top: 6px;
 }
 
-.faction-select-group label {
-    color: #94a3b8;
+.arcade-arrow-btn {
+    background: #1e293b;
+    color: #00ffcc;
+    border: 1px solid #334155;
+    padding: 3px 8px;
+    cursor: pointer;
+    border-radius: 2px;
+    font-weight: bold;
+    transition: all 0.1s ease;
+}
+
+.arcade-arrow-btn:hover {
+    background: #00ffcc;
+    color: #060912;
+    border-color: #00ffcc;
+}
+
+.arcade-faction-name {
+    color: #00ffcc;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-align: center;
+    flex: 1;
+}
+
+.arcade-toggle-btn {
+    background: #0f172a;
+    color: #00ffcc;
+    border: 1px solid #00ffcc;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    box-shadow: 0 0 5px rgba(0, 255, 204, 0.2);
+}
+
+.arcade-toggle-btn:hover {
+    background: rgba(0, 255, 204, 0.1);
 }
 
 .menu-select, input[type="number"] {
     width: 100%;
-    padding: 6px;
+    padding: 5px;
     background: #0f172a;
     color: #00ffcc;
     border: 1px solid #1e293b;
@@ -372,19 +395,9 @@ html, body {
     cursor: pointer;
 }
 
-.menu-select:focus, input[type="number"]:focus {
-    outline: none;
-    border-color: #00aaff;
-}
-
-.menu-select option:disabled {
-    color: #475569;
-    background-color: #060912;
-}
-
 .menu-btn {
     width: 100%;
-    padding: 8px 12px;
+    padding: 7px 10px;
     background: #1e3a8a;
     color: #ffffff;
     border: 1px solid #3b82f6;
@@ -396,7 +409,6 @@ html, body {
 .menu-btn:hover {
     background: #2563eb;
     border-color: #60a5fa;
-    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
 }
 
 .menu-btn.btn-secondary {
@@ -405,52 +417,34 @@ html, body {
     color: #cbd5e1;
 }
 
-.menu-btn.btn-secondary:hover {
-    background: #334155;
-    color: #ffffff;
-}
-
 .menu-btn.btn-sim {
     background: #065f46;
     border-color: #10b981;
     color: #a7f3d0;
 }
 
-.menu-btn.btn-sim:hover {
-    background: #047857;
-    color: #ffffff;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
-}
-
 .menu-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
     margin-top: 4px;
 }
 
 .slot-btn {
     width: 100%;
-    padding: 6px 10px;
+    padding: 5px 8px;
     background: #0f172a;
     color: #94a3b8;
     border: 1px solid #1e293b;
     border-radius: 4px;
     cursor: pointer;
     text-align: left;
-    transition: all 0.15s ease;
-}
-
-.slot-btn:hover {
-    background: #1e293b;
-    color: #ffffff;
 }
 
 .slot-btn.selected {
     background: #1d4ed8;
     color: #ffffff;
     border-color: #60a5fa;
-    box-shadow: 0 0 6px rgba(29, 78, 216, 0.5);
 }
 
 #game-over-modal {
@@ -460,22 +454,11 @@ html, body {
     transform: translate(-50%, -50%);
     background: rgba(8, 14, 26, 0.95);
     border: 2px solid #1e3a5f;
-    padding: 24px 32px;
+    padding: 20px 28px;
     text-align: center;
     z-index: 100;
     border-radius: 8px;
     backdrop-filter: blur(10px);
-    box-shadow: 0 0 25px rgba(0, 0, 0, 0.8);
-}
-
-#game-over-modal h1 {
-    color: #00ffcc;
-    margin-bottom: 6px;
-}
-
-#game-over-modal p {
-    color: #94a3b8;
-    margin-bottom: 14px;
 }
 
 /* ================= BATCH SIMULATION OVERLAY ================= */
@@ -495,16 +478,15 @@ html, body {
 
 .sim-dialog {
     width: 90%;
-    max-width: 840px;
+    max-width: 800px;
     max-height: 85vh;
     background: #080e1a;
     border: 1px solid #10b981;
     border-radius: 8px;
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
     display: flex;
     flex-direction: column;
-    padding: 14px 18px;
-    gap: 10px;
+    padding: 12px 16px;
+    gap: 8px;
     overflow: hidden;
 }
 
@@ -513,25 +495,12 @@ html, body {
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #1e293b;
-    padding-bottom: 6px;
-    flex-shrink: 0;
-}
-
-.sim-header h2 {
-    color: #10b981;
-    letter-spacing: 1px;
+    padding-bottom: 5px;
 }
 
 .sim-body {
     flex: 1;
     overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-right: 4px;
-}
-
-#sim-output {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -540,20 +509,15 @@ html, body {
 .sim-summary-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    gap: 6px;
 }
 
 .sim-card {
     background: #0f172a;
     border: 1px solid #1e293b;
     border-radius: 6px;
-    padding: 8px;
+    padding: 6px;
     text-align: center;
-}
-
-.sim-card h4 {
-    color: #94a3b8;
-    margin-bottom: 2px;
 }
 
 .sim-num {
@@ -568,29 +532,18 @@ html, body {
 }
 
 .sim-table th, .sim-table td {
-    padding: 5px 8px;
+    padding: 4px 6px;
     border-bottom: 1px solid #1e293b;
 }
 
 .sim-table th {
     color: #94a3b8;
     background: #0f172a;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-}
-
-.sim-section-title {
-    color: #00aaff;
-    border-bottom: 1px solid #1e293b;
-    padding-bottom: 3px;
-    margin-top: 2px;
 }
 
 .sim-footer {
     display: flex;
     justify-content: flex-end;
     border-top: 1px solid #1e293b;
-    padding-top: 6px;
-    flex-shrink: 0;
+    padding-top: 5px;
 }

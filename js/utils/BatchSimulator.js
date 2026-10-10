@@ -1,5 +1,18 @@
 class BatchSimulator {
-    static async runFullSuite(registry, options = {}, onProgress = null) {
+    constructor() {
+        this.isAborted = false;
+    }
+
+    static cancel() {
+        if (window._activeBatchSimulator) {
+            window._activeBatchSimulator.isAborted = true;
+        }
+    }
+
+    async runSuite(registry, options = {}, onProgress = null) {
+        window._activeBatchSimulator = this;
+        this.isAborted = false;
+
         const matchesPerPair = options.matchesPerPair || 10;
         const mode = options.mode || 'ALL';
         const faction1Override = options.faction1 || 'HUMAN';
@@ -37,22 +50,13 @@ class BatchSimulator {
         const totalMatches = matchups.length * matchesPerPair;
         let completedMatches = 0;
         let timeoutMatchesCount = 0;
-
         const durations = [];
 
         const results = {
             totalMatches,
             factions: factionKeys,
             factionStats: {},
-            globalMetrics: {
-                minDuration: Infinity,
-                maxDuration: 0,
-                medianDuration: 0,
-                avgDuration: 0,
-                timeoutWinRate: 0,
-                avgFirstCaptureTime: 0,
-                avgContestedTime: 0
-            }
+            globalMetrics: { minDuration: Infinity, maxDuration: 0, medianDuration: 0, avgDuration: 0, timeoutWinRate: 0, avgFirstCaptureTime: 0, avgContestedTime: 0 }
         };
 
         let firstCaptureSum = 0;
@@ -61,41 +65,29 @@ class BatchSimulator {
 
         factionKeys.forEach(f => {
             results.factionStats[f] = { 
-                wins: 0, 
-                matches: 0, 
-                totalDuration: 0, 
-                planetShareSum: 0,
-                killsSum: 0,
-                lossesSum: 0, 
-                spawnedSum: 0,
-                combatParticipantsSum: 0,
-                damageDealtSum: 0,
-                damageReceivedSum: 0,
-                majorityTimeSum: 0,
-                comebackWins: 0,
-                comebackAttempts: 0,
-                transitTimeSum: 0,
-                activeTimeSum: 0,
-                idleTimeSum: 0,
-                orbitTimeSum: 0,
-                dispatchSum: 0,
-                dispatchCount: 0
+                wins: 0, matches: 0, totalDuration: 0, planetShareSum: 0,
+                killsSum: 0, lossesSum: 0, spawnedSum: 0, combatParticipantsSum: 0,
+                damageDealtSum: 0, damageReceivedSum: 0, majorityTimeSum: 0,
+                comebackWins: 0, comebackAttempts: 0, transitTimeSum: 0,
+                activeTimeSum: 0, idleTimeSum: 0, orbitTimeSum: 0, dispatchSum: 0, dispatchCount: 0
             };
         });
 
         const MACRO_DT = 0.1; 
         const MAX_TICKS = 1800;
-
         const startTime = performance.now();
 
         for (const matchDef of matchups) {
+            if (this.isAborted) break;
+
             const rawMap = registry && typeof registry.getScaledMap === 'function'
                 ? registry.getScaledMap(matchDef.slotNum, 1200, 800)
                 : null;
 
             for (let m = 0; m < matchesPerPair; m++) {
-                const matchResult = this.runSingleMatchFast(rawMap, matchDef.f1, matchDef.f2, MACRO_DT, MAX_TICKS);
-                
+                if (this.isAborted) break;
+
+                const matchResult = BatchSimulator.runSingleMatchFast(rawMap, matchDef.f1, matchDef.f2, MACRO_DT, MAX_TICKS);
                 const { winnerTeamId, durationSeconds, team1Share, team2Share, telemetrySummary, isTimeout } = matchResult;
 
                 durations.push(durationSeconds);
@@ -109,11 +101,8 @@ class BatchSimulator {
                     contestedTimeSum += telemetrySummary.contestedTimeTotal || 0;
                 }
 
-                // Process Team 1 (f1)
-                this.accumulateTeamStats(results.factionStats[matchDef.f1], 1, winnerTeamId, durationSeconds, team1Share, telemetrySummary);
-
-                // Process Team 2 (f2)
-                this.accumulateTeamStats(results.factionStats[matchDef.f2], 2, winnerTeamId, durationSeconds, team2Share, telemetrySummary);
+                BatchSimulator.accumulateTeamStats(results.factionStats[matchDef.f1], 1, winnerTeamId, durationSeconds, team1Share, telemetrySummary);
+                BatchSimulator.accumulateTeamStats(results.factionStats[matchDef.f2], 2, winnerTeamId, durationSeconds, team2Share, telemetrySummary);
 
                 completedMatches++;
 
@@ -126,19 +115,21 @@ class BatchSimulator {
             }
         }
 
-        // Calculate Global Metrics
+        if (this.isAborted) {
+            return null; // Suppress output if cancelled
+        }
+
         durations.sort((a, b) => a - b);
         const sumDuration = durations.reduce((a, b) => a + b, 0);
 
         results.globalMetrics.minDuration = durations[0] || 0;
         results.globalMetrics.maxDuration = durations[durations.length - 1] || 0;
         results.globalMetrics.medianDuration = durations[Math.floor(durations.length / 2)] || 0;
-        results.globalMetrics.avgDuration = Math.round(sumDuration / totalMatches);
-        results.globalMetrics.timeoutWinRate = Math.round((timeoutMatchesCount / totalMatches) * 100);
+        results.globalMetrics.avgDuration = Math.round(sumDuration / Math.max(1, totalMatches));
+        results.globalMetrics.timeoutWinRate = Math.round((timeoutMatchesCount / Math.max(1, totalMatches)) * 100);
         results.globalMetrics.avgFirstCaptureTime = validCaptureCount > 0 ? Math.round(firstCaptureSum / validCaptureCount) : 0;
-        results.globalMetrics.avgContestedTime = Math.round(contestedTimeSum / totalMatches);
+        results.globalMetrics.avgContestedTime = Math.round(contestedTimeSum / Math.max(1, totalMatches));
 
-        // Finalize Faction Stats
         Object.keys(results.factionStats).forEach(f => {
             const st = results.factionStats[f];
             if (st.matches > 0) {
@@ -153,7 +144,7 @@ class BatchSimulator {
                 st.controlMajorityPct = st.totalDuration > 0 ? Math.round((st.majorityTimeSum / st.totalDuration) * 100) : 0;
                 st.comebackRate = st.comebackAttempts > 0 ? Math.round((st.comebackWins / st.comebackAttempts) * 100) : 0;
                 st.transitRatio = st.activeTimeSum > 0 ? Math.round((st.transitTimeSum / st.activeTimeSum) * 100) : 0;
-                st.idleRatio = st.orbitTimeSum > 0 ? Math.round((st.idleTimeSum / st.orbitTimeSum) * 100) : 0;
+                st.idleRatio = st.orbitTimeSum > 0 ? Math.round((st.orbitTimeSum / st.orbitTimeSum) * 100) : 0;
                 st.avgDispatchSize = st.dispatchCount > 0 ? Math.round((st.dispatchSum / st.dispatchCount) * 100) : 50;
             }
         });
@@ -162,9 +153,13 @@ class BatchSimulator {
         return results;
     }
 
+    static async runFullSuite(registry, options = {}, onProgress = null) {
+        const simulatorInstance = new BatchSimulator();
+        return await simulatorInstance.runSuite(registry, options, onProgress);
+    }
+
     static accumulateTeamStats(st, teamId, winnerTeamId, durationSeconds, planetShare, telemetrySummary) {
         if (!st) return;
-
         st.matches++;
         st.totalDuration += durationSeconds;
         st.planetShareSum += planetShare;
@@ -184,15 +179,12 @@ class BatchSimulator {
                 st.activeTimeSum += tData.activeShipSamples || 0;
                 st.idleTimeSum += tData.idleShipSamples || 0;
                 st.orbitTimeSum += tData.orbitTimeTotal || 0;
-
                 if (tData.wasBelow30Percent) {
                     st.comebackAttempts++;
                     if (winnerTeamId === teamId) st.comebackWins++;
                 }
-
                 if (tData.dispatchSizes && tData.dispatchSizes.length > 0) {
-                    const dispSum = tData.dispatchSizes.reduce((a, b) => a + b, 0);
-                    st.dispatchSum += dispSum;
+                    st.dispatchSum += tData.dispatchSizes.reduce((a, b) => a + b, 0);
                     st.dispatchCount += tData.dispatchSizes.length;
                 }
             }
@@ -204,7 +196,6 @@ class BatchSimulator {
         simManager.start(mapData, faction1Id, faction2Id, 'CPU_VS_CPU');
 
         let ticks = 0;
-
         while (simManager.isRunning && ticks < maxTicks) {
             simManager.update(dt);
             ticks++;
@@ -212,7 +203,6 @@ class BatchSimulator {
 
         const isTimeout = ticks >= maxTicks;
         let winnerTeamId = simManager.winnerId || 0;
-
         const totalPlanets = simManager.planets && simManager.planets.length > 0 ? simManager.planets.length : 1;
         let t1Planets = 0;
         let t2Planets = 0;
