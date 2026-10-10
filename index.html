@@ -15,7 +15,7 @@
 
     <canvas id="game"></canvas>
 
-    <!-- Unified Top Center Command Bar -->
+    <!-- Unified Top Center Command Bar with Exit Menu Dropdown -->
     <div id="hud-top-center" class="hud-top-center hidden">
         <div class="hud-team-card t1" id="hud-card-t1">
             <div class="hud-card-header" id="hud-label-t1">T1 FACTION</div>
@@ -26,18 +26,27 @@
             <div id="hud-state-t1" class="hud-ai-state">STATE: IDLE</div>
         </div>
 
-        <div class="hud-center-cluster" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:120px;">
+        <div class="hud-center-cluster">
             <div id="game-timer" class="hud-timer">00:00</div>
             <div class="hud-controls">
                 <button id="btn-play-pause" class="hud-btn">Pause</button>
                 <button id="btn-speed-1" class="hud-btn active">1X</button>
                 <button id="btn-speed-2" class="hud-btn">2X</button>
                 <button id="btn-speed-3" class="hud-btn">3X</button>
+                
+                <!-- In-Game Dropdown Menu -->
+                <div class="hud-menu-wrapper">
+                    <button class="hud-btn" id="btn-ingame-menu">Menu ▾</button>
+                    <div class="hud-menu-dropdown">
+                        <button class="hud-dropdown-item" id="btn-menu-restart">Change Team</button>
+                        <button class="hud-dropdown-item" id="btn-menu-exit">Exit to Main</button>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="hud-team-card t2" id="hud-card-t2">
-            <div class="hud-card-header" id="hud-label-t2" style="text-align:right;">T2 FACTION</div>
+            <div class="hud-card-header" id="hud-label-t2">T2 FACTION</div>
             <div class="hud-card-body">
                 <span>SHIPS: <b id="hud-val-t2" class="hud-ship-val">0</b></span>
                 <span>SPM: <b id="hud-spm-t2">0.0</b></span>
@@ -63,40 +72,40 @@
                     <h2>BATCH SIMULATION CONFIGURATION</h2>
                 </div>
                 
-                <div class="sim-body" style="display: flex; flex-direction: column; gap: 15px; padding: 20px 0;">
+                <div class="sim-body" style="display: flex; flex-direction: column; gap: 12px; padding: 15px 0;">
                     <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
                         <label for="sim-matches-count">Simulations Per Matchup:</label>
-                        <input type="number" id="sim-matches-count" value="10" min="1" max="1000" style="width: 70px; text-align: center; background: #111; color: #00ffcc; border: 1px solid #00aaff; padding: 6px; font-family: inherit;" />
+                        <input type="number" id="sim-matches-count" value="10" min="1" max="1000" style="width: 70px; text-align: center;" />
                     </div>
 
                     <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
                         <label for="sim-combo-mode">Matchup Selection:</label>
-                        <select id="sim-combo-mode" class="menu-select" style="width: 240px;">
+                        <select id="sim-combo-mode" class="menu-select" style="width: 220px;">
                             <option value="ALL">All Faction Combos (Round-Robin)</option>
                             <option value="SPECIFIC">Specific Matchup Choice</option>
                         </select>
                     </div>
 
                     <!-- Options for Specific Match Choice -->
-                    <div id="sim-specific-options" class="hidden" style="display: flex; flex-direction: column; gap: 12px; background: rgba(0, 170, 255, 0.05); padding: 12px; border: 1px solid #00aaff; border-radius: 4px; margin-top: 5px;">
+                    <div id="sim-specific-options" class="hidden" style="display: flex; flex-direction: column; gap: 10px; background: rgba(0, 170, 255, 0.05); padding: 10px; border: 1px solid #00aaff; border-radius: 4px; margin-top: 4px;">
                         <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
                             <label for="sim-faction-1">Faction 1 (Team 1):</label>
-                            <select id="sim-faction-1" class="menu-select" style="width: 200px;"></select>
+                            <select id="sim-faction-1" class="menu-select" style="width: 180px;"></select>
                         </div>
                         <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
                             <label for="sim-faction-2">Faction 2 (Team 2):</label>
-                            <select id="sim-faction-2" class="menu-select" style="width: 200px;"></select>
+                            <select id="sim-faction-2" class="menu-select" style="width: 180px;"></select>
                         </div>
                         <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
                             <label for="sim-map-select">Arena / Map Target:</label>
-                            <select id="sim-map-select" class="menu-select" style="width: 200px;">
+                            <select id="sim-map-select" class="menu-select" style="width: 180px;">
                                 <option value="ALL">All Maps</option>
                             </select>
                         </div>
                     </div>
                 </div>
 
-                <div class="sim-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                <div class="sim-footer" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px;">
                     <button id="btn-start-sim-run" class="menu-btn btn-primary">START SIMULATION</button>
                     <button id="btn-close-sim" class="menu-btn btn-secondary">CANCEL</button>
                 </div>
@@ -111,7 +120,7 @@
                 <div id="sim-output" class="sim-body">
                     <p class="sim-loading">Ready to simulate...</p>
                 </div>
-                <div class="sim-footer" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px;">
+                <div class="sim-footer" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px;">
                     <button id="btn-sim-reset" class="menu-btn btn-primary">NEW SETUP</button>
                     <button id="btn-close-sim-running" class="menu-btn btn-secondary">CLOSE DASHBOARD</button>
                 </div>

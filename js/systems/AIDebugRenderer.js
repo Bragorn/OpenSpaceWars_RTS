@@ -17,7 +17,7 @@ class AIDebugRenderer {
                 const myPower = orbiting * (myFaction.hp || 20);
 
                 ctx.fillStyle = teamColor;
-                ctx.font = '12px VT323, monospace';
+                ctx.font = '9px pinballin-scan, monospace';
                 ctx.textAlign = 'center';
                 ctx.fillText(`PWR: ${myPower}`, source.x, source.y - (source.radius || 30) - 10);
             });

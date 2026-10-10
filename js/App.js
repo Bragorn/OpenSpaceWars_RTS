@@ -264,17 +264,17 @@ class App {
                 <div class="sim-card">
                     <h4>DURATION SPREAD</h4>
                     <p class="sim-num">${gm.minDuration}s - ${gm.maxDuration}s</p>
-                    <span style="font-size: 12px; color: #94a3b8;">Avg: ${gm.avgDuration}s | Med: ${gm.medianDuration}s</span>
+                    <span style="font-size: 9px; color: #94a3b8;">Avg: ${gm.avgDuration}s | Med: ${gm.medianDuration}s</span>
                 </div>
                 <div class="sim-card">
                     <h4>TIMEOUT RATE</h4>
                     <p class="sim-num">${gm.timeoutWinRate}%</p>
-                    <span style="font-size: 12px; color: #94a3b8;">Resolved by Majority</span>
+                    <span style="font-size: 9px; color: #94a3b8;">Resolved by Majority</span>
                 </div>
                 <div class="sim-card">
                     <h4>FIRST CAPTURE</h4>
                     <p class="sim-num">${gm.avgFirstCaptureTime || 'N/A'}s</p>
-                    <span style="font-size: 12px; color: #94a3b8;">Contested: ${gm.avgContestedTime}s</span>
+                    <span style="font-size: 9px; color: #94a3b8;">Contested: ${gm.avgContestedTime}s</span>
                 </div>
             </div>
 
@@ -318,7 +318,7 @@ class App {
             </table>
 
             <h3 class="sim-section-title">FORMATTED REPORT COPY</h3>
-            <textarea id="sim-text-export" readonly style="width: 100%; height: 110px; background: #111; color: #00ffcc; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #333; border-radius: 4px; resize: none;">${textSummary}</textarea>
+            <textarea id="sim-text-export" readonly style="width: 100%; height: 110px; background: #111; color: #00ffcc; font-family: monospace; font-size: 9px; padding: 8px; border: 1px solid #333; border-radius: 4px; resize: none;">${textSummary}</textarea>
         `;
 
         output.innerHTML = html;
