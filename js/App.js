@@ -16,39 +16,8 @@ class App {
 
         this.bindEvents();
         this.populateFactionDropdowns();
-        this.ensureTopCenterHUD();
         this.showMainMenu();
         this.loop(performance.now());
-    }
-
-    ensureTopCenterHUD() {
-        if (!document.getElementById('hud-top-center')) {
-            const topHud = document.createElement('div');
-            topHud.id = 'hud-top-center';
-            topHud.className = 'hud-top-center hidden';
-            topHud.innerHTML = `
-                <div class="hud-team-card t1">
-                    <div class="hud-card-header">T1 FACTION</div>
-                    <div class="hud-card-body">
-                        <span>SHIPS: <b id="hud-val-t1" class="hud-ship-val">0</b></span>
-                        <span>SPM: <b id="hud-spm-t1">0.0</b></span>
-                    </div>
-                    <div id="hud-state-t1" class="hud-ai-state">STATE: IDLE</div>
-                </div>
-
-                <div class="hud-vs-divider">VS</div>
-
-                <div class="hud-team-card t2">
-                    <div class="hud-card-header">T2 FACTION</div>
-                    <div class="hud-card-body">
-                        <span>SHIPS: <b id="hud-val-t2" class="hud-ship-val">0</b></span>
-                        <span>SPM: <b id="hud-spm-t2">0.0</b></span>
-                    </div>
-                    <div id="hud-state-t2" class="hud-ai-state">STATE: IDLE</div>
-                </div>
-            `;
-            document.body.appendChild(topHud);
-        }
     }
 
     bindEvents() {
@@ -103,9 +72,40 @@ class App {
         });
 
         this.syncFactionDropdowns(playerSelect, enemySelect);
+        this.updateMenuFactionTheme();
 
-        playerSelect.addEventListener('change', () => this.syncFactionDropdowns(playerSelect, enemySelect));
-        enemySelect.addEventListener('change', () => this.syncFactionDropdowns(enemySelect, playerSelect));
+        playerSelect.addEventListener('change', () => {
+            this.syncFactionDropdowns(playerSelect, enemySelect);
+            this.updateMenuFactionTheme();
+        });
+        enemySelect.addEventListener('change', () => {
+            this.syncFactionDropdowns(enemySelect, playerSelect);
+            this.updateMenuFactionTheme();
+        });
+    }
+
+    updateMenuFactionTheme() {
+        if (typeof FACTION_DATA === 'undefined') return;
+
+        const p1Val = document.getElementById('select-player-faction')?.value || 'HUMAN';
+        const p2Val = document.getElementById('select-enemy-faction')?.value || 'PROTOCOL';
+
+        const f1 = FACTION_DATA[p1Val] || FACTION_DATA.HUMAN;
+        const f2 = FACTION_DATA[p2Val] || FACTION_DATA.PROTOCOL;
+
+        const teamHome = document.querySelector('.team-home');
+        if (teamHome) {
+            teamHome.style.borderLeftColor = f1.color;
+            const header = teamHome.querySelector('.team-header');
+            if (header) header.style.color = f1.color;
+        }
+
+        const teamAway = document.querySelector('.team-away');
+        if (teamAway) {
+            teamAway.style.borderRightColor = f2.color;
+            const header = teamAway.querySelector('.team-header');
+            if (header) header.style.color = f2.color;
+        }
     }
 
     syncFactionDropdowns(sourceSelect, targetSelect) {
@@ -231,7 +231,6 @@ class App {
             (report.factionStats[b]?.winRate || 0) - (report.factionStats[a]?.winRate || 0)
         );
 
-        // 1. Build Clean Text Export
         let textSummary = `=== BATCH SIMULATION REPORT (${report.totalMatches} MATCHES) ===\n\n`;
         textSummary += `MATCH PACING & GLOBAL METRICS:\n`;
         textSummary += `• Match Duration Spread: Min ${gm.minDuration}s | Median ${gm.medianDuration}s | Max ${gm.maxDuration}s | Avg ${gm.avgDuration}s\n`;
@@ -254,7 +253,6 @@ class App {
             textSummary += `  - Movement: Transit Ratio ${st.transitRatio}% | Idle Fleet Ratio ${st.idleRatio}% | Avg Dispatch ${st.avgDispatchSize}%\n\n`;
         });
 
-        // 2. Build HTML Output Cards & Tables
         let html = `
             <div style="margin-bottom: 10px; text-align: right;">
                 <button id="btn-copy-sim-text" style="padding: 6px 14px; background: #00aaff; color: #000; font-weight: bold; border: none; border-radius: 4px; cursor: pointer;">
@@ -409,6 +407,30 @@ class App {
         
         const menuMap = document.getElementById('menu-map-select');
         if (menuMap) menuMap.style.display = 'none';
+
+        // Apply dynamic faction colors to the in-game HUD cards
+        const f1 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[playerFaction]) ? FACTION_DATA[playerFaction] : { name: playerFaction, color: '#00aaff' };
+        const f2 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[enemyFaction]) ? FACTION_DATA[enemyFaction] : { name: enemyFaction, color: '#ff3355' };
+
+        const cardT1 = document.getElementById('hud-card-t1');
+        const cardT2 = document.getElementById('hud-card-t2');
+        const labelT1 = document.getElementById('hud-label-t1');
+        const labelT2 = document.getElementById('hud-label-t2');
+        const valT1 = document.getElementById('hud-val-t1');
+        const valT2 = document.getElementById('hud-val-t2');
+
+        if (cardT1) cardT1.style.borderLeftColor = f1.color;
+        if (cardT2) cardT2.style.borderRightColor = f2.color;
+        if (labelT1) {
+            labelT1.textContent = f1.name.toUpperCase();
+            labelT1.style.color = f1.color;
+        }
+        if (labelT2) {
+            labelT2.textContent = f2.name.toUpperCase();
+            labelT2.style.color = f2.color;
+        }
+        if (valT1) valT1.style.color = f1.color;
+        if (valT2) valT2.style.color = f2.color;
 
         document.getElementById('hud-top-center')?.classList.remove('hidden');
 

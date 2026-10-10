@@ -15,14 +15,34 @@
 
     <canvas id="game"></canvas>
 
-    <!-- Top-Left In-Game HUD -->
-    <div id="hud" class="hud-top-left hidden">
-        <div id="game-timer" class="hud-timer">00:00</div>
-        <div class="hud-controls">
-            <button id="btn-play-pause" class="hud-btn active">Pause</button>
-            <button id="btn-speed-1" class="hud-btn active">1x</button>
-            <button id="btn-speed-2" class="hud-btn">2x</button>
-            <button id="btn-speed-3" class="hud-btn">3x</button>
+    <!-- Unified Top Center Command Bar -->
+    <div id="hud-top-center" class="hud-top-center hidden">
+        <div class="hud-team-card t1" id="hud-card-t1">
+            <div class="hud-card-header" id="hud-label-t1">T1 FACTION</div>
+            <div class="hud-card-body">
+                <span>SHIPS: <b id="hud-val-t1" class="hud-ship-val">0</b></span>
+                <span>SPM: <b id="hud-spm-t1">0.0</b></span>
+            </div>
+            <div id="hud-state-t1" class="hud-ai-state">STATE: IDLE</div>
+        </div>
+
+        <div class="hud-center-cluster" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:120px;">
+            <div id="game-timer" class="hud-timer">00:00</div>
+            <div class="hud-controls">
+                <button id="btn-play-pause" class="hud-btn">Pause</button>
+                <button id="btn-speed-1" class="hud-btn active">1X</button>
+                <button id="btn-speed-2" class="hud-btn">2X</button>
+                <button id="btn-speed-3" class="hud-btn">3X</button>
+            </div>
+        </div>
+
+        <div class="hud-team-card t2" id="hud-card-t2">
+            <div class="hud-card-header" id="hud-label-t2" style="text-align:right;">T2 FACTION</div>
+            <div class="hud-card-body">
+                <span>SHIPS: <b id="hud-val-t2" class="hud-ship-val">0</b></span>
+                <span>SPM: <b id="hud-spm-t2">0.0</b></span>
+            </div>
+            <div id="hud-state-t2" class="hud-ai-state" style="text-align:right;">STATE: IDLE</div>
         </div>
     </div>
 
@@ -159,7 +179,7 @@
         </div>
     </div>
 
-    <!-- SCRIPT INCLUDES IN CORRECT PROJECT DIRECTORIES -->
+    <!-- SCRIPT INCLUDES -->
     <script src="js/config.js"></script>
     <script src="js/Factions.js"></script>
     

@@ -1,15 +1,11 @@
 class GameManager {
     constructor(isHeadless = false) {
         this.isHeadless = isHeadless;
-        const dom = (!this.isHeadless && window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
-        
-        this.canvas = !this.isHeadless ? document.getElementById(dom.CANVAS_ID || 'game') : null;
         this.planets = [];
         this.ships = [];
         this.currentMapData = null;
 
         this.telemetry = typeof TelemetryCollector === 'function' ? new TelemetryCollector() : null;
-
         this.gameMode = 'PLAYER_VS_CPU';
 
         this.factionMap = {
@@ -18,6 +14,8 @@ class GameManager {
             2: 'PROTOCOL'
         };
 
+        const dom = (!this.isHeadless && window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
+        this.canvas = !this.isHeadless ? document.getElementById(dom.CANVAS_ID || 'game') : null;
         this.renderer = (!this.isHeadless && typeof Renderer === 'function' && this.canvas) ? new Renderer(this.canvas) : null;
         this.controls = null;
         this.aiController1 = null;
@@ -26,16 +24,7 @@ class GameManager {
         this.isRunning = false;
         this.gameTime = 0; 
         this.gameSpeed = (window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1; 
-
-        if (!this.isHeadless) {
-            this.hudElement = document.getElementById(dom.HUD_ID || 'hud');
-            this.hudTimer = document.getElementById(dom.TIMER_ID || 'game-timer');
-            this.btnPlayPause = document.getElementById(dom.BTN_PLAY_PAUSE || 'btn-play-pause');
-            this.btnSpeed1 = document.getElementById(dom.BTN_SPEED_1 || 'btn-speed-1');
-            this.btnSpeed2 = document.getElementById(dom.BTN_SPEED_2 || 'btn-speed-2');
-            this.btnSpeed3 = document.getElementById(dom.BTN_SPEED_3 || 'btn-speed-3');
-            this.initHUDListeners();
-        }
+        this._listenersBound = false;
     }
 
     setFactionMap(team1FactionKey, team2FactionKey) {
@@ -46,16 +35,23 @@ class GameManager {
         };
     }
 
-    initHUDListeners() {
+    bindUI() {
         if (this.isHeadless) return;
 
-        this.btnPlayPause?.addEventListener('click', () => {
-            this.setSpeed(this.gameSpeed === 0 ? 1 : 0);
-        });
+        this.hudElement = document.getElementById('hud-top-center');
+        this.hudTimer = document.getElementById('game-timer');
+        this.btnPlayPause = document.getElementById('btn-play-pause');
+        this.btnSpeed1 = document.getElementById('btn-speed-1');
+        this.btnSpeed2 = document.getElementById('btn-speed-2');
+        this.btnSpeed3 = document.getElementById('btn-speed-3');
 
-        this.btnSpeed1?.addEventListener('click', () => this.setSpeed(1));
-        this.btnSpeed2?.addEventListener('click', () => this.setSpeed(2));
-        this.btnSpeed3?.addEventListener('click', () => this.setSpeed(3));
+        if (this.btnPlayPause && !this._listenersBound) {
+            this._listenersBound = true;
+            this.btnPlayPause.onclick = () => this.setSpeed(this.gameSpeed === 0 ? 1 : 0);
+            this.btnSpeed1.onclick = () => this.setSpeed(1);
+            this.btnSpeed2.onclick = () => this.setSpeed(2);
+            this.btnSpeed3.onclick = () => this.setSpeed(3);
+        }
     }
 
     setSpeed(speed) {
@@ -82,6 +78,10 @@ class GameManager {
         this.gameMode = gameMode;
         this.setFactionMap(team1FactionKey, team2FactionKey);
 
+        if (!this.isHeadless) {
+            this.bindUI(); 
+        }
+
         if (this.gameMode === 'CPU_VS_CPU') {
             this.controls = null;
             this.aiController1 = typeof AIController === 'function' ? new AIController(this, 1) : null;
@@ -97,15 +97,15 @@ class GameManager {
         this.isRunning = true;
         this.setSpeed((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1);
         
-        if (!this.isHeadless) {
-            this.hudElement?.classList.remove('hidden');
+        if (!this.isHeadless && this.hudElement) {
+            this.hudElement.classList.remove('hidden');
         }
     }
 
     stop() {
         this.isRunning = false;
-        if (!this.isHeadless) {
-            this.hudElement?.classList.add('hidden');
+        if (!this.isHeadless && this.hudElement) {
+            this.hudElement.classList.add('hidden');
         }
     }
 
