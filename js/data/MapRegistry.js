@@ -90,7 +90,6 @@ class MapRegistry {
     getScaledMap(slotNum, width, height) {
         const rawMap = this.getMap(slotNum);
         
-        // Safety margin ensures planets don't clip canvas edges
         const marginX = 40;
         const marginY = 40;
         
@@ -102,7 +101,7 @@ class MapRegistry {
             planets: rawMap.planets.map(p => ({
                 x: Math.round(marginX + (p.nx * usableWidth)),
                 y: Math.round(marginY + (p.ny * usableHeight)),
-                level: 1,
+                level: p.level || 1,
                 owner: p.owner
             }))
         };

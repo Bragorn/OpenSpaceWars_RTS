@@ -144,7 +144,7 @@ class BatchSimulator {
                 st.controlMajorityPct = st.totalDuration > 0 ? Math.round((st.majorityTimeSum / st.totalDuration) * 100) : 0;
                 st.comebackRate = st.comebackAttempts > 0 ? Math.round((st.comebackWins / st.comebackAttempts) * 100) : 0;
                 st.transitRatio = st.activeTimeSum > 0 ? Math.round((st.transitTimeSum / st.activeTimeSum) * 100) : 0;
-                st.idleRatio = st.orbitTimeSum > 0 ? Math.round((st.orbitTimeSum / st.orbitTimeSum) * 100) : 0;
+                st.idleRatio = st.orbitTimeSum > 0 ? Math.round((st.idleTimeSum / st.orbitTimeSum) * 100) : 0;
                 st.avgDispatchSize = st.dispatchCount > 0 ? Math.round((st.dispatchSum / st.dispatchCount) * 100) : 50;
             }
         });
