@@ -36,7 +36,7 @@ class AIController {
 
         let count = 0;
         this.gameManager.ships.forEach(s => {
-            if (s.owner === ownerId && s.orbitPlanet === planet && s.state === 'ORBIT') {
+            if (s && !s.dead && s.owner === ownerId && s.orbitPlanet === planet && s.state === 'orbit') {
                 count++;
             }
         });
@@ -46,8 +46,8 @@ class AIController {
 
     getIncomingShipsCount(targetPlanet) {
         if (!this.gameManager || !this.gameManager.ships) return 0;
-        return this.gameManager.ships.filter(s => 
-            s && !s.dead && s.owner === this.teamOwner && s.targetPlanet === targetPlanet && s.state !== 'ORBIT'
+        return this.gameManager.ships.filter(s =>
+            s && !s.dead && s.owner === this.teamOwner && s.targetPlanet === targetPlanet
         ).length;
     }
 

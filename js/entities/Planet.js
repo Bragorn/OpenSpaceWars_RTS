@@ -101,45 +101,34 @@ class Planet {
 
         if (this.owner === 0) {
             this.upgradeProgress += power;
-            const claimRequirement = this.claimCost || 5;
-            if (this.upgradeProgress >= claimRequirement) {
-                this.owner = ship.owner;
-                this.level = 1;
-                const stats = this.tierStats[1] || { maxHP: 20 };
-                this.maxHp = stats.maxHP || 20;
-                this.hp = this.maxHp;
-                this.upgradeProgress = 0;
-                this.isLanding = false;
-                if (gameManager && gameManager.telemetry) {
-                    gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', ship.owner);
-                }
+            if (this.upgradeProgress >= (this.claimCost || 5)) {
+                this.captureBy(ship.owner, gameManager);
             }
-        } 
-        else if (this.owner === ship.owner) {
-            const maxTier = this.getMaxTier();
-            const upgCost = this.getUpgradeCost();
-
-            if (this.level < maxTier) {
+        } else if (this.owner === ship.owner) {
+            if (this.level < this.getMaxTier()) {
                 this.upgradeProgress += power;
-                if (this.upgradeProgress >= upgCost) {
+                if (this.upgradeProgress >= this.getUpgradeCost()) {
                     this.upgrade(gameManager);
                 }
             }
-        } 
-        else if (this.owner !== ship.owner) {
+        } else {
             this.hp -= power;
             if (this.hp <= 0) {
-                this.owner = ship.owner;
-                this.level = 1;
-                const stats = this.tierStats[1] || { maxHP: 20 };
-                this.maxHp = stats.maxHP || 20;
-                this.hp = this.maxHp;
-                this.upgradeProgress = 0;
-                this.isLanding = false;
-                if (gameManager && gameManager.telemetry) {
-                    gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', ship.owner);
-                }
+                this.captureBy(ship.owner, gameManager);
             }
+        }
+    }
+
+    captureBy(newOwner, gameManager) {
+        this.owner = newOwner;
+        this.level = 1;
+        const stats = this.tierStats[1] || { maxHP: 20 };
+        this.maxHp = stats.maxHP || 20;
+        this.hp = this.maxHp;
+        this.upgradeProgress = 0;
+        this.isLanding = false;
+        if (gameManager && gameManager.telemetry) {
+            gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', newOwner);
         }
     }
 

@@ -83,14 +83,13 @@ class GameManager {
         }
 
         if (this.gameMode === 'CPU_VS_CPU') {
-            this.controls = null;
             this.aiController1 = typeof AIController === 'function' ? new AIController(this, 1) : null;
             this.aiController2 = typeof AIController === 'function' ? new AIController(this, 2) : null;
         } else {
-            this.controls = (!this.isHeadless && typeof Controls === 'function' && this.canvas) ? new Controls(this.canvas, this, 1) : null;
             this.aiController1 = null;
             this.aiController2 = typeof AIController === 'function' ? new AIController(this, 2) : null;
         }
+        this.setupControls();
 
         this.currentMapData = mapData;
         this.loadMap(mapData);
@@ -100,6 +99,16 @@ class GameManager {
         if (!this.isHeadless && this.hudElement) {
             this.hudElement.classList.remove('hidden');
         }
+    }
+
+    setupControls() {
+    if (this.isHeadless || typeof Controls !== 'function' || !this.canvas) {
+        this.controls = null;
+        return;
+    }
+    if (!this.controls) this.controls = new Controls(this.canvas, this, 1);
+    this.controls.reset();
+    this.controls.enabled = (this.gameMode !== 'CPU_VS_CPU');
     }
 
     stop() {
@@ -165,16 +174,7 @@ class GameManager {
 
     destroyShip(ship) {
         if (!ship) return;
-
-        if (this.telemetry && ship.owner) {
-            this.telemetry.logEvent(this.gameTime, 'SHIP_DESTROYED', ship.owner);
-        }
-
-        ship.dead = true;
-        const idx = this.ships.indexOf(ship);
-        if (idx !== -1) {
-            this.ships.splice(idx, 1);
-        }
+        ship.dead = true; // removed from this.ships by the filter at the end of update()
     }
 
     dispatchFleet(sourcePlanet, targetPlanet, ratio) {
