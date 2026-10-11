@@ -37,7 +37,10 @@ class App {
         document.getElementById('btn-main-play')?.addEventListener('click', () => this.showMapSelect());
         document.getElementById('btn-map-back')?.addEventListener('click', () => this.showMainMenu());
         document.getElementById('btn-map-start')?.addEventListener('click', () => this.launchSelectedMap());
-        document.getElementById('btn-restart')?.addEventListener('click', () => this.showMapSelect());
+        document.getElementById('btn-restart')?.addEventListener('click', () => {
+        document.getElementById('game-over-modal')?.classList.add('hidden');
+        this.showMapSelect();
+        });
 
         // Batch Simulation Events with Abort Handling
         document.getElementById('btn-batch-sim')?.addEventListener('click', () => this.openSimSetupModal());
