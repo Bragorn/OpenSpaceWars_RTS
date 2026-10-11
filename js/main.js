@@ -9,26 +9,6 @@ function setupCanvas() {
 setupCanvas();
 window.addEventListener('resize', setupCanvas);
 
-// Global instance setup
+// Global instance setup (GameManager creates its own Renderer and Controls)
 const gameManager = new GameManager();
 window.gameManager = gameManager;
-
-// System initialization
-const controls = new Controls(canvas, gameManager, 1);
-const renderer = new Renderer(canvas, ctx);
-
-gameManager.controls = controls;
-gameManager.renderer = renderer;
-
-// Game Over Modal listener
-const gameOverModal = document.getElementById('game-over-modal');
-const btnRestart = document.getElementById('btn-restart');
-
-if (btnRestart) {
-    btnRestart.addEventListener('click', () => {
-        if (gameOverModal) gameOverModal.classList.add('hidden');
-        if (gameManager.currentMapData) {
-            gameManager.start(gameManager.currentMapData);
-        }
-    });
-}
