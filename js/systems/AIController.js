@@ -103,7 +103,7 @@ class AIController {
         let actionTaken = false;
 
         ownedPlanets.forEach(source => {
-            const orbitingCount = source.getOrbitingShipsCount(this.gameManager.ships);
+            const orbitingCount = source.getOrbitingShipsCount(this.gameManager);
             if (orbitingCount === 0) return;
 
             const myPower = orbitingCount * shipHp;

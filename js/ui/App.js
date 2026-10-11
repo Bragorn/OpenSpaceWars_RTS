@@ -424,8 +424,8 @@ class App {
         if (!window.gameManager || !window.gameManager.ships) return;
 
         const gm = window.gameManager;
-        const t1Count = gm.ships.filter(s => s && !s.dead && s.owner === 1).length;
-        const t2Count = gm.ships.filter(s => s && !s.dead && s.owner === 2).length;
+        const t1Count = gm.frameStats.teamShips[1] || 0;
+        const t2Count = gm.frameStats.teamShips[2] || 0;
 
         const valT1 = document.getElementById('hud-val-t1');
         const valT2 = document.getElementById('hud-val-t2');

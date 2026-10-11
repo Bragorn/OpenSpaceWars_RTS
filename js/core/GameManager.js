@@ -3,6 +3,7 @@ class GameManager {
         this.isHeadless = isHeadless;
         this.planets = [];
         this.ships = [];
+        this.frameStats = { orbiting: new Map(), teamShips: {} };
         this.currentMapData = null;
 
         this.telemetry = typeof TelemetryCollector === 'function' ? new TelemetryCollector() : null;
@@ -121,6 +122,7 @@ class GameManager {
     reset() {
         this.planets = [];
         this.ships = [];
+        this.frameStats = { orbiting: new Map(), teamShips: {} };
         this.gameTime = 0;
         
         if (this.telemetry) {
@@ -197,6 +199,20 @@ class GameManager {
         });
     }
 
+    refreshFrameStats() {
+        const orbiting = new Map();
+        const teamShips = {};
+        for (let i = 0; i < this.ships.length; i++) {
+            const s = this.ships[i];
+            if (!s || s.dead) continue;
+            teamShips[s.owner] = (teamShips[s.owner] || 0) + 1;
+            if (s.state === 'orbit' && s.targetPlanet) {
+                orbiting.set(s.targetPlanet, (orbiting.get(s.targetPlanet) || 0) + 1);
+            }
+        }
+        this.frameStats = { orbiting, teamShips };
+    }
+
     update(deltaTime) {
         if (!this.isRunning) return;
 
@@ -224,6 +240,7 @@ class GameManager {
             }
 
             this.ships = this.ships.filter(s => s && !s.dead);
+            this.refreshFrameStats();
             this.checkWinCondition();
         }
 
@@ -244,10 +261,10 @@ class GameManager {
         if (!this.isRunning) return;
 
         const team1Planets = this.planets.filter(p => p.owner === 1).length;
-        const team1Ships = this.ships.filter(s => s.owner === 1 && !s.dead).length;
+        const team1Ships = this.frameStats.teamShips[1] || 0;
 
         const team2Planets = this.planets.filter(p => p.owner === 2).length;
-        const team2Ships = this.ships.filter(s => s.owner === 2 && !s.dead).length;
+        const team2Ships = this.frameStats.teamShips[2] || 0;
 
         const team1Alive = team1Planets > 0 || team1Ships > 0;
         const team2Alive = team2Planets > 0 || team2Ships > 0;
