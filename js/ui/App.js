@@ -44,14 +44,8 @@ class App {
 
         // Batch Simulation Events with Abort Handling
         document.getElementById('btn-batch-sim')?.addEventListener('click', () => this.openSimSetupModal());
-        document.getElementById('btn-close-sim')?.addEventListener('click', () => {
-            if (typeof BatchSimulator !== 'undefined') BatchSimulator.cancel();
-            this.closeSimModal();
-        });
-        document.getElementById('btn-close-sim-running')?.addEventListener('click', () => {
-            if (typeof BatchSimulator !== 'undefined') BatchSimulator.cancel();
-            this.closeSimModal();
-        });
+        document.getElementById('btn-close-sim')?.addEventListener('click', () => this.closeSimModal());
+        document.getElementById('btn-close-sim-running')?.addEventListener('click', () => this.closeSimModal());
         
         document.getElementById('sim-combo-mode')?.addEventListener('change', (e) => this.toggleSimMatchOptions(e.target.value));
         document.getElementById('btn-start-sim-run')?.addEventListener('click', () => this.runConfiguredSimulation());

@@ -120,9 +120,6 @@ class Ship {
                         gameManager.telemetry.logEvent(gameManager.gameTime, 'SHIP_KILLED', attackerOwner);
                     }
                 }
-                if (typeof gameManager.destroyShip === 'function') {
-                    gameManager.destroyShip(this);
-                }
             }
         }
     }
@@ -363,9 +360,6 @@ class Ship {
                 }
                 if (planet && typeof planet.onShipTouchdown === 'function') {
                     planet.onShipTouchdown(this, gameManager);
-                }
-                if (gameManager && typeof gameManager.destroyShip === 'function') {
-                    gameManager.destroyShip(this);
                 }
             }
             return;

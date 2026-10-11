@@ -172,11 +172,6 @@ class GameManager {
         return ship;
     }
 
-    destroyShip(ship) {
-        if (!ship) return;
-        ship.dead = true; // removed from this.ships by the filter at the end of update()
-    }
-
     dispatchFleet(sourcePlanet, targetPlanet, ratio) {
         if (!sourcePlanet || !targetPlanet || sourcePlanet === targetPlanet) return;
         
