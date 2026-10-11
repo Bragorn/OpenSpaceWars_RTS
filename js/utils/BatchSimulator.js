@@ -79,7 +79,7 @@ class BatchSimulator {
             if (this.isAborted) break;
 
             const rawMap = registry && typeof registry.getScaledMap === 'function'
-                ? registry.getScaledMap(matchDef.slotNum, 1200, 800)
+                ? registry.getScaledMap(matchDef.slotNum, window.GAME_CONFIG.WORLD_WIDTH, window.GAME_CONFIG.WORLD_HEIGHT)
                 : null;
 
             for (let m = 0; m < matchesPerPair; m++) {

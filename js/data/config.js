@@ -7,6 +7,9 @@ const GAME_CONFIG = {
     MAX_STEPS_PER_FRAME: 8,
     MAX_MATCH_SECONDS: 600,
 
+    WORLD_WIDTH: 1280,
+    WORLD_HEIGHT: 720,
+
     DOM: {
         CANVAS_ID: 'game',
         HUD_ID: 'hud',

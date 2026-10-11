@@ -9,8 +9,9 @@ class Renderer {
         if (!this.ctx && this.canvas) this.ctx = this.canvas.getContext('2d');
         if (!this.ctx || !gameManager) return;
 
-        // Clear canvas
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        Viewport.apply(this.ctx);
 
         if (controls && typeof controls.draw === 'function') {
             controls.draw(this.ctx);

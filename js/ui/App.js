@@ -376,10 +376,8 @@ class App {
     launchSelectedMap() {
         if (!this.registry) return;
 
-        const width = this.canvas ? this.canvas.width : window.innerWidth;
-        const height = this.canvas ? this.canvas.height : window.innerHeight;
-        
-        const scaledMap = this.registry.getScaledMap(this.selectedSlotNum, width, height);
+        const cfg = window.GAME_CONFIG;
+        const scaledMap = this.registry.getScaledMap(this.selectedSlotNum, cfg.WORLD_WIDTH, cfg.WORLD_HEIGHT);
 
         const playerFaction = this.factionsList[this.p1FactionIndex] || 'HUMAN';
         const enemyFaction = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';

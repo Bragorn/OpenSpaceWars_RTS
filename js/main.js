@@ -3,9 +3,9 @@ const ctx = canvas ? canvas.getContext('2d') : null;
 
 function setupCanvas() {
     if (!canvas) return;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    Viewport.update(canvas);
 }
+
 setupCanvas();
 window.addEventListener('resize', setupCanvas);
 
