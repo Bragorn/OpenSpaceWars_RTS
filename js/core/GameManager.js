@@ -24,6 +24,7 @@ class GameManager {
 
         this.isRunning = false;
         this.gameTime = 0; 
+        this.accumulator = 0;
         this.gameSpeed = (window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1; 
         this._listenersBound = false;
     }
@@ -124,6 +125,7 @@ class GameManager {
         this.ships = [];
         this.frameStats = { orbiting: new Map(), teamShips: {} };
         this.gameTime = 0;
+        this.accumulator = 0;
         
         if (this.telemetry) {
             this.telemetry.reset();
@@ -217,36 +219,38 @@ class GameManager {
         if (!this.isRunning) return;
 
         if (this.gameSpeed > 0) {
-            this.gameTime += deltaTime;
-            
-            if (!this.isHeadless) {
-                this.updateTimerDisplay();
+            this.gameTime += deltaTime; // real-time clock, unchanged
+            if (!this.isHeadless) this.updateTimerDisplay();
+
+            const cfg = window.GAME_CONFIG;
+            this.accumulator += Math.min(deltaTime, 0.25) * this.gameSpeed;
+
+            let steps = 0;
+            while (this.accumulator >= cfg.SIM_STEP && this.isRunning && steps < cfg.MAX_STEPS_PER_FRAME) {
+                this.step(cfg.SIM_STEP);
+                this.accumulator -= cfg.SIM_STEP;
+                steps++;
             }
-
-            const scaledDelta = deltaTime * this.gameSpeed;
-
-            if (this.telemetry) {
-                this.telemetry.updateTickMetrics(scaledDelta, this);
-            }
-
-            this.planets.forEach(p => p && p.update && p.update(scaledDelta, this));
-            this.ships.forEach(s => s && s.update && s.update(scaledDelta, this));
-
-            if (this.aiController1 && this.aiController1.update) {
-                this.aiController1.update(scaledDelta);
-            }
-            if (this.aiController2 && this.aiController2.update) {
-                this.aiController2.update(scaledDelta);
-            }
-
-            this.ships = this.ships.filter(s => s && !s.dead);
-            this.refreshFrameStats();
-            this.checkWinCondition();
+            if (steps >= cfg.MAX_STEPS_PER_FRAME) this.accumulator = 0;
         }
 
         if (!this.isHeadless && this.renderer && this.renderer.render) {
             this.renderer.render(this, this.controls);
         }
+    }
+
+    step(dt) {
+        if (this.telemetry) this.telemetry.updateTickMetrics(dt, this);
+
+        this.planets.forEach(p => p && p.update && p.update(dt, this));
+        this.ships.forEach(s => s && s.update && s.update(dt, this));
+
+        if (this.aiController1 && this.aiController1.update) this.aiController1.update(dt);
+        if (this.aiController2 && this.aiController2.update) this.aiController2.update(dt);
+
+        this.ships = this.ships.filter(s => s && !s.dead);
+        this.refreshFrameStats();
+        this.checkWinCondition();
     }
 
     updateTimerDisplay() {

@@ -3,6 +3,10 @@ const GAME_CONFIG = {
     MAX_SPEED: 3,
     DEFAULT_FLEET_RATIO: 0.5,
 
+    SIM_STEP: 1 / 60,
+    MAX_STEPS_PER_FRAME: 8,
+    MAX_MATCH_SECONDS: 600,
+
     DOM: {
         CANVAS_ID: 'game',
         HUD_ID: 'hud',

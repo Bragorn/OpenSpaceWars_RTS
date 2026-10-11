@@ -73,8 +73,6 @@ class BatchSimulator {
             };
         });
 
-        const MACRO_DT = 0.1; 
-        const MAX_TICKS = 1800;
         const startTime = performance.now();
 
         for (const matchDef of matchups) {
@@ -87,7 +85,7 @@ class BatchSimulator {
             for (let m = 0; m < matchesPerPair; m++) {
                 if (this.isAborted) break;
 
-                const matchResult = BatchSimulator.runSingleMatchFast(rawMap, matchDef.f1, matchDef.f2, MACRO_DT, MAX_TICKS);
+                const matchResult = BatchSimulator.runSingleMatchFast(rawMap, matchDef.f1, matchDef.f2);
                 const { winnerTeamId, durationSeconds, team1Share, team2Share, telemetrySummary, isTimeout } = matchResult;
 
                 durations.push(durationSeconds);
@@ -191,13 +189,17 @@ class BatchSimulator {
         }
     }
 
-    static runSingleMatchFast(mapData, faction1Id, faction2Id, dt, maxTicks) {
+    static runSingleMatchFast(mapData, faction1Id, faction2Id) {
+        const STEP = window.GAME_CONFIG.SIM_STEP;
+        const maxTicks = Math.round(window.GAME_CONFIG.MAX_MATCH_SECONDS / STEP);
+
         const simManager = new GameManager(true);
         simManager.start(mapData, faction1Id, faction2Id, 'CPU_VS_CPU');
+        simManager.gameSpeed = 1;
 
         let ticks = 0;
         while (simManager.isRunning && ticks < maxTicks) {
-            simManager.update(dt);
+            simManager.update(STEP);
             ticks++;
         }
 
@@ -221,7 +223,7 @@ class BatchSimulator {
 
         return {
             winnerTeamId,
-            durationSeconds: Math.round(ticks * dt),
+            durationSeconds: Math.round(ticks * STEP),
             ticksProcessed: ticks,
             isTimeout,
             team1Share: Math.round((t1Planets / totalPlanets) * 100),
