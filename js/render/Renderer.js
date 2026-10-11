@@ -20,7 +20,7 @@ class Renderer {
         if (Array.isArray(gameManager.planets)) {
             gameManager.planets.forEach(planet => {
                 if (planet && typeof planet.draw === 'function') {
-                    planet.draw(this.ctx, gameManager.ships, gameManager);
+                    planet.draw(this.ctx, gameManager);
                 }
             });
         }

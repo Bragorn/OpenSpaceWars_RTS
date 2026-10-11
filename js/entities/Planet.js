@@ -41,14 +41,9 @@ class Planet {
         return 10;
     }
 
-    getOrbitingShipsCount(ships) {
-        if (!ships || !Array.isArray(ships)) return 0;
-        return ships.filter(s => 
-            s && 
-            !s.dead && 
-            s.targetPlanet === this && 
-            s.state === 'orbit'
-        ).length;
+    getOrbitingShipsCount(gameManager) {
+        if (!gameManager || !gameManager.frameStats) return 0;
+        return gameManager.frameStats.orbiting.get(this) || 0;
     }
 
     startUpgrade(ships) {
@@ -186,7 +181,7 @@ class Planet {
         }
     }
 
-    draw(ctx, ships, gameManager) {
+    draw(ctx, gameManager) {
         const activeColor = FactionManager.getColor(this.owner, gameManager);
 
         ctx.save();
@@ -197,7 +192,7 @@ class Planet {
         ctx.fill();
 
         const maxTier = this.getMaxTier();
-        const orbitCount = this.getOrbitingShipsCount(ships);
+        const orbitCount = this.getOrbitingShipsCount(gameManager);
 
         const lines = [];
         lines.push(`Ships: ${orbitCount}`);
