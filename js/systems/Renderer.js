@@ -35,10 +35,5 @@ class Renderer {
                 }
             }
         }
-
-        // In Renderer.render(gameManager, controls):
-        if (typeof AIDebugRenderer !== 'undefined') {
-            AIDebugRenderer.render(this.ctx, gameManager);
-        }
     }
 }
