@@ -27,8 +27,8 @@
     right: 0;
     transform: none;
     min-width: 0;
-    height: 42px;
-    padding: 0 var(--s3);
+    height: auto;
+    padding: var(--s2) var(--s3);
 
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -145,6 +145,33 @@
 
 /* ================= NARROW SCREENS ================= */
 @media (max-width: 760px) {
-    .hud-top-center { height: 33px; }
     .hud-ai-state { display: none; }
+}
+
+/* ================= DEV PANEL ================= */
+.dev-panel {
+    position: fixed;
+    left: var(--s3);
+    bottom: var(--s3);
+    z-index: 90;
+    padding: var(--s2) var(--s3);
+    background: var(--c-bg);
+    border: 1px solid var(--c-line);
+    pointer-events: none;
+}
+
+.dev-panel-title {
+    margin-bottom: var(--s2);
+    padding-bottom: var(--s1);
+    border-bottom: 1px solid var(--c-line);
+}
+
+.dev-panel-cols {
+    display: flex;
+    gap: var(--s4);
+}
+
+.dev-col {
+    min-width: 150px;
+    line-height: 12px;
 }

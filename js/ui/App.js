@@ -26,10 +26,10 @@ class App {
         if (typeof FACTION_DATA !== 'undefined') {
             this.factionsList = Object.keys(FACTION_DATA);
         } else {
-            this.factionsList = ['HUMAN', 'PROTOCOL'];
+            this.factionsList = ['REMNANTS', 'PROTOCOL'];
         }
         // Ensure defaults don't match if possible
-        this.p1FactionIndex = this.factionsList.indexOf('HUMAN') !== -1 ? this.factionsList.indexOf('HUMAN') : 0;
+        this.p1FactionIndex = this.factionsList.indexOf('REMNANTS') !== -1 ? this.factionsList.indexOf('REMNANTS') : 0;
         this.p2FactionIndex = this.factionsList.indexOf('PROTOCOL') !== -1 ? this.factionsList.indexOf('PROTOCOL') : Math.min(1, this.factionsList.length - 1);
     }
 
@@ -40,6 +40,10 @@ class App {
         document.getElementById('btn-restart')?.addEventListener('click', () => {
         document.getElementById('game-over-modal')?.classList.add('hidden');
         this.showMapSelect();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '`') document.getElementById('dev-panel')?.classList.toggle('hidden');
         });
 
         // Batch Simulation Events with Abort Handling
@@ -107,7 +111,7 @@ class App {
     }
 
     updateArcadeFactionDisplays() {
-        const p1Key = this.factionsList[this.p1FactionIndex] || 'HUMAN';
+        const p1Key = this.factionsList[this.p1FactionIndex] || 'REMNANTS';
         const p2Key = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
 
         const p1Display = document.getElementById('p1-faction-display');
@@ -124,10 +128,10 @@ class App {
     updateMenuFactionTheme() {
         if (typeof FACTION_DATA === 'undefined') return;
 
-        const p1Key = this.factionsList[this.p1FactionIndex] || 'HUMAN';
+        const p1Key = this.factionsList[this.p1FactionIndex] || 'REMNANTS';
         const p2Key = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
 
-        const f1 = FACTION_DATA[p1Key] || FACTION_DATA.HUMAN;
+        const f1 = FACTION_DATA[p1Key] || FACTION_DATA.REMNANTS;
         const f2 = FACTION_DATA[p2Key] || FACTION_DATA.PROTOCOL;
 
         const teamHome = document.querySelector('.team-home');
@@ -206,7 +210,7 @@ class App {
             const opt1 = new Option(`${fac.name} (${fac.id})`, fac.id);
             const opt2 = new Option(`${fac.name} (${fac.id})`, fac.id);
 
-            if (fac.id === 'HUMAN') opt1.selected = true;
+            if (fac.id === 'REMNANTS') opt1.selected = true;
             if (fac.id === 'PROTOCOL') opt2.selected = true;
 
             f1Select.add(opt1);
@@ -235,7 +239,7 @@ class App {
         const simOptions = {
             matchesPerPair: matchesCount,
             mode: comboMode,
-            faction1: document.getElementById('sim-faction-1')?.value || 'HUMAN',
+            faction1: document.getElementById('sim-faction-1')?.value || 'REMNANTS',
             faction2: document.getElementById('sim-faction-2')?.value || 'PROTOCOL',
             mapTarget: document.getElementById('sim-map-select')?.value || 'ALL'
         };
@@ -326,6 +330,7 @@ class App {
         this.clearScreen();
 
         document.getElementById('hud-top-center')?.classList.add('hidden');
+        Viewport.update(this.canvas);
         document.getElementById('exit-confirm-modal')?.classList.add('hidden');
 
         const menuMain = document.getElementById('menu-main');
@@ -341,6 +346,7 @@ class App {
         this.clearScreen();
 
         document.getElementById('hud-top-center')?.classList.add('hidden');
+        Viewport.update(this.canvas);
 
         const menuMain = document.getElementById('menu-main');
         const menuMap = document.getElementById('menu-map-select');
@@ -379,7 +385,7 @@ class App {
         const cfg = window.GAME_CONFIG;
         const scaledMap = this.registry.getScaledMap(this.selectedSlotNum, cfg.WORLD_WIDTH, cfg.WORLD_HEIGHT);
 
-        const playerFaction = this.factionsList[this.p1FactionIndex] || 'HUMAN';
+        const playerFaction = this.factionsList[this.p1FactionIndex] || 'REMNANTS';
         const enemyFaction = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
 
         this.state = 'GAME';
@@ -388,8 +394,8 @@ class App {
         const menuMap = document.getElementById('menu-map-select');
         if (menuMap) menuMap.style.display = 'none';
 
-        const f1 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[playerFaction]) ? FACTION_DATA[playerFaction] : { name: playerFaction, color: '#00aaff' };
-        const f2 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[enemyFaction]) ? FACTION_DATA[enemyFaction] : { name: enemyFaction, color: '#ff3355' };
+        const f1 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[playerFaction]) ? FACTION_DATA[playerFaction] : { name: playerFaction, color: '#00aaff' }; // make these match the faction colours at some point
+        const f2 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[enemyFaction]) ? FACTION_DATA[enemyFaction] : { name: enemyFaction, color: '#ff3355' }; // make these match the faction colours at some point
 
         const cardT1 = document.getElementById('hud-card-t1');
         const cardT2 = document.getElementById('hud-card-t2');
@@ -412,6 +418,7 @@ class App {
         if (valT2) valT2.style.color = f2.color;
 
         document.getElementById('hud-top-center')?.classList.remove('hidden');
+        Viewport.update(this.canvas);
 
         if (window.gameManager) {
             window.gameManager.start(scaledMap, playerFaction, enemyFaction, this.gameMode);
@@ -452,6 +459,30 @@ class App {
             const stStr = gm.aiController2 ? gm.aiController2.currentState : 'HUMAN_PLAYER';
             stateT2.textContent = `STATE: ${stStr}`;
         }
+        
+        this.updateDevPanel(gm);
+    }
+
+    updateDevPanel(gm) {
+        const panel = document.getElementById('dev-panel');
+        if (!panel || panel.classList.contains('hidden') || !gm.telemetry) return;
+
+        const fill = (id, teamId, ai) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const t = gm.telemetry.summary['team' + teamId];
+            const planets = gm.planets.filter(p => p.owner === teamId).length;
+            el.innerHTML =
+                `<div>AI: ${ai ? ai.currentState : 'HUMAN_PLAYER'}</div>` +
+                `<div>PLANETS: ${planets}</div>` +
+                `<div>SPAWNED: ${t.shipsSpawned}</div>` +
+                `<div>KILLS: ${t.shipsKilled}  LOST: ${t.shipsLost}</div>` +
+                `<div>DMG OUT: ${Math.round(t.damageDealt)}  IN: ${Math.round(t.damageReceived)}</div>` +
+                `<div>CAPTURES: ${t.planetsCaptured}  UPGRADES: ${t.upgrades}</div>`;
+        };
+
+        fill('dev-t1', 1, gm.aiController1);
+        fill('dev-t2', 2, gm.aiController2);
     }
 
     loop(timestamp) {
