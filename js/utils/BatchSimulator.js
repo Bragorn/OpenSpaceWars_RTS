@@ -15,12 +15,12 @@ class BatchSimulator {
 
         const matchesPerPair = options.matchesPerPair || 10;
         const mode = options.mode || 'ALL';
-        const faction1Override = options.faction1 || 'HUMAN';
+        const faction1Override = options.faction1 || 'REMNANTS';
         const faction2Override = options.faction2 || 'PROTOCOL';
         const mapTarget = options.mapTarget || 'ALL';
 
         const mapList = registry && typeof registry.getAllMaps === 'function' ? registry.getAllMaps() : [];
-        const factionKeys = typeof FACTION_DATA !== 'undefined' ? Object.keys(FACTION_DATA) : ['HUMAN', 'PROTOCOL'];
+        const factionKeys = typeof FACTION_DATA !== 'undefined' ? Object.keys(FACTION_DATA) : ['REMNANTS', 'PROTOCOL'];
 
         let matchups = [];
 
