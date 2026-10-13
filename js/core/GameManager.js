@@ -310,8 +310,8 @@ class GameManager {
                 title.textContent = isVictory ? 'VICTORY' : 'DEFEAT'; 
                 const winFaction = (typeof FACTION_DATA !== 'undefined') ? FACTION_DATA[this.factionMap[winningTeam]] : null;
                 title.style.color = winFaction ? winFaction.color : '#ffffff';
-                msg.textContent = isVictory 
-                    ? `System secured in ${mins}:${secs}!` 
+                msg.textContent = isVictory
+                    ? `System secured in ${mins}:${secs}!`
                     : `Fleet wiped out after ${mins}:${secs}.`;
             }
 
