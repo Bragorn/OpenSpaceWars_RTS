@@ -50,8 +50,8 @@ class Ship {
 
         const baseRadius = (sourcePlanet && sourcePlanet.radius) ? sourcePlanet.radius : 28;
         const spawnAngle = Math.random() * Math.PI * 2;
-        const minOrbitOffset = 14;
-        const maxOrbitSpread = 16;
+        const minOrbitOffset = 20;
+        const maxOrbitSpread = 10;
         this.targetOrbitRadius = baseRadius + minOrbitOffset + Math.random() * maxOrbitSpread;
 
         this.gravConst = 12000.0;
@@ -168,8 +168,8 @@ class Ship {
             }
         }
 
-        let fx = sepX * 12.0;
-        let fy = sepY * 12.0;
+        let fx = sepX * 8.0;
+        let fy = sepY * 8.0;
         if (count > 0) {
             fx += ((alignX / count) - this.vx) * 0.5;
             fy += ((alignY / count) - this.vy) * 0.5;
