@@ -29,7 +29,20 @@ class Renderer {
         }
 
         this.drawShips(gameManager.ships);
+        this.drawPlanetLabels(gameManager);
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    drawPlanetLabels(gameManager) {
+        if (!Array.isArray(gameManager.planets)) return;
+        const dpr = Viewport.dpr;
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // screen space, no world scaling
+
+        for (const planet of gameManager.planets) {
+            if (!planet || typeof planet.drawLabel !== 'function') continue;
+            const p = Viewport.toScreen(planet.x, planet.y);
+            planet.drawLabel(this.ctx, gameManager, Math.round(p.x * dpr) / dpr, Math.round(p.y * dpr) / dpr);
+        }
     }
 
     drawShips(ships) {

@@ -181,16 +181,19 @@ class Planet {
         }
     }
 
-    draw(ctx, gameManager) {
+        draw(ctx, gameManager) {
         const activeColor = FactionManager.getColor(this.owner, gameManager);
 
         ctx.save();
-
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = activeColor;
         ctx.fill();
+        ctx.restore();
+    }
 
+    // Drawn in screen space at a fixed size so the text stays crisp at any zoom
+    drawLabel(ctx, gameManager, sx, sy) {
         const maxTier = this.getMaxTier();
         const orbitCount = this.getOrbitingShipsCount(gameManager);
 
@@ -211,18 +214,17 @@ class Planet {
 
         const fontSize = 9;
         const lineHeight = 11;
-        const totalHeight = lines.length * lineHeight;
-        let startY = this.y - (totalHeight / 2) + (fontSize / 2);
+        const startY = sy - (lines.length * lineHeight) / 2 + fontSize / 2;
 
+        ctx.save();
         ctx.font = `bold ${fontSize}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#000000';
 
         for (let i = 0; i < lines.length; i++) {
-            ctx.fillText(lines[i], this.x, startY + (i * lineHeight));
+            ctx.fillText(lines[i], Math.round(sx), Math.round(startY + i * lineHeight));
         }
-
         ctx.restore();
     }
 }

@@ -17,8 +17,6 @@
 /* One weight only: faux bold smears the pixel font */
 * {
     font-weight: normal;
-    -webkit-font-smoothing: none;
-    text-rendering: optimizeSpeed;
 }
 
 /* ================= HUD BAR ================= */
