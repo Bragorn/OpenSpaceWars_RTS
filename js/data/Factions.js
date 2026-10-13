@@ -11,19 +11,20 @@ const BASELINE_FACTION = {
 };
 
 const FACTION_DATA = {
-    HUMAN: { id: 'HUMAN', name: 'Human Remnants', tagline: 'Versatile baseline.', color: '#00aaff', ...BASELINE_FACTION },
-    GOLIATH: { id: 'GOLIATH', name: 'Iron Goliaths', tagline: 'Heavy armor.', color: '#ff8800', ...BASELINE_FACTION },
-    HIVE: { id: 'HIVE', name: 'Hive Chitin', tagline: 'Swarm forces.', color: '#33ff55', ...BASELINE_FACTION },
-    PROTOCOL: { id: 'PROTOCOL', name: 'Protocol Zero', tagline: 'Precision snipers.', color: '#ff2255', ...BASELINE_FACTION },
-    SCRAPPER: { id: 'SCRAPPER', name: 'Rust Scrappers', tagline: 'Aggressive brawlers.', color: '#e6ad00', ...BASELINE_FACTION },
-    ARCHON: { id: 'ARCHON', name: 'Archon Covenant', tagline: 'Fortress defense.', color: '#aa44ff', ...BASELINE_FACTION }
+    REMNANTS: { id: 'REMNANTS', name: 'Remnants of Earth',  tagline: 'Versatile baseline.',  color: '#36C7FF', palette: { light: '#99E2FF', base: '#36C7FF', dark: '#0080B3', shadow: '#00374D' }, ...BASELINE_FACTION },
+    GOLIATH:  { id: 'GOLIATH',  name: 'Iron Goliaths',      tagline: 'Heavy armor.',         color: '#55E04A', palette: { light: '#A5EF9F', base: '#55E04A', dark: '#208B18', shadow: '#0E3D0A' }, ...BASELINE_FACTION },
+    HIVE:     { id: 'HIVE',     name: 'Hive Mind Swarm',    tagline: 'Swarm forces.',        color: '#FFD21F', palette: { light: '#FFE88F', base: '#FFD21F', dark: '#A38200', shadow: '#473900' }, ...BASELINE_FACTION },
+    PROTOCOL: { id: 'PROTOCOL', name: 'Protocol Zero',      tagline: 'Precision snipers.',   color: '#FF2A2A', palette: { light: '#FF8585', base: '#FF2A2A', dark: '#AD0000', shadow: '#4D0000' }, ...BASELINE_FACTION },
+    PUNKS:    { id: 'PUNKS',    name: 'Junk Punks',         tagline: 'Aggressive brawlers.', color: '#FF2BB8', palette: { light: '#FF8AD8', base: '#FF2BB8', dark: '#AD0074', shadow: '#4D0033' }, ...BASELINE_FACTION },
+    CROWN:    { id: 'CROWN',    name: 'Violet Crown',       tagline: 'Fortress defense.',    color: '#7A2CFF', palette: { light: '#BF99FF', base: '#7A2CFF', dark: '#4400B8', shadow: '#1E0052' }, ...BASELINE_FACTION }
 };
 
 const NEUTRAL_FACTION = {
     id: 'NEUTRAL',
     name: 'Unclaimed',
     tagline: 'Unclaimed territory.',
-    color: '#ffffff',
+    color: '#FFFFFF',
+    palette: { light: '#FFFFFF', base: '#FFFFFF', dark: '#8A8F98', shadow: '#2A2D33' },
     ...BASELINE_FACTION
 };
 
@@ -49,5 +50,9 @@ class FactionManager {
 
     static getColor(ownerId, gameManager) {
         return this.getFaction(ownerId, gameManager).color;
+    }
+
+    static getPalette(ownerId, gameManager) {
+        return this.getFaction(ownerId, gameManager).palette;
     }
 }

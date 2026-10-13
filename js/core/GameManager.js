@@ -11,7 +11,7 @@ class GameManager {
 
         this.factionMap = {
             0: 'NEUTRAL',
-            1: 'HUMAN',
+            1: 'REMNANTS',
             2: 'PROTOCOL'
         };
 
@@ -32,7 +32,7 @@ class GameManager {
     setFactionMap(team1FactionKey, team2FactionKey) {
         this.factionMap = {
             0: 'NEUTRAL',
-            1: team1FactionKey || 'HUMAN',
+            1: team1FactionKey || 'REMNANTS',
             2: team2FactionKey || 'PROTOCOL'
         };
     }
@@ -302,12 +302,14 @@ class GameManager {
             if (this.gameMode === 'CPU_VS_CPU') {
                 const winnerName = winningTeam === 1 ? fac1Name : fac2Name;
                 title.textContent = `${winnerName.toUpperCase()} VICTORIOUS`;
-                title.style.color = winningTeam === 1 ? '#00aaff' : '#ff3355';
+                const winFaction = (typeof FACTION_DATA !== 'undefined') ? FACTION_DATA[this.factionMap[winningTeam]] : null;
+                title.style.color = winFaction ? winFaction.color : '#ffffff';
                 msg.textContent = `Automated spectator match ended in ${mins}:${secs}.`;
             } else {
                 const isVictory = (winningTeam === 1);
-                title.textContent = isVictory ? 'VICTORY' : 'DEFEAT';
-                title.style.color = isVictory ? '#00ffcc' : '#ff3355';
+                title.textContent = isVictory ? 'VICTORY' : 'DEFEAT'; 
+                const winFaction = (typeof FACTION_DATA !== 'undefined') ? FACTION_DATA[this.factionMap[winningTeam]] : null;
+                title.style.color = winFaction ? winFaction.color : '#ffffff';
                 msg.textContent = isVictory 
                     ? `System secured in ${mins}:${secs}!` 
                     : `Fleet wiped out after ${mins}:${secs}.`;

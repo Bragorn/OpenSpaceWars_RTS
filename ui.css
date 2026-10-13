@@ -1,0 +1,152 @@
+/* ui.css: pixel-grid theme. Loads AFTER styles.css and overrides it. */
+
+:root {
+    --c-bg: #000000;
+    --c-text: #ffffff;
+    --c-line: #3b4048;
+    --c-line-hi: #ffffff;
+    --c-danger: #ff2a2a;
+
+    /* 3px spacing grid */
+    --s1: 3px;
+    --s2: 6px;
+    --s3: 9px;
+    --s4: 18px;
+}
+
+/* One weight only: faux bold smears the pixel font */
+* {
+    font-weight: normal;
+    -webkit-font-smoothing: none;
+    text-rendering: optimizeSpeed;
+}
+
+/* ================= HUD BAR ================= */
+.hud-top-center {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+    min-width: 0;
+    height: 42px;
+    padding: 0 var(--s3);
+
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: var(--s3);
+
+    background: var(--c-bg);
+    border: 0;
+    border-bottom: 1px solid var(--c-line);
+    border-radius: 0;
+    backdrop-filter: none;
+    box-shadow: none;
+}
+
+.hud-team-card {
+    min-width: 0;
+    gap: 0;
+}
+
+.hud-team-card.t1 {
+    padding-left: var(--s2);
+    border-left: 3px solid var(--c-line);   /* JS recolors to faction */
+    text-align: left;
+}
+
+.hud-team-card.t2 {
+    padding-right: var(--s2);
+    border-right: 3px solid var(--c-line);  /* JS recolors to faction */
+    text-align: right;
+}
+
+.hud-card-header {
+    color: var(--c-text);                   /* JS sets faction color inline */
+    letter-spacing: 1px;
+}
+
+.hud-card-body { gap: var(--s3); }
+.hud-ship-val,
+.hud-ai-state { color: var(--c-text); }
+
+.hud-center-cluster {
+    min-width: 0;
+    gap: var(--s2);
+}
+
+.hud-timer {
+    color: var(--c-text);
+    text-shadow: none;
+    letter-spacing: 1px;
+}
+
+.hud-controls { gap: var(--s1); }
+
+.hud-btn {
+    color: var(--c-text);
+    background: var(--c-bg);
+    border: 1px solid var(--c-line);
+    border-radius: 0;
+    height: 15px;
+    padding: 0 var(--s2);
+    transition: none;
+}
+
+.hud-btn:hover {
+    background: var(--c-bg);
+    color: var(--c-text);
+    border-color: var(--c-line-hi);
+}
+
+.hud-btn.active {
+    background: var(--c-text);
+    color: var(--c-bg);
+    border-color: var(--c-text);
+    box-shadow: none;
+}
+
+.hud-btn-esc {
+    background: var(--c-bg);
+    border-color: var(--c-danger);
+    color: var(--c-text);
+}
+
+.hud-btn-esc:hover {
+    background: var(--c-danger);
+    color: var(--c-bg);
+    border-color: var(--c-danger);
+}
+
+/* ================= POPUPS ================= */
+#exit-confirm-modal,
+#game-over-modal {
+    background: var(--c-bg);
+    border: 1px solid var(--c-line-hi);
+    border-radius: 0;
+    backdrop-filter: none;
+    box-shadow: none;
+    padding: var(--s4);
+}
+
+#exit-confirm-modal {
+    width: 288px;
+}
+
+#exit-confirm-modal p,
+#game-over-msg {
+    color: var(--c-text);
+    margin-bottom: var(--s3);
+    line-height: 1.5;
+}
+
+#game-over-title {
+    margin-bottom: var(--s3);
+}
+
+/* ================= NARROW SCREENS ================= */
+@media (max-width: 760px) {
+    .hud-top-center { height: 33px; }
+    .hud-ai-state { display: none; }
+}
