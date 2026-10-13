@@ -181,7 +181,7 @@ class Planet {
         }
     }
 
-        draw(ctx, gameManager) {
+    draw(ctx, gameManager) {
         const activeColor = FactionManager.getColor(this.owner, gameManager);
 
         ctx.save();
