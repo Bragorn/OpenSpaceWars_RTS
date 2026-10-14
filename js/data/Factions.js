@@ -3,8 +3,8 @@ const BASELINE_FACTION = {
     laserDamage: 10,
     laserCooldown: 0.4,
     laserRange: 25.0,
-    maxSpeed: 40.0,
-    enginePower: 16.0,
+    maxSpeed: 30.0,
+    enginePower: 14.0,
     transitTurnRate: 10.0,
     combatTurnRate: 10.0,
     spawnIntervalMult: 1.0
