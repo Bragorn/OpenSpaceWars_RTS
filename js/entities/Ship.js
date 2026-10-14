@@ -453,7 +453,7 @@ class Ship {
             return;
         }
 
-                // 4. Transit: burn, straight coast, burn (planets only pull inside their SOI)
+        // 4. Transit: burn, straight coast, burn (planets only pull inside their SOI)
         const target = this.targetPlanet;
         if (!target) return;
 
