@@ -96,48 +96,86 @@ class Ship {
         this.originPlanet = null;
         this.burning = false;
         this.burnSpeed = 0;
-        this.correcting = false;
-        this.captured = false;
+        this.departTpl = null;
     }
 
-    // Simulates one departure burn + escape from a circular orbit of radius r,
-    // starting at angle 0. Cached, so it runs once per radius/direction.
-    static departureTemplate(r, orbitDir, mu, vInf, enginePower) {
-        r = Math.max(1, Math.round(r));
-        const key = `${r}|${orbitDir}|${mu}|${vInf}|${enginePower}`;
-        if (!Ship._departCache) Ship._departCache = new Map();
-        const cached = Ship._departCache.get(key);
-        if (cached) return cached;
+        // Gravity from a planet, but only inside its sphere of influence
+    addSOIGravity(planet, force) {
+        if (!planet) return;
+        const dx = planet.x - this.x;
+        const dy = planet.y - this.y;
+        const d2 = Math.max(dx * dx + dy * dy, 1);
+        const d = Math.sqrt(d2);
+        if (d >= TRANSIT_SOI_RADIUS) return;
+        const a = this.gravConst / d2;
+        force.x += (dx / d) * a;
+        force.y += (dy / d) * a;
+    }
 
-        const dt = 1 / 60;
-        const vCirc = Math.sqrt(mu / r);
-        const vDep = Math.sqrt(vInf * vInf + (2 * mu) / r);
-        let x = r, y = 0, vx = 0, vy = vCirc * orbitDir;
-        let burning = true;
+    // One departure from a circular orbit (planet at origin, start at (r0, 0)):
+    // prograde burn until speed reaches vStop, then gravity-only until leaving the SOI.
+    static simulateDeparture(r0, s, mu, R, power, vStop, dt) {
+        const vCirc = Math.sqrt(mu / r0);
+        let x = r0, y = 0, vx = 0, vy = s * vCirc;
+        let burning = true, burnTicks = 0, rb = r0;
 
-        for (let i = 0; i < 3000; i++) {
-            const d2 = x * x + y * y;
-            const d = Math.sqrt(d2);
+        for (let i = 0; i < 6000; i++) {
             const sp = Math.sqrt(vx * vx + vy * vy);
-            if (burning && sp >= vDep) burning = false;
-            if (!burning && d > 200) break;
-
-            let ax = (-x / d) * (mu / d2);
-            let ay = (-y / d) * (mu / d2);
-            if (burning) {
-                ax += (vx / sp) * enginePower;
-                ay += (vy / sp) * enginePower;
+            if (burning && sp >= vStop) {
+                burning = false;
+                burnTicks = i;
+                rb = Math.sqrt(x * x + y * y);
             }
-            vx += ax * dt;
-            vy += ay * dt;
-            x += vx * dt;
-            y += vy * dt;
+            const r2 = Math.max(x * x + y * y, 1);
+            const r = Math.sqrt(r2);
+            if (!burning && r >= R) {
+                return {
+                    speed: sp, dirX: vx / sp, dirY: vy / sp,
+                    h: Math.abs(x * vy - y * vx) / sp,   // distance of the exit line from the planet
+                    burnTicks, rb
+                };
+            }
+            let ax = 0, ay = 0;
+            if (r < R) {
+                const g = mu / r2;
+                ax = -(x / r) * g;
+                ay = -(y / r) * g;
+            }
+            if (burning) {
+                ax += (vx / sp) * power;
+                ay += (vy / sp) * power;
+            }
+            vx += ax * dt; vy += ay * dt;
+            x += vx * dt; y += vy * dt;
         }
+        return null;
+    }
 
-        const sp = Math.max(0.001, Math.sqrt(vx * vx + vy * vy));
-        const result = { px: x, py: y, dx: vx / sp, dy: vy / sp, vDep };
-        Ship._departCache.set(key, result);
-        return result;
+    // Finds the burn size that leaves the SOI at exactly cruise speed. Cached.
+    static departureTemplate(r0, s, mu, R, power, cruise, dt) {
+        if (!Ship._departCache) Ship._departCache = new Map();
+        const key = `${r0}|${s}|${mu}|${R}|${power}|${cruise}|${dt}`;
+        if (Ship._departCache.has(key)) return Ship._departCache.get(key);
+
+        const vCirc = Math.sqrt(mu / r0);
+        let lo = vCirc + 0.01, hi = vCirc + 250, best = null;
+        for (let i = 0; i < 22; i++) {
+            const mid = 0.5 * (lo + hi);
+            const res = Ship.simulateDeparture(r0, s, mu, R, power, mid, dt);
+            if (!res || res.speed < cruise) {
+                lo = mid;
+            } else {
+                hi = mid;
+                best = res;
+                best.vStop = mid;
+            }
+        }
+        if (!best) {
+            best = Ship.simulateDeparture(r0, s, mu, R, power, hi, dt);
+            if (best) best.vStop = hi;
+        }
+        Ship._departCache.set(key, best);
+        return best;
     }
 
     get currentTurnRate() {
@@ -278,55 +316,6 @@ class Ship {
         }
     }
 
-    // Aim point offset to one side of the target so the coast arrives with
-    // periapsis at this ship's orbit radius (corrected for gravity bending).
-    getAimPoint(fromX = this.x, fromY = this.y) {
-        const t = this.targetPlanet;
-        const dx = t.x - fromX;
-        const dy = t.y - fromY;
-        const d = Math.max(0.001, Math.sqrt(dx * dx + dy * dy));
-        const r = Math.max(1, this.targetOrbitRadius);
-        const v = this.maxSpeed;
-        const b = r * Math.sqrt(1 + (2 * this.gravConst) / (r * v * v));
-        return { x: t.x + (dy / d) * b * this.orbitDir, y: t.y - (dx / d) * b * this.orbitDir };
-    }
-
-    addGravity(planet, force) {
-        const dx = planet.x - this.x;
-        const dy = planet.y - this.y;
-        const d2 = Math.max(dx * dx + dy * dy, 1);
-        const d = Math.sqrt(d2);
-        const a = this.gravConst / d2;
-        force.x += (dx / d) * a;
-        force.y += (dy / d) * a;
-    }
-
-    // Turn toward a burn direction, fire only once pointed close enough
-    burnAlong(dirX, dirY, dt, force, ratio = 1) {
-        const aligned = this.rotateTowards(Math.atan2(dirY, dirX), dt);
-        if (aligned) {
-            this.thrustRatio = ratio;
-            const accel = this.enginePower * ratio;
-            force.x += Math.cos(this.heading) * accel;
-            force.y += Math.sin(this.heading) * accel;
-        }
-    }
-
-    // Proportional thrust toward a desired velocity (used to circularize)
-    thrustToVelocity(desVx, desVy, dt, force) {
-        const errVx = desVx - this.vx;
-        const errVy = desVy - this.vy;
-        const errMag = Math.sqrt(errVx * errVx + errVy * errVy);
-        if (errMag <= 0.5) return;
-        const aligned = this.rotateTowards(Math.atan2(errVy, errVx), dt);
-        if (aligned) {
-            const ratio = Math.min(1.0, errMag / 20.0);
-            this.thrustRatio = ratio;
-            force.x += Math.cos(this.heading) * this.enginePower * ratio;
-            force.y += Math.sin(this.heading) * this.enginePower * ratio;
-        }
-    }
-
     update(dtUncapped, gameManager) {
         if (this.dead) return;
 
@@ -464,152 +453,133 @@ class Ship {
             return;
         }
 
-                // 4. Transit (burn-based transfers)
+                // 4. Transit: burn, straight coast, burn (planets only pull inside their SOI)
         const target = this.targetPlanet;
         if (!target) return;
 
         const transitEnemy = this.findNearestEnemy(gameManager, this.laserRange);
         if (transitEnemy) this.fireLaser(transitEnemy, gameManager);
 
+        const R = TRANSIT_SOI_RADIUS;
         const mu = this.gravConst;
+        const simStep = (window.GAME_CONFIG && window.GAME_CONFIG.SIM_STEP) || (1 / 60);
         const force = { x: 0, y: 0 };
         this.thrustRatio = 0;
 
-        // Gravity from the planets that matter for this leg only
-        const bodies = [];
-        if (this.orbitPlanet) bodies.push(this.orbitPlanet);
-        if (this.state !== 'launching') {
-            if (this.originPlanet && !bodies.includes(this.originPlanet)) bodies.push(this.originPlanet);
-            if (!bodies.includes(target)) bodies.push(target);
+        // Departure plan, built once per trip
+        if (this.state === 'launching' && !this.departTpl && this.orbitPlanet) {
+            this.targetOrbitRadius = Math.max(1, Math.round(this.targetOrbitRadius * 2) / 2);
+            this.departTpl = Ship.departureTemplate(
+                this.targetOrbitRadius, this.orbitDir, mu, R, this.enginePower, this.maxSpeed, simStep);
+            if (!this.departTpl) {
+                this.state = 'orbit';
+                this.targetPlanet = this.orbitPlanet;
+                return;
+            }
         }
-        for (let i = 0; i < bodies.length; i++) this.addGravity(bodies[i], force);
-
+        const tpl = this.departTpl;
         const safeR = Math.max(1, this.targetOrbitRadius);
         const vCirc = Math.sqrt(mu / safeR);
-        const vInf = this.maxSpeed; // cruise speed
+
+        // Gravity: only the planets whose SOI we are inside
+        this.addSOIGravity(this.orbitPlanet, force);
+        if (this.originPlanet && this.originPlanet !== this.orbitPlanet) this.addSOIGravity(this.originPlanet, force);
+        if (target !== this.orbitPlanet) this.addSOIGravity(target, force);
 
         if (this.state === 'launching') {
             const planet = this.orbitPlanet;
-            if (!planet) return;
+            if (!planet || !tpl) return;
             const dx = this.x - planet.x;
             const dy = this.y - planet.y;
             const r = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const s = this.orbitDir;
 
             if (!this.burning) {
                 // Parking orbit (on rails) until the departure window opens
-                const ang = Math.atan2(dy, dx) + (vCirc / safeR) * this.orbitDir * dt;
+                const angPrev = Math.atan2(dy, dx);
+                let ang = angPrev + (vCirc / safeR) * s * dt;
                 const rNew = r + (safeR - r) * Math.min(1, dt * 4);
+
+                // Window: the orbit position whose pre-simulated escape leaves along
+                // a line through the midpoint between the planets (the S-curve)
+                const abx = target.x - planet.x;
+                const aby = target.y - planet.y;
+                const D = Math.max(1, Math.sqrt(abx * abx + aby * aby));
+                const alpha = Math.asin(Math.min(1, (2 * tpl.h) / D));
+                const exitDir = Math.atan2(aby, abx) + s * alpha;
+                const startAng = exitDir - Math.atan2(tpl.dirY, tpl.dirX);
+
+                const dPrev = s * Math.atan2(Math.sin(angPrev - startAng), Math.cos(angPrev - startAng));
+                const dNew = s * Math.atan2(Math.sin(ang - startAng), Math.cos(ang - startAng));
+                const crossing = dPrev < 0 && dNew >= 0 && dNew < 0.5 && Math.abs(rNew - safeR) < 0.05;
+                if (crossing) ang = startAng;
+
+                const rr = crossing ? safeR : rNew;
                 this.orbitAngle = ang;
-                this.x = planet.x + Math.cos(ang) * rNew;
-                this.y = planet.y + Math.sin(ang) * rNew;
-                this.vx = -Math.sin(ang) * vCirc * this.orbitDir;
-                this.vy = Math.cos(ang) * vCirc * this.orbitDir;
+                this.x = planet.x + Math.cos(ang) * rr;
+                this.y = planet.y + Math.sin(ang) * rr;
+                this.vx = -Math.sin(ang) * vCirc * s;
+                this.vy = Math.cos(ang) * vCirc * s;
                 this.heading = Math.atan2(this.vy, this.vx);
 
-                if (!this.departTpl) {
-                    this.departTpl = Ship.departureTemplate(safeR, this.orbitDir, mu, vInf, this.enginePower);
-                }
-                const tpl = this.departTpl;
-
-                const aim = this.getAimPoint(planet.x, planet.y);
-                const ax = aim.x - planet.x;
-                const ay = aim.y - planet.y;
-                const L = Math.sqrt(ax * ax + ay * ay);
-
-                // Rotate the pre-simulated departure so its outgoing path passes through the aim point
-                const pd = tpl.px * tpl.dx + tpl.py * tpl.dy;
-                const disc = pd * pd - (tpl.px * tpl.px + tpl.py * tpl.py - L * L);
-                let startAngle;
-                if (disc >= 0) {
-                    const s = -pd + Math.sqrt(disc);
-                    startAngle = Math.atan2(ay, ax) - Math.atan2(tpl.py + s * tpl.dy, tpl.px + s * tpl.dx);
-                } else {
-                    startAngle = Math.atan2(ay, ax) - Math.atan2(tpl.dy, tpl.dx);
-                }
-
-                let diff = ang - startAngle;
-                diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-                if (Math.abs(diff) < 0.02 && Math.abs(rNew - safeR) < 1.5) {
+                if (crossing) {
                     this.burning = true;
-                    this.burnSpeed = tpl.vDep;
+                    this.burnSpeed = tpl.vStop;
                 }
                 return;
             }
 
-            // Prograde departure burn until reaching departure speed
+            // Prograde departure burn, heading locked to velocity
             const speed = Math.max(0.001, Math.sqrt(this.vx * this.vx + this.vy * this.vy));
             if (speed >= this.burnSpeed) {
                 this.burning = false;
-                this.departTpl = null;
                 this.originPlanet = planet;
                 this.orbitPlanet = null;
-                this.correcting = false;
                 this.state = 'moving';
             } else {
-                this.burnAlong(this.vx / speed, this.vy / speed, dt, force);
+                this.heading = Math.atan2(this.vy, this.vx);
+                this.thrustRatio = 1;
+                force.x += (this.vx / speed) * this.enginePower;
+                force.y += (this.vy / speed) * this.enginePower;
             }
 
         } else if (this.state === 'moving') {
+            // Straight coast. Inside the target's SOI, face retrograde and wait for the capture point.
             const tdx = target.x - this.x;
             const tdy = target.y - this.y;
             const dT = Math.max(0.001, Math.sqrt(tdx * tdx + tdy * tdy));
-            const speed = Math.max(0.001, Math.sqrt(this.vx * this.vx + this.vy * this.vy));
 
-            if (dT > TRANSIT_SOI_RADIUS) {
-                // Coast; small mid-course corrections only if the path drifts
-                const aim = this.getAimPoint();
-                const adx = aim.x - this.x;
-                const ady = aim.y - this.y;
-                const aD = Math.max(0.001, Math.sqrt(adx * adx + ady * ady));
-                const ux = adx / aD;
-                const uy = ady / aD;
-                const along = this.vx * ux + this.vy * uy;
-                const latX = this.vx - along * ux;
-                const latY = this.vy - along * uy;
-                const latMag = Math.sqrt(latX * latX + latY * latY);
-                const angErr = latMag / speed;
-
-                if (!this.correcting && angErr > 0.05) this.correcting = true;
-                else if (this.correcting && angErr < 0.01) this.correcting = false;
-
-                if (this.correcting && latMag > 0.001) {
-                    this.burnAlong(-latX / latMag, -latY / latMag, dt, force);
-                } else {
-                    this.rotateTowards(Math.atan2(this.vy, this.vx), dt);
-                }
-            } else {
-                // Inside the target's sphere of influence: flip retrograde and
-                // time the capture burn to be centered on closest approach
-                this.correcting = false;
+            if (dT < R) {
                 this.rotateTowards(Math.atan2(-this.vy, -this.vx), dt);
-
-                const track = Math.sqrt(Math.max(0, dT * dT - safeR * safeR));
-                const rr = Math.max(dT, safeR);
-                const vPeri = Math.sqrt(speed * speed + 2 * mu * (1 / safeR - 1 / rr));
-                const burnT = Math.max(0, (vPeri - vCirc) / this.enginePower);
-                const halfPath = 0.25 * (vPeri + vCirc) * burnT;
-
-                if (track <= halfPath) {
+                const vr = -(tdx * this.vx + tdy * this.vy) / dT; // > 0 means moving away
+                if (tpl && (dT <= tpl.rb || vr >= 0)) {
                     this.state = 'insertion';
                     this.orbitPlanet = target;
-                    this.captured = false;
+                    this.burning = true;
                 }
+            } else {
+                this.rotateTowards(Math.atan2(this.vy, this.vx), dt);
             }
 
         } else if (this.state === 'insertion') {
-            const planet = target;
-            const dxPos = this.x - planet.x;
-            const dyPos = this.y - planet.y;
-            const currentDist = Math.max(0.001, Math.sqrt(dxPos * dxPos + dyPos * dyPos));
+            // Capture burn: the exit burn run backward, ending in a circular orbit
+            const dxPos = this.x - target.x;
+            const dyPos = this.y - target.y;
+            const rr = Math.max(1, Math.sqrt(dxPos * dxPos + dyPos * dyPos));
             const speed = Math.max(0.001, Math.sqrt(this.vx * this.vx + this.vy * this.vy));
-            const vCircHere = Math.sqrt(mu / currentDist);
 
-            if (speed > vCircHere) {
-                // Capture burn: retrograde along the current velocity
-                this.burnAlong(-this.vx / speed, -this.vy / speed, dt, force);
+            if (speed > Math.sqrt(mu / rr)) {
+                this.rotateTowards(Math.atan2(-this.vy, -this.vx), dt);
+                this.thrustRatio = 1;
+                force.x -= (this.vx / speed) * this.enginePower;
+                force.y -= (this.vy / speed) * this.enginePower;
             } else {
-                // Circular speed reached: keep whatever radius we ended up at
-                this.targetOrbitRadius = Math.max(currentDist, (planet.radius || 28) + 12);
+                // Circular speed reached: settle in at this radius, in the sense we are travelling
+                this.burning = false;
+                this.departTpl = null;
+                this.originPlanet = null;
+                this.orbitDir = (dxPos * this.vy - dyPos * this.vx) >= 0 ? 1 : -1;
+                this.targetOrbitRadius = Math.max(rr, (target.radius || 28) + 12);
                 this.orbitAngle = Math.atan2(dyPos, dxPos);
                 this.state = 'orbit';
                 this.orbitTimer = 0;
@@ -619,7 +589,7 @@ class Ship {
         this.vx += (force.x / this.mass) * dt;
         this.vy += (force.y / this.mass) * dt;
 
-        // Safety cap only; real speeds now come from the burns and gravity
+        // Safety cap only
         const currentSpeed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
         const speedCap = this.maxSpeed * 3.0;
         if (currentSpeed > speedCap) {
