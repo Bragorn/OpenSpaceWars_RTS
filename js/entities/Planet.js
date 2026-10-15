@@ -22,7 +22,6 @@ class Planet {
         this.regenTimer = 0;
 
         this.upgradeProgress = 0;
-        this.isLanding = false;
         this.contestedTimer = 0;
     }
 
@@ -121,7 +120,6 @@ class Planet {
         this.maxHp = stats.maxHP || 20;
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
-        this.isLanding = false;
         if (gameManager && gameManager.telemetry) {
             gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', newOwner);
         }
@@ -137,8 +135,7 @@ class Planet {
 
             this.maxHp = stats.maxHP || (this.maxHp + 10);
             this.hp = this.maxHp;
-            this.upgradeProgress = 0;
-            this.isLanding = false;
+            this.upgradeProgress = 0;   
 
             if (gameManager && gameManager.telemetry) {
                 gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_UPGRADE', this.owner);

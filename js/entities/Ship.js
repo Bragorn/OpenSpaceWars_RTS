@@ -48,8 +48,6 @@ class Ship {
         this.transitTurnRate = faction.transitTurnRate;
         this.combatTurnRate = faction.combatTurnRate;
 
-        this.touchdownPower = 1.0;
-
         const baseRadius = (sourcePlanet && sourcePlanet.radius) ? sourcePlanet.radius : 28;
         const spawnAngle = Math.random() * Math.PI * 2;
         const minOrbitOffset = 14;
@@ -57,7 +55,6 @@ class Ship {
         this.targetOrbitRadius = baseRadius + minOrbitOffset + Math.random() * maxOrbitSpread;
 
         this.gravConst = 80000.0;
-        this.departTpl = null;
         this.mass = 1.0;
 
         this.shootCooldown = Math.random() * 0.4;
@@ -88,8 +85,6 @@ class Ship {
 
         this.dead = false;
         this.thrustRatio = 0;
-        this.boidFx = 0;
-        this.boidFy = 0;
         this.hasEngagedCombat = false;
 
         // Transit state (burn-based transfers)
@@ -226,50 +221,6 @@ class Ship {
             this.heading += Math.sign(diff) * maxTurn;
             return Math.abs(diff) < 0.35;
         }
-    }
-
-    computeBoidForces(ships) {
-        if (!ships || !Array.isArray(ships)) return;
-
-        let sepX = 0, sepY = 0;
-        let alignX = 0, alignY = 0;
-        let count = 0;
-
-        for (let i = 0; i < ships.length; i++) {
-            const other = ships[i];
-            if (other && other !== this && !other.dead && other.owner === this.owner && other.state === 'moving' && other.targetPlanet === this.targetPlanet) {
-                const dx = other.x - this.x;
-                const dy = other.y - this.y;
-                const distSq = dx * dx + dy * dy;
-
-                if (distSq > 0.01 && distSq < 1225) {
-                    const dist = Math.sqrt(distSq);
-                    if (dist < 20) {
-                        const force = (20 - dist) / 20;
-                        sepX -= (dx / dist) * force;
-                        sepY -= (dy / dist) * force;
-                    }
-                    alignX += other.vx;
-                    alignY += other.vy;
-                    count++;
-                }
-            }
-        }
-
-        let fx = sepX * 8.0;
-        let fy = sepY * 8.0;
-        if (count > 0) {
-            fx += ((alignX / count) - this.vx) * 0.5;
-            fy += ((alignY / count) - this.vy) * 0.5;
-        }
-
-        const mag = Math.sqrt(fx * fx + fy * fy);
-        if (mag > 12.0) {
-            fx = (fx / mag) * 12.0;
-            fy = (fy / mag) * 12.0;
-        }
-        this.boidFx = isNaN(fx) ? 0 : fx;
-        this.boidFy = isNaN(fy) ? 0 : fy;
     }
 
     findNearestEnemy(gameManager, maxRange = null) {
