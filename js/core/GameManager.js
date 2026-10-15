@@ -164,6 +164,11 @@ class GameManager {
         });
     }
 
+    playSound(id, opts) {
+    if (this.isHeadless || typeof AudioManager === 'undefined') return;
+    AudioManager.play(id, opts);
+    }
+
     spawnShip(sourcePlanet, targetPlanet) {
         if (!sourcePlanet || typeof Ship !== 'function') return null;
         const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet, this);

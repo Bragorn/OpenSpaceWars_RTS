@@ -46,6 +46,10 @@ class App {
             if (e.key === '`') document.getElementById('dev-panel')?.classList.toggle('hidden');
         });
 
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('button')) AudioManager.play('ui_click');
+        });
+
         // Batch Simulation Events with Abort Handling
         document.getElementById('btn-batch-sim')?.addEventListener('click', () => this.openSimSetupModal());
         document.getElementById('btn-close-sim')?.addEventListener('click', () => this.closeSimModal());

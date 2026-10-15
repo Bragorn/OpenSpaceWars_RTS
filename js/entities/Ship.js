@@ -310,6 +310,7 @@ class Ship {
             }
 
             target.takeDamage(this.laserDamage, gameManager, this.owner);
+            if (gameManager) gameManager.playSound('laser', { x: this.x });
             this.laserTarget = { x: target.x, y: target.y };
             this.laserTimer = 0.08;
             this.shootCooldown = this.laserCooldownMax + Math.random() * 0.2;

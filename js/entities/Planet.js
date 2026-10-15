@@ -125,6 +125,8 @@ class Planet {
         if (gameManager && gameManager.telemetry) {
             gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', newOwner);
         }
+
+        if (gameManager) gameManager.playSound('planet_capture');
     }
 
     upgrade(gameManager = null) {
