@@ -52,11 +52,11 @@ class Ship {
 
         const baseRadius = (sourcePlanet && sourcePlanet.radius) ? sourcePlanet.radius : 28;
         const spawnAngle = Math.random() * Math.PI * 2;
-        const minOrbitOffset = 20;
-        const maxOrbitSpread = 10;
+        const minOrbitOffset = 14;
+        const maxOrbitSpread = 14;
         this.targetOrbitRadius = baseRadius + minOrbitOffset + Math.random() * maxOrbitSpread;
 
-        this.gravConst = 20000.0;
+        this.gravConst = 80000.0;
         this.departTpl = null;
         this.mass = 1.0;
 
@@ -71,7 +71,7 @@ class Ship {
         this.launchProgress = 0;
         this.launchDuration = 2.0;
         this.landingProgress = 0;
-        this.landingDuration = 3.0;
+        this.landingDuration = 4.0;
         this.orbitTimer = 0;
 
         const startX = sourcePlanet ? sourcePlanet.x : 0;
@@ -558,7 +558,11 @@ class Ship {
                     this.burning = true;
                 }
             } else {
-                this.rotateTowards(Math.atan2(this.vy, this.vx), dt);
+                // Outside the SOI: swing retrograde early enough to be facing back when the burn starts
+                const spd = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                const flipAt = tpl ? tpl.rb + spd * (Math.PI / this.transitTurnRate) * 1.3 : R;
+                const wantRetro = dT <= flipAt;
+                this.rotateTowards(Math.atan2(wantRetro ? -this.vy : this.vy, wantRetro ? -this.vx : this.vx), dt);
             }
 
         } else if (this.state === 'insertion') {
