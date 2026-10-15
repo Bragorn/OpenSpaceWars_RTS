@@ -47,7 +47,7 @@ class App {
         });
 
         document.addEventListener('click', (e) => {
-            if (e.target.closest('button')) AudioManager.play('ui_click');
+            if (e.target.closest('button')) AudioManager.play('ui_hover');
         });
 
         // Batch Simulation Events with Abort Handling

@@ -6,7 +6,7 @@
 //   maxVoices max copies playing at once
 //   bus       'sfx' | 'ui' | 'music'
 const SOUND_DATA = {
-    laser:          { file: 'audio/freesound_community-laser-45816.mp3',    volume: 0.20, pitchVar: 0.25, cooldown: 0.00, maxVoices: 12, bus: 'sfx' },
-    planet_capture: { file: 'audio/planet_capture.wav',                     volume: 0.50, pitchVar: 0.00, cooldown: 0.20, maxVoices: 2, bus: 'sfx' },
-    ui_click:       { file: 'audio/ui_click.wav',                           volume: 0.50, pitchVar: 0.00, cooldown: 0.03, maxVoices: 2, bus: 'ui'  }
+    laser:          { file: 'audio/laserShoot (3).wav',   volume: 0.10, pitchVar: 0.05, cooldown: 0.00, maxVoices: 8, bus: 'sfx' },
+    planet_capture: { file: 'audio/',                     volume: 0.50, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'sfx' },
+    ui_hover:       { file: 'audio/uiHover.wav',          volume: 0.50, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'ui'  }
 };
