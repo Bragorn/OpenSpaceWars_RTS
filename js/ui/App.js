@@ -34,7 +34,7 @@ class App {
         document.getElementById('btn-setup-back')?.addEventListener('click', () => this.showTitleScreen());
         document.getElementById('btn-setup-launch')?.addEventListener('click', () => this.launchSelectedMap());
         document.getElementById('btn-new-match')?.addEventListener('click', () => {
-            document.getElementById('game-over-modal')?.classList.add('hidden');
+        document.getElementById('game-over-modal')?.classList.add('hidden');
             this.showMatchSetup();
         });
 
@@ -42,10 +42,14 @@ class App {
             if (e.key === '`') this.hud.toggleDevPanel();
         });
 
-        // Hover sound on any button (plays once when the mouse enters it)
         document.addEventListener('mouseover', (e) => {
             const btn = e.target.closest('button');
             if (btn && !btn.contains(e.relatedTarget)) AudioManager.play('ui_hover');
+        });
+
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (btn && !btn.contains(e.relatedTarget)) AudioManager.play('ui_click');
         });
 
         // Arcade Faction Selector Arrows
@@ -76,7 +80,7 @@ class App {
         document.getElementById('btn-esc-menu')?.addEventListener('click', () => this.openExitModal());
         document.getElementById('btn-exit-yes')?.addEventListener('click', () => {
             this.closeExitModal();
-            this.showTitleScreen();
+            this.showMatchSetup();
         });
         document.getElementById('btn-exit-no')?.addEventListener('click', () => {
             this.closeExitModal();
@@ -139,7 +143,7 @@ class App {
 
         if (window.gameManager) {
             this.speedBeforeExit = window.gameManager.gameSpeed;
-            window.gameManager.setSpeed(0); // Auto-pause
+            window.gameManager.setSpeed(0); // Auto-pause. update later to also make it lock game from interaction, currently ui can still be used when exit pop up opens
         }
         modal.classList.remove('hidden');
     }
