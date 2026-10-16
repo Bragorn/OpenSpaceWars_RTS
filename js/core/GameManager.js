@@ -23,10 +23,12 @@ class GameManager {
         this.aiController2 = null;
 
         this.isRunning = false;
-        this.gameTime = 0; 
+        this.gameTime = 0;
         this.accumulator = 0;
-        this.gameSpeed = (window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1; 
-        this._listenersBound = false;
+        this.gameSpeed = (window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1;
+
+        this.winnerId = null;
+        this.onGameOver = null; // the UI sets this to show the game-over popup
     }
 
     setFactionMap(team1FactionKey, team2FactionKey) {
@@ -37,52 +39,14 @@ class GameManager {
         };
     }
 
-    bindUI() {
-        if (this.isHeadless) return;
-
-        this.hudElement = document.getElementById('hud-top-center');
-        this.hudTimer = document.getElementById('game-timer');
-        this.btnPlayPause = document.getElementById('btn-play-pause');
-        this.btnSpeed1 = document.getElementById('btn-speed-1');
-        this.btnSpeed2 = document.getElementById('btn-speed-2');
-        this.btnSpeed3 = document.getElementById('btn-speed-3');
-
-        if (this.btnPlayPause && !this._listenersBound) {
-            this._listenersBound = true;
-            this.btnPlayPause.onclick = () => this.setSpeed(this.gameSpeed === 0 ? 1 : 0);
-            this.btnSpeed1.onclick = () => this.setSpeed(1);
-            this.btnSpeed2.onclick = () => this.setSpeed(2);
-            this.btnSpeed3.onclick = () => this.setSpeed(3);
-        }
-    }
-
     setSpeed(speed) {
         this.gameSpeed = speed;
-        if (!this.isHeadless) this.updateHUDUI();
-    }
-
-    updateHUDUI() {
-        if (this.isHeadless) return;
-        const isPaused = (this.gameSpeed === 0);
-
-        if (this.btnPlayPause) {
-            this.btnPlayPause.textContent = isPaused ? 'Play' : 'Pause';
-            this.btnPlayPause.classList.toggle('active', isPaused);
-        }
-
-        this.btnSpeed1?.classList.toggle('active', !isPaused && this.gameSpeed === 1);
-        this.btnSpeed2?.classList.toggle('active', !isPaused && this.gameSpeed === 2);
-        this.btnSpeed3?.classList.toggle('active', !isPaused && this.gameSpeed === 3);
     }
 
     start(mapData, team1FactionKey, team2FactionKey, gameMode = 'PLAYER_VS_CPU') {
         this.reset();
         this.gameMode = gameMode;
         this.setFactionMap(team1FactionKey, team2FactionKey);
-
-        if (!this.isHeadless) {
-            this.bindUI(); 
-        }
 
         if (this.gameMode === 'CPU_VS_CPU') {
             this.aiController1 = typeof AIController === 'function' ? new AIController(this, 1) : null;
@@ -97,27 +61,20 @@ class GameManager {
         this.loadMap(mapData);
         this.isRunning = true;
         this.setSpeed((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1);
-        
-        if (!this.isHeadless && this.hudElement) {
-            this.hudElement.classList.remove('hidden');
-        }
     }
 
     setupControls() {
-    if (this.isHeadless || typeof Controls !== 'function' || !this.canvas) {
-        this.controls = null;
-        return;
-    }
-    if (!this.controls) this.controls = new Controls(this.canvas, this, 1);
-    this.controls.reset();
-    this.controls.enabled = (this.gameMode !== 'CPU_VS_CPU');
+        if (this.isHeadless || typeof Controls !== 'function' || !this.canvas) {
+            this.controls = null;
+            return;
+        }
+        if (!this.controls) this.controls = new Controls(this.canvas, this, 1);
+        this.controls.reset();
+        this.controls.enabled = (this.gameMode !== 'CPU_VS_CPU');
     }
 
     stop() {
         this.isRunning = false;
-        if (!this.isHeadless && this.hudElement) {
-            this.hudElement.classList.add('hidden');
-        }
     }
 
     reset() {
@@ -126,15 +83,10 @@ class GameManager {
         this.frameStats = { orbiting: new Map(), teamShips: {} };
         this.gameTime = 0;
         this.accumulator = 0;
-        
+        this.winnerId = null;
+
         if (this.telemetry) {
             this.telemetry.reset();
-        }
-
-        if (!this.isHeadless) {
-            this.updateTimerDisplay();
-            const modalId = (window.GAME_CONFIG && window.GAME_CONFIG.DOM && window.GAME_CONFIG.DOM.GAME_OVER_MODAL) || 'game-over-modal';
-            document.getElementById(modalId)?.classList.add('hidden');
         }
     }
 
@@ -165,8 +117,8 @@ class GameManager {
     }
 
     playSound(id, opts) {
-    if (this.isHeadless || typeof AudioManager === 'undefined') return;
-    AudioManager.play(id, opts);
+        if (this.isHeadless || typeof AudioManager === 'undefined') return;
+        AudioManager.play(id, opts);
     }
 
     spawnShip(sourcePlanet, targetPlanet) {
@@ -183,12 +135,12 @@ class GameManager {
 
     dispatchFleet(sourcePlanet, targetPlanet, ratio) {
         if (!sourcePlanet || !targetPlanet || sourcePlanet === targetPlanet) return;
-        
+
         const effectiveRatio = ratio !== undefined ? ratio : ((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_FLEET_RATIO) || 0.5);
 
-        const availableShips = this.ships.filter(s => 
-            s && !s.dead && 
-            s.owner === sourcePlanet.owner && 
+        const availableShips = this.ships.filter(s =>
+            s && !s.dead &&
+            s.owner === sourcePlanet.owner &&
             (s.targetPlanet === sourcePlanet || s.orbitPlanet === sourcePlanet) &&
             (s.state === 'orbit' || s.state === 'surface_launch')
         );
@@ -225,7 +177,6 @@ class GameManager {
 
         if (this.gameSpeed > 0) {
             this.gameTime += deltaTime; // real-time clock, unchanged
-            if (!this.isHeadless) this.updateTimerDisplay();
 
             const cfg = window.GAME_CONFIG;
             this.accumulator += Math.min(deltaTime, 0.25) * this.gameSpeed;
@@ -258,14 +209,6 @@ class GameManager {
         this.checkWinCondition();
     }
 
-    updateTimerDisplay() {
-        if (this.isHeadless || !this.hudTimer) return;
-        const totalSecs = Math.floor(this.gameTime);
-        const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
-        const secs = String(totalSecs % 60).padStart(2, '0');
-        this.hudTimer.textContent = `${mins}:${secs}`;
-    }
-
     checkWinCondition() {
         if (!this.isRunning) return;
 
@@ -285,43 +228,11 @@ class GameManager {
         }
     }
 
+    // The sim only records the result. Showing it on screen is the UI's job (onGameOver).
     endGame(winningTeam) {
         this.isRunning = false;
         this.winnerId = winningTeam;
-
-        if (this.isHeadless) return;
-
-        const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
-        const modal = document.getElementById(dom.GAME_OVER_MODAL || 'game-over-modal');
-        const title = document.getElementById(dom.GAME_OVER_TITLE || 'game-over-title');
-        const msg = document.getElementById(dom.GAME_OVER_MSG || 'game-over-msg');
-
-        if (modal && title && msg) {
-            const fac1Name = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[this.factionMap[1]]) ? FACTION_DATA[this.factionMap[1]].name : 'Team 1';
-            const fac2Name = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[this.factionMap[2]]) ? FACTION_DATA[this.factionMap[2]].name : 'Team 2';
-
-            const totalSecs = Math.floor(this.gameTime);
-            const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
-            const secs = String(totalSecs % 60).padStart(2, '0');
-
-            if (this.gameMode === 'CPU_VS_CPU') {
-                const winnerName = winningTeam === 1 ? fac1Name : fac2Name;
-                title.textContent = `${winnerName.toUpperCase()} VICTORIOUS`;
-                const winFaction = (typeof FACTION_DATA !== 'undefined') ? FACTION_DATA[this.factionMap[winningTeam]] : null;
-                title.style.color = winFaction ? winFaction.color : '#ffffff';
-                msg.textContent = `Automated spectator match ended in ${mins}:${secs}.`;
-            } else {
-                const isVictory = (winningTeam === 1);
-                title.textContent = isVictory ? 'VICTORY' : 'DEFEAT'; 
-                const winFaction = (typeof FACTION_DATA !== 'undefined') ? FACTION_DATA[this.factionMap[winningTeam]] : null;
-                title.style.color = winFaction ? winFaction.color : '#ffffff';
-                msg.textContent = isVictory
-                    ? `System secured in ${mins}:${secs}!`
-                    : `Fleet wiped out after ${mins}:${secs}.`;
-            }
-
-            modal.classList.remove('hidden');
-        }
+        if (this.onGameOver) this.onGameOver(winningTeam);
     }
 }
 

@@ -16,29 +16,11 @@ class App {
 
         this.registry = new MapRegistry();
 
-        this.cacheHudElements();
+        this.hud = new HUD(window.gameManager);
         this.initFactions();
         this.bindEvents();
         this.showTitleScreen();
         this.loop(performance.now());
-    }
-
-    // Look up the HUD elements once, instead of every frame
-    cacheHudElements() {
-        this.hud = {
-            valT1: document.getElementById('hud-val-t1'),
-            valT2: document.getElementById('hud-val-t2'),
-            spmT1: document.getElementById('hud-spm-t1'),
-            spmT2: document.getElementById('hud-spm-t2'),
-            devPanel: document.getElementById('dev-panel'),
-            devT1: document.getElementById('dev-t1'),
-            devT2: document.getElementById('dev-t2')
-        };
-    }
-
-    // Only touch the page when the text actually changed
-    setText(el, text) {
-        if (el && el.textContent !== text) el.textContent = text;
     }
 
     initFactions() {
@@ -57,7 +39,7 @@ class App {
         });
 
         window.addEventListener('keydown', (e) => {
-            if (e.key === '`') this.hud.devPanel?.classList.toggle('hidden');
+            if (e.key === '`') this.hud.toggleDevPanel();
         });
 
         // Hover sound on any button (plays once when the mouse enters it)
@@ -178,7 +160,7 @@ class App {
         if (window.gameManager) window.gameManager.stop();
         this.clearScreen();
 
-        document.getElementById('hud-top-center')?.classList.add('hidden');
+        this.hud.hide();
         Viewport.update(this.canvas);
         document.getElementById('exit-confirm-modal')?.classList.add('hidden');
 
@@ -195,7 +177,7 @@ class App {
         if (window.gameManager) window.gameManager.stop();
         this.clearScreen();
 
-        document.getElementById('hud-top-center')?.classList.add('hidden');
+        this.hud.hide();
         Viewport.update(this.canvas);
 
         const menuTitle = document.getElementById('menu-title');
@@ -244,68 +226,13 @@ class App {
         const f1 = FACTION_DATA[playerFaction];
         const f2 = FACTION_DATA[enemyFaction];
 
-        const cardT1 = document.getElementById('hud-card-t1');
-        const cardT2 = document.getElementById('hud-card-t2');
-        const labelT1 = document.getElementById('hud-label-t1');
-        const labelT2 = document.getElementById('hud-label-t2');
-
-        if (cardT1) cardT1.style.borderLeftColor = f1.color;
-        if (cardT2) cardT2.style.borderRightColor = f2.color;
-        if (labelT1) {
-            labelT1.textContent = f1.name.toUpperCase();
-            labelT1.style.color = f1.color;
-        }
-        if (labelT2) {
-            labelT2.textContent = f2.name.toUpperCase();
-            labelT2.style.color = f2.color;
-        }
-        if (this.hud.valT1) this.hud.valT1.style.color = f1.color;
-        if (this.hud.valT2) this.hud.valT2.style.color = f2.color;
-
-        document.getElementById('hud-top-center')?.classList.remove('hidden');
+        this.hud.setFactions(f1, f2);
+        this.hud.show();
         Viewport.update(this.canvas);
 
         if (window.gameManager) {
             window.gameManager.start(scaledMap, playerFaction, enemyFaction, this.gameMode);
         }
-    }
-
-    updateInGameHUD() {
-        const gm = window.gameManager;
-        if (!gm || !gm.ships) return;
-
-        this.setText(this.hud.valT1, String(gm.frameStats.teamShips[1] || 0));
-        this.setText(this.hud.valT2, String(gm.frameStats.teamShips[2] || 0));
-
-        const durationMins = Math.max(0.05, gm.gameTime / 60);
-        const t1Spawned = gm.telemetry ? gm.telemetry.summary.team1.shipsSpawned : 0;
-        const t2Spawned = gm.telemetry ? gm.telemetry.summary.team2.shipsSpawned : 0;
-
-        this.setText(this.hud.spmT1, (t1Spawned / durationMins).toFixed(1));
-        this.setText(this.hud.spmT2, (t2Spawned / durationMins).toFixed(1));
-
-        this.updateDevPanel(gm);
-    }
-
-    updateDevPanel(gm) {
-        const panel = this.hud.devPanel;
-        if (!panel || panel.classList.contains('hidden') || !gm.telemetry) return;
-
-        const fill = (el, teamId, ai) => {
-            if (!el) return;
-            const t = gm.telemetry.summary['team' + teamId];
-            const planets = gm.planets.filter(p => p.owner === teamId).length;
-            el.innerHTML =
-                `<div>AI: ${ai ? ai.currentState : 'HUMAN_PLAYER'}</div>` +
-                `<div>PLANETS: ${planets}</div>` +
-                `<div>SPAWNED: ${t.shipsSpawned}</div>` +
-                `<div>KILLS: ${t.shipsKilled}  LOST: ${t.shipsLost}</div>` +
-                `<div>DMG OUT: ${Math.round(t.damageDealt)}  IN: ${Math.round(t.damageReceived)}</div>` +
-                `<div>CAPTURES: ${t.planetsCaptured}  UPGRADES: ${t.upgrades}</div>`;
-        };
-
-        fill(this.hud.devT1, 1, gm.aiController1);
-        fill(this.hud.devT2, 2, gm.aiController2);
     }
 
     loop(timestamp) {
@@ -314,7 +241,7 @@ class App {
 
         if (this.state === 'GAME' && window.gameManager) {
             window.gameManager.update(deltaTime);
-            this.updateInGameHUD();
+            this.hud.update();
         }
 
         requestAnimationFrame((ts) => this.loop(ts));
