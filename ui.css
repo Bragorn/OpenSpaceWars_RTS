@@ -271,21 +271,6 @@ input[type="number"] {
     border-radius: 0;
 }
 
-/* ================= SIM DASHBOARD ================= */
-.sim-overlay { background: rgba(0, 0, 0, 0.9); backdrop-filter: none; }
-.sim-dialog {
-    background: var(--c-bg);
-    border: 1px solid var(--c-line);
-    border-radius: 0;
-    padding: var(--s3) var(--s4);
-}
-.sim-header, .sim-footer { border-color: var(--c-line); }
-.sim-card { background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 0; }
-.sim-num, .sim-progress-badge { color: var(--c-text); }
-.sim-table th { background: var(--c-bg); color: var(--c-text); border-bottom: 1px solid var(--c-line-hi); }
-.sim-table td { border-bottom: 1px solid var(--c-line); color: var(--c-text); }
-.sim-table td[style] { color: var(--c-text) !important; }  /* overrides inline teal/blue from App.js */
-
 /* ================= MODALS ================= */
 #exit-confirm-modal { border-color: var(--c-danger); }
 .exit-modal-actions { gap: var(--s3); }

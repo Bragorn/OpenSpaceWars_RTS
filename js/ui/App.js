@@ -7,7 +7,6 @@ class App {
         this.state = 'MENU';
         this.selectedSlotNum = 1;
         this.lastTime = performance.now();
-        this.lastSimReport = null;
 
         this.factionsList = [];
         this.p1FactionIndex = 0;
@@ -49,15 +48,6 @@ class App {
         document.addEventListener('click', (e) => {
             if (e.target.closest('button')) AudioManager.play('ui_hover');
         });
-
-        // Batch Simulation Events with Abort Handling
-        document.getElementById('btn-batch-sim')?.addEventListener('click', () => this.openSimSetupModal());
-        document.getElementById('btn-close-sim')?.addEventListener('click', () => this.closeSimModal());
-        document.getElementById('btn-close-sim-running')?.addEventListener('click', () => this.closeSimModal());
-        
-        document.getElementById('sim-combo-mode')?.addEventListener('change', (e) => this.toggleSimMatchOptions(e.target.value));
-        document.getElementById('btn-start-sim-run')?.addEventListener('click', () => this.runConfiguredSimulation());
-        document.getElementById('btn-sim-reset')?.addEventListener('click', () => this.showSimSetupView());
 
         // Arcade Faction Selector Arrows
         document.getElementById('p1-prev')?.addEventListener('click', () => this.cycleFaction(1, -1));
@@ -160,166 +150,6 @@ class App {
 
     closeExitModal() {
         document.getElementById('exit-confirm-modal')?.classList.add('hidden');
-    }
-
-    openSimSetupModal() {
-        const modal = document.getElementById('sim-modal');
-        if (!modal) return;
-
-        this.populateSimSetupDropdowns();
-        this.showSimSetupView();
-        modal.classList.remove('hidden');
-    }
-
-    closeSimModal() {
-        if (typeof BatchSimulator !== 'undefined') BatchSimulator.cancel();
-        const modal = document.getElementById('sim-modal');
-        if (modal) modal.classList.add('hidden');
-    }
-
-    showSimSetupView() {
-        document.getElementById('sim-setup-view')?.classList.remove('hidden');
-        document.getElementById('sim-running-view')?.classList.add('hidden');
-    }
-
-    showSimRunningView() {
-        document.getElementById('sim-setup-view')?.classList.add('hidden');
-        document.getElementById('sim-running-view')?.classList.remove('hidden');
-    }
-
-    toggleSimMatchOptions(mode) {
-        const specOptions = document.getElementById('sim-specific-options');
-        if (!specOptions) return;
-
-        if (mode === 'SPECIFIC') {
-            specOptions.classList.remove('hidden');
-        } else {
-            specOptions.classList.add('hidden');
-        }
-    }
-
-    populateSimSetupDropdowns() {
-        const f1Select = document.getElementById('sim-faction-1');
-        const f2Select = document.getElementById('sim-faction-2');
-        const mapSelect = document.getElementById('sim-map-select');
-
-        if (!f1Select || !f2Select || !mapSelect || typeof FACTION_DATA === 'undefined') return;
-
-        f1Select.innerHTML = '';
-        f2Select.innerHTML = '';
-        mapSelect.innerHTML = '<option value="ALL">All Maps</option>';
-
-        Object.keys(FACTION_DATA).forEach((key) => {
-            const fac = FACTION_DATA[key];
-            const opt1 = new Option(`${fac.name} (${fac.id})`, fac.id);
-            const opt2 = new Option(`${fac.name} (${fac.id})`, fac.id);
-
-            if (fac.id === 'REMNANTS') opt1.selected = true;
-            if (fac.id === 'PROTOCOL') opt2.selected = true;
-
-            f1Select.add(opt1);
-            f2Select.add(opt2);
-        });
-
-        if (this.registry) {
-            const maps = this.registry.getAllMaps ? this.registry.getAllMaps() : [];
-            maps.forEach((map, idx) => {
-                const slotNum = idx + 1;
-                mapSelect.add(new Option(`Map ${slotNum}: ${map.name}`, slotNum));
-            });
-        }
-    }
-
-    async runConfiguredSimulation() {
-        const output = document.getElementById('sim-output');
-        const progress = document.getElementById('sim-progress');
-        const matchesInput = document.getElementById('sim-matches-count');
-        const comboMode = document.getElementById('sim-combo-mode')?.value || 'ALL';
-
-        if (!output || typeof BatchSimulator === 'undefined') return;
-
-        const matchesCount = matchesInput ? (parseInt(matchesInput.value, 10) || 10) : 10;
-        
-        const simOptions = {
-            matchesPerPair: matchesCount,
-            mode: comboMode,
-            faction1: document.getElementById('sim-faction-1')?.value || 'REMNANTS',
-            faction2: document.getElementById('sim-faction-2')?.value || 'PROTOCOL',
-            mapTarget: document.getElementById('sim-map-select')?.value || 'ALL'
-        };
-
-        this.showSimRunningView();
-        output.innerHTML = '<p class="sim-loading">INITIALIZING BATCH SIMULATION SUITE...</p>';
-        progress.textContent = '0%';
-
-        const report = await BatchSimulator.runFullSuite(this.registry, simOptions, (done, total) => {
-            const pct = Math.round((done / total) * 100);
-            progress.textContent = `${pct}% (${done}/${total} MATCHES)`;
-        });
-
-        if (!report) return; // Aborted cleanly
-
-        this.lastSimReport = report;
-        this.renderSimReport(report);
-    }
-
-    renderSimReport(report) {
-        const output = document.getElementById('sim-output');
-        if (!output || !report) return;
-
-        const gm = report.globalMetrics || {};
-        const sortedFactions = [...(report.factions || [])].sort((a, b) => 
-            (report.factionStats[b]?.winRate || 0) - (report.factionStats[a]?.winRate || 0)
-        );
-
-        let html = `
-            <div class="sim-summary-grid">
-                <div class="sim-card">
-                    <h4>DURATION SPREAD</h4>
-                    <p class="sim-num">${gm.minDuration}s - ${gm.maxDuration}s</p>
-                </div>
-                <div class="sim-card">
-                    <h4>TIMEOUT RATE</h4>
-                    <p class="sim-num">${gm.timeoutWinRate}%</p>
-                </div>
-                <div class="sim-card">
-                    <h4>FIRST CAPTURE</h4>
-                    <p class="sim-num">${gm.avgFirstCaptureTime || 'N/A'}s</p>
-                </div>
-            </div>
-
-            <h3 class="sim-section-title">FACTION OVERVIEW TABLE</h3>
-            <table class="sim-table">
-                <thead>
-                    <tr>
-                        <th>FACTION</th>
-                        <th>WIN RATE</th>
-                        <th>KDR</th>
-                        <th>SPM</th>
-                        <th>CONTROL</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        sortedFactions.forEach(fKey => {
-            const st = report.factionStats[fKey];
-            if (!st) return;
-            const facName = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[fKey]) ? FACTION_DATA[fKey].name : fKey;
-
-            html += `
-                <tr>
-                    <td style="font-weight: bold; color: #00aaff;">${facName}</td>
-                    <td style="color: #00ffcc; font-weight: bold;">${st.winRate}%</td>
-                    <td>${st.kdr}</td>
-                    <td>${st.spm}</td>
-                    <td>${st.avgPlanetShare}%</td>
-                </tr>
-            `;
-        });
-
-        html += `</tbody></table>`;
-        output.innerHTML = html;
     }
 
     clearScreen() {

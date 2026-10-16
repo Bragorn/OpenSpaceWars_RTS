@@ -19,31 +19,75 @@ class Renderer {
             controls.draw(this.ctx);
         }
 
-        // Draw Planets: pass gameManager so planets use chosen faction colors
-        if (Array.isArray(gameManager.planets)) {
-            gameManager.planets.forEach(planet => {
-                if (planet && typeof planet.draw === 'function') {
-                    planet.draw(this.ctx, gameManager);
-                }
-            });
-        }
-
+        this.drawPlanets(gameManager);
         this.drawShips(gameManager.ships);
         this.drawPlanetLabels(gameManager);
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
+    // ================= PLANETS =================
+
+    drawPlanets(gameManager) {
+        if (!Array.isArray(gameManager.planets)) return;
+        const ctx = this.ctx;
+
+        for (const planet of gameManager.planets) {
+            if (!planet) continue;
+            ctx.beginPath();
+            ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
+            ctx.fillStyle = FactionManager.getColor(planet.owner, gameManager);
+            ctx.fill();
+        }
+    }
+
+    // Labels are drawn in screen space at a fixed size so the text stays crisp at any zoom
     drawPlanetLabels(gameManager) {
         if (!Array.isArray(gameManager.planets)) return;
         const dpr = Viewport.dpr;
-        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // screen space, no world scaling
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         for (const planet of gameManager.planets) {
-            if (!planet || typeof planet.drawLabel !== 'function') continue;
+            if (!planet) continue;
             const p = Viewport.toScreen(planet.x, planet.y);
-            planet.drawLabel(this.ctx, gameManager, Math.round(p.x * dpr) / dpr, Math.round(p.y * dpr) / dpr);
+            this.drawPlanetLabel(planet, gameManager, Math.round(p.x * dpr) / dpr, Math.round(p.y * dpr) / dpr);
         }
     }
+
+    drawPlanetLabel(planet, gameManager, sx, sy) {
+        const ctx = this.ctx;
+        const maxTier = planet.getMaxTier();
+
+        const lines = [
+            `Ships: ${planet.getOrbitingShipsCount(gameManager)}`,
+            `Lvl: ${planet.level}/${maxTier}`
+        ];
+
+        if (planet.owner !== 0) {
+            lines.push(`HP: ${Math.ceil(planet.hp)}/${planet.maxHp}`);
+            const upgCost = planet.getUpgradeCost();
+            if (planet.level < maxTier && upgCost > 0) {
+                lines.push(`Upg: ${Math.floor(planet.upgradeProgress)}/${upgCost}`);
+            }
+        } else {
+            lines.push(`Cap: ${Math.floor(planet.upgradeProgress)}/${planet.claimCost}`);
+        }
+
+        const fontSize = 9;
+        const lineHeight = 11;
+        const startY = sy - (lines.length * lineHeight) / 2 + fontSize / 2;
+
+        ctx.save();
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#000000';
+        for (let i = 0; i < lines.length; i++) {
+            ctx.fillText(lines[i], Math.round(sx), Math.round(startY + i * lineHeight));
+        }
+        ctx.restore();
+    }
+
+    // ================= SHIPS =================
 
     drawShips(ships) {
         if (!Array.isArray(ships) || ships.length === 0) return;

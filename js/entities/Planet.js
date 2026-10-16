@@ -4,6 +4,13 @@ class Planet {
         2: { radius: 30, maxHP: 20, spawnInterval: 1.8, upgradeCost: 20 },
         3: { radius: 30, maxHP: 30, spawnInterval: 0.9, upgradeCost: 0 }
     };
+    static FALLBACK_STATS = { radius: 28, maxHP: 20, spawnInterval: 3.0, upgradeCost: 10 };
+
+    static CLAIM_COST = 5;          // ships needed to claim a neutral planet
+    static NEUTRAL_START_HP = 5;
+    static REGEN_INTERVAL = 3.0;    // seconds per +1 HP while damaged
+    static TOUCHDOWN_POWER = 1.0;   // progress/damage per landed ship
+    static MAX_TIER_CAP = 3;
 
     constructor(x, y, level = 1, owner = 0, customTierStats = null) {
         this.x = x;
@@ -12,32 +19,32 @@ class Planet {
         this.owner = owner;
         this.tierStats = customTierStats || Planet.DEFAULT_TIER_STATS;
 
-        const stats = this.tierStats[level] || { radius: 28, maxHP: 20, spawnInterval: 3, upgradeCost: 10 };
+        const keys = Object.keys(this.tierStats).map(Number).filter(k => !isNaN(k));
+        this.maxTier = keys.length > 0 ? Math.min(Planet.MAX_TIER_CAP, Math.max(...keys)) : Planet.MAX_TIER_CAP;
 
-        this.radius = stats.radius || 28; 
+        const stats = this.statsFor(level);
+        this.radius = stats.radius || 28;
         this.maxHp = stats.maxHP || 20;
-        this.hp = owner !== 0 ? this.maxHp : 5;
-        this.claimCost = 5;
+        this.hp = owner !== 0 ? this.maxHp : Planet.NEUTRAL_START_HP;
+        this.claimCost = Planet.CLAIM_COST;
+
         this.spawnTimer = 0;
         this.regenTimer = 0;
-
         this.upgradeProgress = 0;
-        this.contestedTimer = 0;
+    }
+
+    // ================= STATS =================
+
+    statsFor(level) {
+        return this.tierStats[level] || Planet.FALLBACK_STATS;
     }
 
     getMaxTier() {
-        if (this.tierStats) {
-            const keys = Object.keys(this.tierStats).map(Number).filter(k => !isNaN(k));
-            if (keys.length > 0) return Math.min(3, Math.max(...keys));
-        }
-        return 3;
+        return this.maxTier;
     }
 
     getUpgradeCost() {
-        if (this.tierStats && this.tierStats[this.level]) {
-            return this.tierStats[this.level].upgradeCost || 10;
-        }
-        return 10;
+        return this.statsFor(this.level).upgradeCost || 10;
     }
 
     getOrbitingShipsCount(gameManager) {
@@ -45,43 +52,29 @@ class Planet {
         return gameManager.frameStats.orbiting.get(this) || 0;
     }
 
+    // ================= UPGRADES & CAPTURE =================
+
+    // Sends orbiting ships down to feed the upgrade (random ships, as many as are still needed)
     startUpgrade(ships) {
         if (!ships || !Array.isArray(ships)) return;
 
-        const maxTier = this.getMaxTier();
         const upgCost = this.getUpgradeCost();
+        if (this.level >= this.maxTier || upgCost <= 0) return;
 
-        if (this.level >= maxTier || upgCost <= 0) return;
-
-        const landingCount = ships.filter(s => 
-            s && 
-            !s.dead && 
-            s.owner === this.owner && 
-            s.targetPlanet === this && 
-            s.state === 'landing'
-        ).length;
-
-        const currentProgress = Math.floor(this.upgradeProgress);
-        const needed = upgCost - (currentProgress + landingCount);
+        const mine = ships.filter(s => s && !s.dead && s.owner === this.owner && s.targetPlanet === this);
+        const landingCount = mine.filter(s => s.state === 'landing').length;
+        const needed = upgCost - (Math.floor(this.upgradeProgress) + landingCount);
         if (needed <= 0) return;
 
-        const eligibleShips = ships.filter(s => 
-            s &&
-            !s.dead && 
-            s.owner === this.owner && 
-            s.targetPlanet === this && 
-            s.state === 'orbit'
-        );
+        const eligible = mine.filter(s => s.state === 'orbit');
+        if (eligible.length === 0) return;
 
-        if (eligibleShips.length === 0) return;
-
-        for (let i = eligibleShips.length - 1; i > 0; i--) {
+        for (let i = eligible.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [eligibleShips[i], eligibleShips[j]] = [eligibleShips[j], eligibleShips[i]];
+            [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
         }
 
-        const shipsToLand = eligibleShips.slice(0, needed);
-        for (let ship of shipsToLand) {
+        for (const ship of eligible.slice(0, needed)) {
             ship.targetPlanet = this;
             ship.state = 'landing';
             ship.landingProgress = 0;
@@ -90,22 +83,24 @@ class Planet {
 
     onShipTouchdown(ship, gameManager) {
         if (!ship) return;
-
-        const power = 1.0;
+        const power = Planet.TOUCHDOWN_POWER;
 
         if (this.owner === 0) {
+            // Neutral: claim it
             this.upgradeProgress += power;
-            if (this.upgradeProgress >= (this.claimCost || 5)) {
+            if (this.upgradeProgress >= this.claimCost) {
                 this.captureBy(ship.owner, gameManager);
             }
         } else if (this.owner === ship.owner) {
-            if (this.level < this.getMaxTier()) {
+            // Friendly: feed the upgrade
+            if (this.level < this.maxTier) {
                 this.upgradeProgress += power;
                 if (this.upgradeProgress >= this.getUpgradeCost()) {
                     this.upgrade(gameManager);
                 }
             }
         } else {
+            // Enemy: damage it
             this.hp -= power;
             if (this.hp <= 0) {
                 this.captureBy(ship.owner, gameManager);
@@ -116,114 +111,69 @@ class Planet {
     captureBy(newOwner, gameManager) {
         this.owner = newOwner;
         this.level = 1;
-        const stats = this.tierStats[1] || { maxHP: 20 };
-        this.maxHp = stats.maxHP || 20;
+        this.maxHp = this.statsFor(1).maxHP || 20;
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
-        if (gameManager && gameManager.telemetry) {
-            gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', newOwner);
-        }
 
-        if (gameManager) gameManager.playSound('planet_capture');
+        if (gameManager) {
+            if (gameManager.telemetry) {
+                gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', newOwner);
+            }
+            gameManager.playSound('planet_capture');
+        }
     }
 
     upgrade(gameManager = null) {
-        const maxTier = this.getMaxTier();
-        if (this.level < maxTier) {
-            this.level++;
-            const stats = this.tierStats[this.level] || { maxHP: this.maxHp + 10 };
+        if (this.level >= this.maxTier) return;
 
-            this.maxHp = stats.maxHP || (this.maxHp + 10);
-            this.hp = this.maxHp;
-            this.upgradeProgress = 0;   
+        this.level++;
+        this.maxHp = this.statsFor(this.level).maxHP || (this.maxHp + 10);
+        this.hp = this.maxHp;
+        this.upgradeProgress = 0;
 
-            if (gameManager && gameManager.telemetry) {
-                gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_UPGRADE', this.owner);
-            }
+        if (gameManager && gameManager.telemetry) {
+            gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_UPGRADE', this.owner);
         }
     }
+
+    // ================= UPDATE =================
 
     update(dtUncapped, gameManager) {
         const dt = Math.min(dtUncapped || 0.016, 0.1);
 
-        if (this.owner === 0 || this.hp < this.maxHp) {
-            this.contestedTimer += dt;
-            if (gameManager && gameManager.telemetry) {
-                gameManager.telemetry.addContestedTime(dt);
-            }
+        if ((this.owner === 0 || this.hp < this.maxHp) && gameManager && gameManager.telemetry) {
+            gameManager.telemetry.addContestedTime(dt);
         }
 
         if (this.owner !== 0) {
-            this.spawnTimer += dt;
-            const stats = this.tierStats[this.level] || null;
-            const baseInterval = stats ? stats.spawnInterval : 3;
+            this.updateSpawning(dt, gameManager);
+            this.updateRegen(dt);
+        }
+    }
 
-            const faction = FactionManager.getFaction(this.owner, gameManager);
-            const interval = baseInterval * (faction.spawnIntervalMult || 1.0);
+    updateSpawning(dt, gameManager) {
+        this.spawnTimer += dt;
 
-            if (this.spawnTimer >= interval) {
-                this.spawnTimer = 0;
-                if (gameManager && typeof gameManager.spawnShip === 'function') {
-                    gameManager.spawnShip(this, this);
-                }
-            }
+        const faction = FactionManager.getFaction(this.owner, gameManager);
+        const interval = this.statsFor(this.level).spawnInterval * (faction.spawnIntervalMult || 1.0);
 
-            if (this.hp < this.maxHp) {
-                this.regenTimer += dt;
-                if (this.regenTimer >= 3.0) {
-                    this.regenTimer = 0;
-                    this.hp = Math.min(this.maxHp, this.hp + 1);
-                }
-            } else {
-                this.regenTimer = 0;
+        if (this.spawnTimer >= interval) {
+            this.spawnTimer = 0;
+            if (gameManager && typeof gameManager.spawnShip === 'function') {
+                gameManager.spawnShip(this, this);
             }
         }
     }
 
-    draw(ctx, gameManager) {
-        const activeColor = FactionManager.getColor(this.owner, gameManager);
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = activeColor;
-        ctx.fill();
-        ctx.restore();
-    }
-
-    // Drawn in screen space at a fixed size so the text stays crisp at any zoom
-    drawLabel(ctx, gameManager, sx, sy) {
-        const maxTier = this.getMaxTier();
-        const orbitCount = this.getOrbitingShipsCount(gameManager);
-
-        const lines = [];
-        lines.push(`Ships: ${orbitCount}`);
-        lines.push(`Lvl: ${this.level}/${maxTier}`);
-
-        if (this.owner !== 0) {
-            lines.push(`HP: ${Math.ceil(this.hp)}/${this.maxHp}`);
-            const upgCost = this.getUpgradeCost();
-            if (this.level < maxTier && upgCost > 0) {
-                lines.push(`Upg: ${Math.floor(this.upgradeProgress)}/${upgCost}`);
-            }
-        } else {
-            const claimCost = this.claimCost || 5;
-            lines.push(`Cap: ${Math.floor(this.upgradeProgress)}/${claimCost}`);
+    updateRegen(dt) {
+        if (this.hp >= this.maxHp) {
+            this.regenTimer = 0;
+            return;
         }
-
-        const fontSize = 9;
-        const lineHeight = 11;
-        const startY = sy - (lines.length * lineHeight) / 2 + fontSize / 2;
-
-        ctx.save();
-        ctx.font = `bold ${fontSize}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#000000';
-
-        for (let i = 0; i < lines.length; i++) {
-            ctx.fillText(lines[i], Math.round(sx), Math.round(startY + i * lineHeight));
+        this.regenTimer += dt;
+        if (this.regenTimer >= Planet.REGEN_INTERVAL) {
+            this.regenTimer = 0;
+            this.hp = Math.min(this.maxHp, this.hp + 1);
         }
-        ctx.restore();
     }
 }

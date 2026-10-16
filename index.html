@@ -52,8 +52,7 @@
 
     <!-- ESC Exit Confirmation Popup Modal -->
     <div id="exit-confirm-modal" class="hidden">
-        <p>Warning game will not be saved. 
-                Confirm Exit?</p>
+        <p>Warning game will not be saved. Confirm Exit?</p>
         <div class="exit-modal-actions">
             <button id="btn-exit-yes" class="menu-btn" style="background:#ff3355; border-color:#ff6688;">Yes</button>
             <button id="btn-exit-no" class="menu-btn btn-secondary">No</button>
@@ -67,82 +66,12 @@
         <button id="btn-restart" class="menu-btn">MAIN MENU</button>
     </div>
 
-    <!-- Batch Simulation Modal -->
-    <div id="sim-modal" class="sim-overlay hidden">
-        <div class="sim-dialog">
-            
-            <!-- VIEW 1: SIMULATION SETUP FORM -->
-            <div id="sim-setup-view">
-                <div class="sim-header">
-                    <h2>BATCH SIMULATION CONFIGURATION</h2>
-                </div>
-                
-                <div class="sim-body" style="display: flex; flex-direction: column; gap: 10px; padding: 10px 0;">
-                    <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
-                        <label for="sim-matches-count">Simulations Per Matchup:</label>
-                        <input type="number" id="sim-matches-count" value="10" min="1" max="1000" style="width: 70px; text-align: center;" />
-                    </div>
-
-                    <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
-                        <label for="sim-combo-mode">Matchup Selection:</label>
-                        <select id="sim-combo-mode" class="menu-select" style="width: 200px;">
-                            <option value="ALL">All Faction Combos (Round-Robin)</option>
-                            <option value="SPECIFIC">Specific Matchup Choice</option>
-                        </select>
-                    </div>
-
-                    <!-- Options for Specific Match Choice -->
-                    <div id="sim-specific-options" class="hidden" style="display: flex; flex-direction: column; gap: 8px; background: rgba(0, 170, 255, 0.05); padding: 8px; border: 1px solid #00aaff; border-radius: 4px; margin-top: 3px;">
-                        <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
-                            <label for="sim-faction-1">Faction 1 (Team 1):</label>
-                            <select id="sim-faction-1" class="menu-select" style="width: 160px;"></select>
-                        </div>
-                        <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
-                            <label for="sim-faction-2">Faction 2 (Team 2):</label>
-                            <select id="sim-faction-2" class="menu-select" style="width: 160px;"></select>
-                        </div>
-                        <div class="sim-form-row" style="display: flex; justify-content: space-between; align-items: center;">
-                            <label for="sim-map-select">Arena / Map Target:</label>
-                            <select id="sim-map-select" class="menu-select" style="width: 160px;">
-                                <option value="ALL">All Maps</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="sim-footer" style="display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px;">
-                    <button id="btn-start-sim-run" class="menu-btn btn-primary">START SIMULATION</button>
-                    <button id="btn-close-sim" class="menu-btn btn-secondary">CANCEL</button>
-                </div>
-            </div>
-
-            <!-- VIEW 2: LIVE DASHBOARD & RESULTS -->
-            <div id="sim-running-view" class="hidden">
-                <div class="sim-header">
-                    <h2>HEADLESS BATCH SIMULATION DASHBOARD</h2>
-                    <span id="sim-progress" class="sim-progress-badge">0%</span>
-                </div>
-                <div id="sim-output" class="sim-body">
-                    <p class="sim-loading">Ready to simulate...</p>
-                </div>
-                <div class="sim-footer" style="display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px;">
-                    <button id="btn-sim-reset" class="menu-btn btn-primary">NEW SETUP</button>
-                    <button id="btn-close-sim-running" class="menu-btn btn-secondary">CLOSE DASHBOARD</button>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- UI Overlays -->
     <div id="ui-overlay">
-        <!-- Title Screen -->
         <div id="menu-main" class="menu-card">
             <h2>OPEN SPACE WARS</h2>
             <button id="btn-main-play" class="menu-btn">ENTER</button>
         </div>
 
-        <!-- Sci-Fi Matchup Setup Screen with Arcade Selectors -->
         <div id="menu-map-select" class="menu-card menu-setup-card" style="display: none;">
             <div class="setup-header-row">
                 <h2 class="menu-title">MATCH SETUP</h2>
@@ -186,7 +115,6 @@
             <!-- Bottom Action Row -->
             <div class="menu-actions">
                 <button id="btn-map-back" class="menu-btn btn-secondary">BACK</button>
-                <button id="btn-batch-sim" class="menu-btn btn-sim">SIMULATE ALL MAPS</button>
                 <button id="btn-map-start" class="menu-btn btn-primary">LAUNCH MATCH</button>
             </div>
         </div>
@@ -199,6 +127,7 @@
     <script src="js/core/AudioManager.js"></script>
     
     <script src="js/entities/Planet.js"></script>
+    <script src="js/systems/OrbitalMath.js"></script>
     <script src="js/entities/Ship.js"></script>
 
     <script src="js/render/Viewport.js"></script>
@@ -210,7 +139,6 @@
     <script src="js/core/GameManager.js"></script>
 
     <script src="js/utils/TelemetryCollector.js"></script>
-    <script src="js/utils/BatchSimulator.js"></script>
     
     <script src="js/main.js"></script>
     <script src="js/ui/App.js"></script>
