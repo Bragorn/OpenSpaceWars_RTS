@@ -1,4 +1,4 @@
-const TRANSIT_SOI_RADIUS = 110;
+const TRANSIT_SOI_RADIUS = window.GAME_CONFIG.PHYSICS.SOI_RADIUS;
 
 function hasLineOfSight(p1, p2, planets) {
     if (!planets || !Array.isArray(planets)) return true;
@@ -54,7 +54,7 @@ class Ship {
         const maxOrbitSpread = 14;
         this.targetOrbitRadius = baseRadius + minOrbitOffset + Math.random() * maxOrbitSpread;
 
-        this.gravConst = 80000.0;
+        this.gravConst = window.GAME_CONFIG.PHYSICS.GRAV_CONST;
         this.mass = 1.0;
 
         this.shootCooldown = Math.random() * 0.4;

@@ -10,6 +10,11 @@ const GAME_CONFIG = {
     WORLD_WIDTH: 1280,
     WORLD_HEIGHT: 720,
 
+    PHYSICS: {
+        SOI_RADIUS: 110,
+        GRAV_CONST: 80000
+    },
+
     DOM: {
         CANVAS_ID: 'game',
         HUD_ID: 'hud',
