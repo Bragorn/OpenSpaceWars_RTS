@@ -3,50 +3,67 @@ class App {
         const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
         this.canvas = document.getElementById(dom.CANVAS_ID || 'game');
         this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-        
+
         this.state = 'MENU';
         this.selectedSlotNum = 1;
         this.lastTime = performance.now();
+        this.speedBeforeExit = 1;
 
         this.factionsList = [];
         this.p1FactionIndex = 0;
         this.p2FactionIndex = 1;
         this.gameMode = 'PLAYER_VS_CPU';
 
-        this.registry = typeof MapRegistry === 'function' ? new MapRegistry() : null;
+        this.registry = new MapRegistry();
 
+        this.cacheHudElements();
         this.initFactions();
         this.bindEvents();
-        this.showMainMenu();
+        this.showTitleScreen();
         this.loop(performance.now());
     }
 
+    // Look up the HUD elements once, instead of every frame
+    cacheHudElements() {
+        this.hud = {
+            valT1: document.getElementById('hud-val-t1'),
+            valT2: document.getElementById('hud-val-t2'),
+            spmT1: document.getElementById('hud-spm-t1'),
+            spmT2: document.getElementById('hud-spm-t2'),
+            devPanel: document.getElementById('dev-panel'),
+            devT1: document.getElementById('dev-t1'),
+            devT2: document.getElementById('dev-t2')
+        };
+    }
+
+    // Only touch the page when the text actually changed
+    setText(el, text) {
+        if (el && el.textContent !== text) el.textContent = text;
+    }
+
     initFactions() {
-        if (typeof FACTION_DATA !== 'undefined') {
-            this.factionsList = Object.keys(FACTION_DATA);
-        } else {
-            this.factionsList = ['REMNANTS', 'PROTOCOL'];
-        }
-        // Ensure defaults don't match if possible
-        this.p1FactionIndex = this.factionsList.indexOf('REMNANTS') !== -1 ? this.factionsList.indexOf('REMNANTS') : 0;
-        this.p2FactionIndex = this.factionsList.indexOf('PROTOCOL') !== -1 ? this.factionsList.indexOf('PROTOCOL') : Math.min(1, this.factionsList.length - 1);
+        this.factionsList = Object.keys(FACTION_DATA);
+        this.p1FactionIndex = this.factionsList.indexOf('REMNANTS');
+        this.p2FactionIndex = this.factionsList.indexOf('PROTOCOL');
     }
 
     bindEvents() {
-        document.getElementById('btn-main-play')?.addEventListener('click', () => this.showMapSelect());
-        document.getElementById('btn-map-back')?.addEventListener('click', () => this.showMainMenu());
-        document.getElementById('btn-map-start')?.addEventListener('click', () => this.launchSelectedMap());
-        document.getElementById('btn-restart')?.addEventListener('click', () => {
-        document.getElementById('game-over-modal')?.classList.add('hidden');
-        this.showMapSelect();
+        document.getElementById('btn-title-enter')?.addEventListener('click', () => this.showMatchSetup());
+        document.getElementById('btn-setup-back')?.addEventListener('click', () => this.showTitleScreen());
+        document.getElementById('btn-setup-launch')?.addEventListener('click', () => this.launchSelectedMap());
+        document.getElementById('btn-new-match')?.addEventListener('click', () => {
+            document.getElementById('game-over-modal')?.classList.add('hidden');
+            this.showMatchSetup();
         });
 
         window.addEventListener('keydown', (e) => {
-            if (e.key === '`') document.getElementById('dev-panel')?.classList.toggle('hidden');
+            if (e.key === '`') this.hud.devPanel?.classList.toggle('hidden');
         });
 
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('button')) AudioManager.play('ui_hover');
+        // Hover sound on any button (plays once when the mouse enters it)
+        document.addEventListener('mouseover', (e) => {
+            const btn = e.target.closest('button');
+            if (btn && !btn.contains(e.relatedTarget)) AudioManager.play('ui_hover');
         });
 
         // Arcade Faction Selector Arrows
@@ -77,11 +94,11 @@ class App {
         document.getElementById('btn-esc-menu')?.addEventListener('click', () => this.openExitModal());
         document.getElementById('btn-exit-yes')?.addEventListener('click', () => {
             this.closeExitModal();
-            this.showMainMenu();
+            this.showTitleScreen();
         });
         document.getElementById('btn-exit-no')?.addEventListener('click', () => {
             this.closeExitModal();
-            if (window.gameManager) window.gameManager.setSpeed(1); // Resume game speed
+            if (window.gameManager) window.gameManager.setSpeed(this.speedBeforeExit ?? 1); // Resume previous speed
         });
     }
 
@@ -105,28 +122,19 @@ class App {
     }
 
     updateArcadeFactionDisplays() {
-        const p1Key = this.factionsList[this.p1FactionIndex] || 'REMNANTS';
-        const p2Key = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
+        const f1 = FACTION_DATA[this.factionsList[this.p1FactionIndex]];
+        const f2 = FACTION_DATA[this.factionsList[this.p2FactionIndex]];
 
         const p1Display = document.getElementById('p1-faction-display');
         const p2Display = document.getElementById('p2-faction-display');
 
-        if (p1Display && typeof FACTION_DATA !== 'undefined' && FACTION_DATA[p1Key]) {
-            p1Display.textContent = FACTION_DATA[p1Key].name.toUpperCase();
-        }
-        if (p2Display && typeof FACTION_DATA !== 'undefined' && FACTION_DATA[p2Key]) {
-            p2Display.textContent = FACTION_DATA[p2Key].name.toUpperCase();
-        }
+        if (p1Display) p1Display.textContent = f1.name.toUpperCase();
+        if (p2Display) p2Display.textContent = f2.name.toUpperCase();
     }
 
     updateMenuFactionTheme() {
-        if (typeof FACTION_DATA === 'undefined') return;
-
-        const p1Key = this.factionsList[this.p1FactionIndex] || 'REMNANTS';
-        const p2Key = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
-
-        const f1 = FACTION_DATA[p1Key] || FACTION_DATA.REMNANTS;
-        const f2 = FACTION_DATA[p2Key] || FACTION_DATA.PROTOCOL;
+        const f1 = FACTION_DATA[this.factionsList[this.p1FactionIndex]];
+        const f2 = FACTION_DATA[this.factionsList[this.p2FactionIndex]];
 
         const teamHome = document.querySelector('.team-home');
         if (teamHome) {
@@ -144,8 +152,14 @@ class App {
     }
 
     openExitModal() {
-        if (window.gameManager) window.gameManager.setSpeed(0); // Auto-pause
-        document.getElementById('exit-confirm-modal')?.classList.remove('hidden');
+        const modal = document.getElementById('exit-confirm-modal');
+        if (!modal || !modal.classList.contains('hidden')) return; // already open
+
+        if (window.gameManager) {
+            this.speedBeforeExit = window.gameManager.gameSpeed;
+            window.gameManager.setSpeed(0); // Auto-pause
+        }
+        modal.classList.remove('hidden');
     }
 
     closeExitModal() {
@@ -158,7 +172,8 @@ class App {
         }
     }
 
-    showMainMenu() {
+    // Title screen: the opening "OPEN SPACE WARS / ENTER" screen
+    showTitleScreen() {
         this.state = 'MENU';
         if (window.gameManager) window.gameManager.stop();
         this.clearScreen();
@@ -167,26 +182,27 @@ class App {
         Viewport.update(this.canvas);
         document.getElementById('exit-confirm-modal')?.classList.add('hidden');
 
-        const menuMain = document.getElementById('menu-main');
-        const menuMap = document.getElementById('menu-map-select');
+        const menuTitle = document.getElementById('menu-title');
+        const menuSetup = document.getElementById('menu-match-setup');
 
-        if (menuMain) menuMain.style.display = 'block';
-        if (menuMap) menuMap.style.display = 'none';
+        if (menuTitle) menuTitle.style.display = 'block';
+        if (menuSetup) menuSetup.style.display = 'none';
     }
 
-    showMapSelect() {
-        this.state = 'MAP_SELECT';
+    // Match setup screen: pick factions, arena and mode
+    showMatchSetup() {
+        this.state = 'MATCH_SETUP';
         if (window.gameManager) window.gameManager.stop();
         this.clearScreen();
 
         document.getElementById('hud-top-center')?.classList.add('hidden');
         Viewport.update(this.canvas);
 
-        const menuMain = document.getElementById('menu-main');
-        const menuMap = document.getElementById('menu-map-select');
+        const menuTitle = document.getElementById('menu-title');
+        const menuSetup = document.getElementById('menu-match-setup');
 
-        if (menuMain) menuMain.style.display = 'none';
-        if (menuMap) menuMap.style.display = 'flex';
+        if (menuTitle) menuTitle.style.display = 'none';
+        if (menuSetup) menuSetup.style.display = 'flex';
 
         this.updateArcadeFactionDisplays();
         this.updateMenuFactionTheme();
@@ -195,12 +211,11 @@ class App {
 
     renderMapSlots() {
         const container = document.getElementById('slot-buttons');
-        if (!container || !this.registry) return;
+        if (!container) return;
 
         container.innerHTML = '';
-        const allMaps = this.registry.getAllMaps ? this.registry.getAllMaps() : [];
 
-        allMaps.forEach((map, idx) => {
+        this.registry.getAllMaps().forEach((map, idx) => {
             const slotNum = idx + 1;
             const btn = document.createElement('button');
             btn.className = `slot-btn ${slotNum === this.selectedSlotNum ? 'selected' : ''}`;
@@ -214,29 +229,25 @@ class App {
     }
 
     launchSelectedMap() {
-        if (!this.registry) return;
-
         const cfg = window.GAME_CONFIG;
         const scaledMap = this.registry.getScaledMap(this.selectedSlotNum, cfg.WORLD_WIDTH, cfg.WORLD_HEIGHT);
 
-        const playerFaction = this.factionsList[this.p1FactionIndex] || 'REMNANTS';
-        const enemyFaction = this.factionsList[this.p2FactionIndex] || 'PROTOCOL';
+        const playerFaction = this.factionsList[this.p1FactionIndex];
+        const enemyFaction = this.factionsList[this.p2FactionIndex];
 
         this.state = 'GAME';
         this.clearScreen();
-        
-        const menuMap = document.getElementById('menu-map-select');
-        if (menuMap) menuMap.style.display = 'none';
 
-        const f1 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[playerFaction]) ? FACTION_DATA[playerFaction] : { name: playerFaction, color: '#00aaff' }; // make these match the faction colours at some point
-        const f2 = (typeof FACTION_DATA !== 'undefined' && FACTION_DATA[enemyFaction]) ? FACTION_DATA[enemyFaction] : { name: enemyFaction, color: '#ff3355' }; // make these match the faction colours at some point
+        const menuSetup = document.getElementById('menu-match-setup');
+        if (menuSetup) menuSetup.style.display = 'none';
+
+        const f1 = FACTION_DATA[playerFaction];
+        const f2 = FACTION_DATA[enemyFaction];
 
         const cardT1 = document.getElementById('hud-card-t1');
         const cardT2 = document.getElementById('hud-card-t2');
         const labelT1 = document.getElementById('hud-label-t1');
         const labelT2 = document.getElementById('hud-label-t2');
-        const valT1 = document.getElementById('hud-val-t1');
-        const valT2 = document.getElementById('hud-val-t2');
 
         if (cardT1) cardT1.style.borderLeftColor = f1.color;
         if (cardT2) cardT2.style.borderRightColor = f2.color;
@@ -248,8 +259,8 @@ class App {
             labelT2.textContent = f2.name.toUpperCase();
             labelT2.style.color = f2.color;
         }
-        if (valT1) valT1.style.color = f1.color;
-        if (valT2) valT2.style.color = f2.color;
+        if (this.hud.valT1) this.hud.valT1.style.color = f1.color;
+        if (this.hud.valT2) this.hud.valT2.style.color = f2.color;
 
         document.getElementById('hud-top-center')?.classList.remove('hidden');
         Viewport.update(this.canvas);
@@ -260,49 +271,27 @@ class App {
     }
 
     updateInGameHUD() {
-        if (!window.gameManager || !window.gameManager.ships) return;
-
         const gm = window.gameManager;
-        const t1Count = gm.frameStats.teamShips[1] || 0;
-        const t2Count = gm.frameStats.teamShips[2] || 0;
+        if (!gm || !gm.ships) return;
 
-        const valT1 = document.getElementById('hud-val-t1');
-        const valT2 = document.getElementById('hud-val-t2');
-
-        if (valT1) valT1.textContent = t1Count;
-        if (valT2) valT2.textContent = t2Count;
+        this.setText(this.hud.valT1, String(gm.frameStats.teamShips[1] || 0));
+        this.setText(this.hud.valT2, String(gm.frameStats.teamShips[2] || 0));
 
         const durationMins = Math.max(0.05, gm.gameTime / 60);
         const t1Spawned = gm.telemetry ? gm.telemetry.summary.team1.shipsSpawned : 0;
         const t2Spawned = gm.telemetry ? gm.telemetry.summary.team2.shipsSpawned : 0;
 
-        const spmT1 = document.getElementById('hud-spm-t1');
-        const spmT2 = document.getElementById('hud-spm-t2');
+        this.setText(this.hud.spmT1, (t1Spawned / durationMins).toFixed(1));
+        this.setText(this.hud.spmT2, (t2Spawned / durationMins).toFixed(1));
 
-        if (spmT1) spmT1.textContent = (t1Spawned / durationMins).toFixed(1);
-        if (spmT2) spmT2.textContent = (t2Spawned / durationMins).toFixed(1);
-
-        const stateT1 = document.getElementById('hud-state-t1');
-        const stateT2 = document.getElementById('hud-state-t2');
-
-        if (stateT1) {
-            const stStr = gm.aiController1 ? gm.aiController1.currentState : 'HUMAN_PLAYER';
-            stateT1.textContent = `STATE: ${stStr}`;
-        }
-        if (stateT2) {
-            const stStr = gm.aiController2 ? gm.aiController2.currentState : 'HUMAN_PLAYER';
-            stateT2.textContent = `STATE: ${stStr}`;
-        }
-        
         this.updateDevPanel(gm);
     }
 
     updateDevPanel(gm) {
-        const panel = document.getElementById('dev-panel');
+        const panel = this.hud.devPanel;
         if (!panel || panel.classList.contains('hidden') || !gm.telemetry) return;
 
-        const fill = (id, teamId, ai) => {
-            const el = document.getElementById(id);
+        const fill = (el, teamId, ai) => {
             if (!el) return;
             const t = gm.telemetry.summary['team' + teamId];
             const planets = gm.planets.filter(p => p.owner === teamId).length;
@@ -315,8 +304,8 @@ class App {
                 `<div>CAPTURES: ${t.planetsCaptured}  UPGRADES: ${t.upgrades}</div>`;
         };
 
-        fill('dev-t1', 1, gm.aiController1);
-        fill('dev-t2', 2, gm.aiController2);
+        fill(this.hud.devT1, 1, gm.aiController1);
+        fill(this.hud.devT2, 2, gm.aiController2);
     }
 
     loop(timestamp) {
@@ -326,8 +315,6 @@ class App {
         if (this.state === 'GAME' && window.gameManager) {
             window.gameManager.update(deltaTime);
             this.updateInGameHUD();
-        } else if (this.state === 'MENU' || this.state === 'MAP_SELECT') {
-            this.clearScreen();
         }
 
         requestAnimationFrame((ts) => this.loop(ts));

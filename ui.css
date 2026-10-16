@@ -186,7 +186,7 @@
     padding: var(--s4);
 }
 
-#menu-main h2,
+#menu-title h2,
 .menu-title {
     color: var(--c-text);
     text-shadow: none;
