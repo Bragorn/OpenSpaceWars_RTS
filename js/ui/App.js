@@ -155,7 +155,9 @@ class App {
             this.speedBeforeExit = window.gameManager.gameSpeed;
             window.gameManager.setSpeed(0); // Auto-pause
         }
+        document.getElementById('hud-top-center').inert = true; // lock the HUD
         modal.classList.remove('hidden');
+        document.getElementById('btn-exit-no')?.focus();        // safe default for Enter/Space
     }
 
     // Game-over popup (the sim calls this through gameManager.onGameOver)
@@ -188,6 +190,7 @@ class App {
 
     closeExitModal() {
         document.getElementById('exit-confirm-modal')?.classList.add('hidden');
+        document.getElementById('hud-top-center').inert = false; // unlock the HUD
     }
 
     clearScreen() {

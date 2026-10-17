@@ -276,3 +276,12 @@ input[type="number"] {
 .exit-modal-actions { gap: var(--s3); }
 #btn-exit-yes { background: var(--c-bg) !important; border-color: var(--c-danger) !important; }
 #btn-exit-yes:hover { background: var(--c-danger) !important; color: var(--c-bg); }
+
+/* Exit popup blocks everything behind it (HUD buttons, canvas drags) */
+#exit-confirm-modal::before {
+    content: '';
+    position: absolute;
+    inset: -200vmax;
+    z-index: -1;
+    background: rgba(0, 0, 0, 0.5);
+}
