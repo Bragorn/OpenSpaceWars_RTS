@@ -1,5 +1,15 @@
 const THRUSTER_COLOR = '#FF8C1A';
 
+// Explosion timeline: t = 0..1 of its life. Flash, then fire, then dark smoke, then gone.
+const EXPLOSION_SCALE = 1.0; // multiplies every radius below
+const EXPLOSION_FRAMES = [
+    { t: 0.00, r: 2.5, rgb: [255, 255, 255], a: 1.0 },  // white flash starts
+    { t: 0.06, r: 5.0, rgb: [255, 255, 255], a: 1.0 },  // peak flash
+    { t: 0.25, r: 5.5, rgb: [255, 140, 26],  a: 0.95 }, // orange fire (same as thrusters)
+    { t: 0.55, r: 6.0, rgb: [100, 45, 15],   a: 0.7 },  // dark brown
+    { t: 1.00, r: 6.5, rgb: [30, 20, 15],    a: 0.0 }   // smoke fades out
+];
+
 class Renderer {
     constructor(canvas, ctx) {
         this.canvas = canvas && typeof canvas.getContext === 'function' ? canvas : document.getElementById('game');
@@ -21,6 +31,7 @@ class Renderer {
 
         this.drawPlanets(gameManager);
         this.drawShips(gameManager.ships, gameManager);
+        this.drawExplosions(gameManager);
         this.drawPlanetLabels(gameManager);
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -187,4 +198,35 @@ class Renderer {
             ctx.fill();
         }
     }
+
+    // ================= SHIP EXPLOSIONS =================
+
+    drawExplosions(gameManager) {
+    const list = gameManager.explosions;
+    if (!list || list.length === 0) return;
+    const ctx = this.ctx;
+    const dur = window.GAME_CONFIG.EXPLOSION_SECONDS;
+    const F = EXPLOSION_FRAMES;
+
+    for (const e of list) {
+        const t = Math.min(1, e.age / dur);
+        let i = 1;
+        while (i < F.length - 1 && t > F[i].t) i++;
+        const a = F[i - 1], b = F[i];
+        const k = (t - a.t) / (b.t - a.t);
+        const mix = (x, y) => x + (y - x) * k;
+
+        const r = mix(a.r, b.r) * EXPLOSION_SCALE;
+        const red = Math.round(mix(a.rgb[0], b.rgb[0]));
+        const green = Math.round(mix(a.rgb[1], b.rgb[1]));
+        const blue = Math.round(mix(a.rgb[2], b.rgb[2]));
+
+        ctx.globalAlpha = mix(a.a, b.a);
+        ctx.fillStyle = `rgb(${red},${green},${blue})`;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
 }

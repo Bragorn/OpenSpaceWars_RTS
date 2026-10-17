@@ -3,6 +3,7 @@ class GameManager {
         this.isHeadless = isHeadless;
         this.planets = [];
         this.ships = [];
+        this.explosions = [];
         this.frameStats = { orbiting: new Map(), teamShips: {} };
         this.currentMapData = null;
 
@@ -80,6 +81,7 @@ class GameManager {
     reset() {
         this.planets = [];
         this.ships = [];
+        this.explosions = [];
         this.frameStats = { orbiting: new Map(), teamShips: {} };
         this.gameTime = 0;
         this.accumulator = 0;
@@ -131,6 +133,11 @@ class GameManager {
         }
 
         return ship;
+    }
+
+    spawnExplosion(x, y) {
+        if (this.isHeadless) return; // the batch sim doesn't need visuals
+        this.explosions.push({ x, y, age: 0 });
     }
 
     dispatchFleet(sourcePlanet, targetPlanet, ratio) {
@@ -203,6 +210,9 @@ class GameManager {
 
         if (this.aiController1 && this.aiController1.update) this.aiController1.update(dt);
         if (this.aiController2 && this.aiController2.update) this.aiController2.update(dt);
+
+        for (const e of this.explosions) e.age += dt;
+        this.explosions = this.explosions.filter(e => e.age < window.GAME_CONFIG.EXPLOSION_SECONDS);
 
         this.ships = this.ships.filter(s => s && !s.dead);
         this.refreshFrameStats();
