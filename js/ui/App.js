@@ -17,6 +17,7 @@ class App {
         this.registry = new MapRegistry();
 
         this.hud = new HUD(window.gameManager);
+        window.gameManager.onGameOver = (winningTeam) => this.showGameOver(winningTeam);
         this.initFactions();
         this.bindEvents();
         this.showTitleScreen();
@@ -34,7 +35,7 @@ class App {
         document.getElementById('btn-setup-back')?.addEventListener('click', () => this.showTitleScreen());
         document.getElementById('btn-setup-launch')?.addEventListener('click', () => this.launchSelectedMap());
         document.getElementById('btn-new-match')?.addEventListener('click', () => {
-        document.getElementById('game-over-modal')?.classList.add('hidden');
+            document.getElementById('game-over-modal')?.classList.add('hidden');
             this.showMatchSetup();
         });
 
@@ -42,14 +43,23 @@ class App {
             if (e.key === '`') this.hud.toggleDevPanel();
         });
 
+        // UI sounds: hover plays when the mouse really moves onto a button, click plays on press.
+        // A button that appears under a stationary mouse (new screen, popup) also fires mouseover,
+        // so hover is skipped when the mouse position hasn't changed.
+        this.lastMouseX = -1;
+        this.lastMouseY = -1;
+        document.addEventListener('mousemove', (e) => {
+            this.lastMouseX = e.clientX;
+            this.lastMouseY = e.clientY;
+        });
         document.addEventListener('mouseover', (e) => {
             const btn = e.target.closest('button');
-            if (btn && !btn.contains(e.relatedTarget)) AudioManager.play('ui_hover');
+            if (!btn || btn.contains(e.relatedTarget)) return;
+            if (e.clientX === this.lastMouseX && e.clientY === this.lastMouseY) return;
+            AudioManager.play('ui_hover');
         });
-
         document.addEventListener('click', (e) => {
-            const btn = e.target.closest('button');
-            if (btn && !btn.contains(e.relatedTarget)) AudioManager.play('ui_click');
+            if (e.target.closest('button')) AudioManager.play('ui_click');
         });
 
         // Arcade Faction Selector Arrows
@@ -143,8 +153,36 @@ class App {
 
         if (window.gameManager) {
             this.speedBeforeExit = window.gameManager.gameSpeed;
-            window.gameManager.setSpeed(0); // Auto-pause. update later to also make it lock game from interaction, currently ui can still be used when exit pop up opens
+            window.gameManager.setSpeed(0); // Auto-pause
         }
+        modal.classList.remove('hidden');
+    }
+
+    // Game-over popup (the sim calls this through gameManager.onGameOver)
+    showGameOver(winningTeam) {
+        const gm = window.gameManager;
+        const modal = document.getElementById('game-over-modal');
+        const title = document.getElementById('game-over-title');
+        const msg = document.getElementById('game-over-msg');
+        if (!modal || !title || !msg) return;
+
+        const winner = FACTION_DATA[gm.factionMap[winningTeam]];
+        const totalSecs = Math.floor(gm.gameTime);
+        const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+        const secs = String(totalSecs % 60).padStart(2, '0');
+
+        if (gm.gameMode === 'CPU_VS_CPU') {
+            title.textContent = `${winner.name.toUpperCase()} VICTORIOUS`;
+            msg.textContent = `Automated spectator match ended in ${mins}:${secs}.`;
+        } else {
+            const isVictory = (winningTeam === 1);
+            title.textContent = isVictory ? 'VICTORY' : 'DEFEAT';
+            msg.textContent = isVictory
+                ? `System secured in ${mins}:${secs}!`
+                : `Fleet wiped out after ${mins}:${secs}.`;
+        }
+        title.style.color = winner.color;
+
         modal.classList.remove('hidden');
     }
 
@@ -199,19 +237,26 @@ class App {
         const container = document.getElementById('slot-buttons');
         if (!container) return;
 
-        container.innerHTML = '';
+        // Build the buttons once. Later calls only move the highlight.
+        // (Rebuilding them under the mouse made the hover sound fire on every click.)
+        if (container.children.length === 0) {
+            this.registry.getAllMaps().forEach((map, idx) => {
+                const slotNum = idx + 1;
+                const btn = document.createElement('button');
+                btn.className = 'slot-btn';
+                btn.dataset.slot = slotNum;
+                btn.innerText = `Map ${slotNum}: ${map.name}`;
+                btn.onclick = () => {
+                    this.selectedSlotNum = slotNum;
+                    this.renderMapSlots();
+                };
+                container.appendChild(btn);
+            });
+        }
 
-        this.registry.getAllMaps().forEach((map, idx) => {
-            const slotNum = idx + 1;
-            const btn = document.createElement('button');
-            btn.className = `slot-btn ${slotNum === this.selectedSlotNum ? 'selected' : ''}`;
-            btn.innerText = `Map ${slotNum}: ${map.name}`;
-            btn.onclick = () => {
-                this.selectedSlotNum = slotNum;
-                this.renderMapSlots();
-            };
-            container.appendChild(btn);
-        });
+        for (const btn of container.children) {
+            btn.classList.toggle('selected', Number(btn.dataset.slot) === this.selectedSlotNum);
+        }
     }
 
     launchSelectedMap() {
@@ -223,6 +268,7 @@ class App {
 
         this.state = 'GAME';
         this.clearScreen();
+        document.getElementById('game-over-modal')?.classList.add('hidden');
 
         const menuSetup = document.getElementById('menu-match-setup');
         if (menuSetup) menuSetup.style.display = 'none';
