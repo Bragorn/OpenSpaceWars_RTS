@@ -20,7 +20,7 @@ class Renderer {
         }
 
         this.drawPlanets(gameManager);
-        this.drawShips(gameManager.ships);
+        this.drawShips(gameManager.ships, gameManager);
         this.drawPlanetLabels(gameManager);
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
@@ -89,7 +89,7 @@ class Renderer {
 
     // ================= SHIPS =================
 
-    drawShips(ships) {
+    drawShips(ships, gameManager) {
         if (!Array.isArray(ships) || ships.length === 0) return;
         const ctx = this.ctx;
 
@@ -120,6 +120,33 @@ class Renderer {
                 ctx.strokeStyle = color;
                 ctx.stroke();
             }
+        }
+
+        // Queued-to-depart outline: steady thin white outline around the hull while waiting for the window.
+        // Shown for your own ships (both teams in spectator mode).
+        const showAll = !gameManager || gameManager.gameMode === 'CPU_VS_CPU';
+        let anyQueued = false;
+        ctx.beginPath();
+        for (const list of byColor.values()) {
+            for (let i = 0; i < list.length; i++) {
+                const s = list[i];
+                if (s.state !== 'launching' || s.burning) continue;
+                if (!showAll && s.owner !== 1) continue;
+                const c = Math.cos(s.heading);
+                const n = Math.sin(s.heading);
+                ctx.moveTo(s.x + 3.5 * c,           s.y + 3.5 * n);
+                ctx.lineTo(s.x - 2.5 * c + 2.0 * n, s.y - 2.5 * n - 2.0 * c);
+                ctx.lineTo(s.x - 1.0 * c,           s.y - 1.0 * n);
+                ctx.lineTo(s.x - 2.5 * c - 2.0 * n, s.y - 2.5 * n + 2.0 * c);
+                ctx.closePath();
+                anyQueued = true;
+            }
+        }
+        if (anyQueued) {
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 2.4;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
         }
 
         // Hulls: one fill per faction

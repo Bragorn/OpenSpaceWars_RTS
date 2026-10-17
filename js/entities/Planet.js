@@ -31,6 +31,7 @@ class Planet {
         this.spawnTimer = 0;
         this.regenTimer = 0;
         this.upgradeProgress = 0;
+        this.claimOwner = 0; // team currently leading the claim on a neutral planet
     }
 
     // ================= STATS =================
@@ -86,10 +87,20 @@ class Planet {
         const power = Planet.TOUCHDOWN_POWER;
 
         if (this.owner === 0) {
-            // Neutral: claim it
-            this.upgradeProgress += power;
-            if (this.upgradeProgress >= this.claimCost) {
-                this.captureBy(ship.owner, gameManager);
+            // Neutral: tug-of-war claim
+            if (this.claimOwner === 0) this.claimOwner = ship.owner;
+
+            if (ship.owner === this.claimOwner) {
+                this.upgradeProgress += power;
+                if (this.upgradeProgress >= this.claimCost) {
+                    this.captureBy(ship.owner, gameManager);
+                }
+            } else {
+                this.upgradeProgress -= power;
+                if (this.upgradeProgress <= 0) {
+                    this.upgradeProgress = 0;
+                    this.claimOwner = 0;
+                }
             }
         } else if (this.owner === ship.owner) {
             // Friendly: feed the upgrade
@@ -114,6 +125,7 @@ class Planet {
         this.maxHp = this.statsFor(1).maxHP || 20;
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
+        this.claimOwner = 0;
 
         if (gameManager) {
             if (gameManager.telemetry) {
