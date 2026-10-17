@@ -7,7 +7,8 @@
 //   bus       'sfx' | 'ui' | 'music'
 const SOUND_DATA = {
     laser:          { file: 'audio/laserShoot (3).wav',                                         volume: 0.10, pitchVar: 0.05, cooldown: 0.00, maxVoices: 8, bus: 'sfx' },
-    planet_capture: { file: 'sound (21).wav',                                                   volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'sfx' },
+    planet_capture: { file: '',                                             volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'sfx' },
     ui_hover:       { file: 'audio/uiHover.wav',                                                volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'ui'  },
-    ui_click:       { file: 'audio/ui-click-menu-modern-interface-select-small-02-230475.mp3',  volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'ui'  }
+    ui_click:       { file: 'audio/ui-click-menu-modern-interface-select-small-02-230475.mp3',  volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'ui'  },
+    planet_upgrade: { file: '',                                             volume: 0.25, pitchVar: 0.00, cooldown: 0.00, maxVoices: 2, bus: 'sfx' }
 };

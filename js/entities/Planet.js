@@ -146,6 +146,7 @@ class Planet {
         if (gameManager && gameManager.telemetry) {
             gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_UPGRADE', this.owner);
         }
+        if (gameManager) gameManager.playSound('planet_upgrade');
     }
 
     // ================= UPDATE =================
