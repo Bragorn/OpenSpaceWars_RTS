@@ -1,4 +1,6 @@
-/* ================= RETRO SCI-FI THEME & UNIFORM SIZING ================= */
+/* styles.css: the single stylesheet for OpenSpaceWars (pixel-grid theme).
+   Sections: variables, base, HUD, popups, menus, dev panel. */
+
 @font-face {
     font-family: 'pinballin-scan';
     src: url('fonts/pinballin-scan.ttf/pinballin-scan.ttf') format('truetype');
@@ -6,6 +8,23 @@
     font-style: normal;
 }
 
+/* ================= VARIABLES ================= */
+:root {
+    --c-bg: #000000;
+    --c-text: #ffffff;
+    --c-line: #3b4048;
+    --c-line-hi: #ffffff;
+    --c-danger: #ff2a2a;
+
+    /* 3px spacing grid */
+    --s1: 3px;
+    --s2: 6px;
+    --s3: 9px;
+    --s4: 18px;
+}
+
+/* ================= BASE ================= */
+/* One size, one weight: scaling or faux bold smears the pixel font */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -13,6 +32,7 @@
     user-select: none;
     font-family: 'pinballin-scan', monospace;
     font-size: 9px;
+    font-weight: normal;
 }
 
 html, body {
@@ -37,57 +57,51 @@ html, body {
     display: none !important;
 }
 
-/* ================= ULTRA-SLIM TOP COMMAND BAR ================= */
+/* ================= HUD BAR ================= */
 .hud-top-center {
     position: fixed;
-    top: 2px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 100;
     pointer-events: auto;
 
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    gap: var(--s3);
+    padding: var(--s2) var(--s3);
 
-    padding: 3px 8px;
-    background: rgba(8, 14, 26, 0.95);
-    border: 1px solid #1e293b;
-    border-top: 2px solid #00aaff;
-    border-radius: 0 0 6px 6px;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 2px 10px rgba(0, 170, 255, 0.2);
-    min-width: 540px;
+    background: var(--c-bg);
+    border-bottom: 1px solid var(--c-line);
 }
 
 .hud-team-card {
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    min-width: 130px;
+    min-width: 0;
 }
 
 .hud-team-card.t1 {
-    border-left: 3px solid #00aaff;
-    padding-left: 5px;
+    padding-left: var(--s2);
+    border-left: 3px solid var(--c-line);   /* JS recolors to faction */
     text-align: left;
 }
 
 .hud-team-card.t2 {
-    border-right: 3px solid #ff3355;
-    padding-right: 5px;
+    padding-right: var(--s2);
+    border-right: 3px solid var(--c-line);  /* JS recolors to faction */
     text-align: right;
 }
 
 .hud-card-header {
-    color: #94a3b8;
+    color: var(--c-text);                   /* JS sets faction color inline */
     letter-spacing: 1px;
 }
 
 .hud-card-body {
     display: flex;
-    gap: 6px;
+    gap: var(--s3);
 }
 
 .hud-team-card.t2 .hud-card-body {
@@ -95,12 +109,7 @@ html, body {
 }
 
 .hud-ship-val {
-    font-weight: bold;
-    color: #00ffcc;
-}
-
-.hud-ai-state {
-    color: #ffcc00;
+    color: var(--c-text);
 }
 
 .hud-center-cluster {
@@ -108,14 +117,13 @@ html, body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    min-width: 110px;
+    gap: var(--s2);
+    min-width: 0;
 }
 
 .hud-timer {
     line-height: 1;
-    color: #00ffcc;
-    text-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+    color: var(--c-text);
     letter-spacing: 1px;
     text-align: center;
 }
@@ -123,80 +131,97 @@ html, body {
 .hud-controls {
     display: flex;
     flex-direction: row;
-    gap: 3px;
+    gap: var(--s1);
     justify-content: center;
     align-items: center;
 }
 
 .hud-btn {
-    color: #94a3b8;
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 3px;
-    height: 18px;
-    padding: 0 4px;
     display: flex;
     align-items: center;
     justify-content: center;
+    height: 15px;
+    padding: 0 var(--s2);
+    color: var(--c-text);
+    background: var(--c-bg);
+    border: 1px solid var(--c-line);
     cursor: pointer;
-    transition: all 0.15s ease;
 }
 
 .hud-btn:hover {
-    background: #1e293b;
-    color: #ffffff;
-    border-color: #00ffcc;
+    border-color: var(--c-line-hi);
 }
 
 .hud-btn.active {
-    background: #00ffcc;
-    color: #060912;
-    border-color: #00ffcc;
-    box-shadow: 0 0 5px rgba(0, 255, 204, 0.4);
-    font-weight: bold;
+    background: var(--c-text);
+    color: var(--c-bg);
+    border-color: var(--c-text);
 }
 
 .hud-btn-esc {
-    background: #3f1d1d;
-    border-color: #ff3355;
-    color: #ff8899;
+    border-color: var(--c-danger);
 }
 
 .hud-btn-esc:hover {
-    background: #ff3355;
-    color: #ffffff;
+    background: var(--c-danger);
+    color: var(--c-bg);
+    border-color: var(--c-danger);
 }
 
-/* Exit Confirmation Popup Modal */
-#exit-confirm-modal {
+/* ================= POPUPS ================= */
+#exit-confirm-modal,
+#game-over-modal {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(8, 14, 26, 0.98);
-    border: 2px solid #ff3355;
-    padding: 20px 28px;
+    padding: var(--s4);
     text-align: center;
-    z-index: 300;
-    border-radius: 6px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 0 25px rgba(255, 51, 85, 0.3);
-    width: 280px;
+    background: var(--c-bg);
+    border: 1px solid var(--c-line-hi);
 }
 
-#exit-confirm-modal p {
-    color: #e2e8f0;
-    margin-bottom: 14px;
-    line-height: 1.4;
+#exit-confirm-modal {
+    z-index: 300;
+    width: 288px;
+    border-color: var(--c-danger);
+}
+
+#game-over-modal {
+    z-index: 100;
+}
+
+#exit-confirm-modal p,
+#game-over-msg {
+    color: var(--c-text);
+    margin-bottom: var(--s3);
+    line-height: 1.5;
+}
+
+#game-over-title {
+    margin-bottom: var(--s3);
 }
 
 .exit-modal-actions {
     display: flex;
-    gap: 10px;
+    gap: var(--s3);
     justify-content: center;
 }
 
-/* ================= MENUS & OVERLAYS ================= */
+/* Inline styles in index.html set this button's colors, hence !important */
+#btn-exit-yes { background: var(--c-bg) !important; border-color: var(--c-danger) !important; }
+#btn-exit-yes:hover { background: var(--c-danger) !important; color: var(--c-bg); }
+
+/* Exit popup blocks everything behind it (HUD buttons, canvas drags) */
+#exit-confirm-modal::before {
+    content: '';
+    position: absolute;
+    inset: -200vmax;
+    z-index: -1;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* ================= MENUS ================= */
 #ui-overlay {
     position: absolute;
     top: 0;
@@ -212,28 +237,73 @@ html, body {
 
 .menu-card {
     pointer-events: auto;
-    background: rgba(8, 14, 26, 0.94);
-    border: 1px solid #1e3a5f;
-    border-radius: 8px;
-    box-shadow: 0 0 30px rgba(0, 170, 255, 0.2), inset 0 0 15px rgba(0, 170, 255, 0.05);
-    padding: 20px;
+    padding: var(--s4);
     text-align: center;
     max-height: 92vh;
     overflow-y: auto;
-    backdrop-filter: blur(10px);
+    background: var(--c-bg);
+    border: 1px solid var(--c-line);
 }
 
-#menu-main {
-    width: 320px;
-}
-
-#menu-main h2 {
+#menu-title h2,
+.menu-title {
+    color: var(--c-text);
     letter-spacing: 2px;
-    color: #00aaff;
-    margin-bottom: 18px;
-    text-shadow: 0 0 10px rgba(0, 170, 255, 0.5);
 }
 
+.menu-title {
+    margin: 0;
+}
+
+/* Buttons: outlined, invert on hover */
+.menu-btn,
+.slot-btn,
+.arcade-toggle-btn,
+.arcade-arrow-btn {
+    background: var(--c-bg);
+    color: var(--c-text);
+    border: 1px solid var(--c-line);
+    cursor: pointer;
+}
+
+.menu-btn:hover,
+.slot-btn:hover,
+.arcade-toggle-btn:hover,
+.arcade-arrow-btn:hover {
+    background: var(--c-text);
+    color: var(--c-bg);
+    border-color: var(--c-text);
+}
+
+.menu-btn {
+    width: 100%;
+    padding: var(--s2) var(--s3);
+}
+
+.menu-btn.btn-primary {
+    border-color: var(--c-line-hi);
+}
+
+.menu-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.slot-btn {
+    width: 100%;
+    padding: var(--s1) var(--s2);
+    text-align: left;
+}
+
+.slot-btn.selected {
+    background: var(--c-text);
+    color: var(--c-bg);
+    border-color: var(--c-text);
+}
+
+/* ---- Match setup ---- */
 .menu-setup-card {
     width: 92%;
     max-width: 780px;
@@ -246,15 +316,8 @@ html, body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid #1e293b;
-    padding-bottom: 6px;
-}
-
-.menu-title {
-    letter-spacing: 2px;
-    color: #00aaff;
-    text-shadow: 0 0 8px rgba(0, 170, 255, 0.4);
-    margin: 0;
+    padding-bottom: var(--s2);
+    border-bottom: 1px solid var(--c-line);
 }
 
 .mode-select-box {
@@ -262,6 +325,9 @@ html, body {
     align-items: center;
     gap: 6px;
 }
+
+/* Inline style in index.html sets this span's color, hence !important */
+.mode-select-box span { color: var(--c-text) !important; }
 
 .matchup-container {
     display: flex;
@@ -273,26 +339,20 @@ html, body {
 
 .team-panel {
     flex: 1;
-    background: rgba(15, 23, 42, 0.8);
-    border: 1px solid #1e293b;
-    border-radius: 6px;
-    padding: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: var(--s3);
+    padding: var(--s3);
+    background: var(--c-bg);
+    border: 1px solid var(--c-line);
 }
 
-.team-home {
-    border-left: 4px solid #00aaff;
-}
-
-.team-away {
-    border-right: 4px solid #ff3355;
-}
+.team-home { border-left: 3px solid var(--c-line); }   /* JS recolors to faction */
+.team-away { border-right: 3px solid var(--c-line); }  /* JS recolors to faction */
 
 .team-header {
-    font-weight: bold;
+    color: var(--c-text);                              /* JS sets faction color inline */
     letter-spacing: 1px;
 }
 
@@ -306,13 +366,9 @@ html, body {
 }
 
 .vs-badge {
-    font-weight: bold;
-    color: #ffcc00;
-    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
     padding: 2px 10px;
-    background: rgba(255, 204, 0, 0.08);
-    border: 1px solid #ffcc00;
-    border-radius: 4px;
+    color: var(--c-text);
+    border: 1px solid var(--c-line);
 }
 
 .map-select-box {
@@ -320,230 +376,70 @@ html, body {
 }
 
 .map-select-box h3 {
-    color: #94a3b8;
-    margin-bottom: 4px;
+    color: var(--c-text);
+    margin-bottom: var(--s2);
 }
 
 .slot-buttons-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--s1);
     max-height: 150px;
     overflow-y: auto;
 }
 
-/* Arcade Hockey-Style Faction Selector */
+/* Faction selector */
 .arcade-selector {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--s1);
     width: 100%;
-    background: #0f172a;
-    border: 1px solid #1e293b;
-    border-radius: 4px;
-    padding: 3px;
     margin-top: 6px;
+    padding: var(--s1);
+    background: var(--c-bg);
+    border: 1px solid var(--c-line);
 }
 
 .arcade-arrow-btn {
-    background: #1e293b;
-    color: #00ffcc;
-    border: 1px solid #334155;
     padding: 3px 8px;
-    cursor: pointer;
-    border-radius: 2px;
-    font-weight: bold;
-    transition: all 0.1s ease;
-}
-
-.arcade-arrow-btn:hover {
-    background: #00ffcc;
-    color: #060912;
-    border-color: #00ffcc;
-}
-
-.arcade-faction-name {
-    color: #00ffcc;
-    font-weight: bold;
-    letter-spacing: 1px;
-    text-align: center;
-    flex: 1;
 }
 
 .arcade-toggle-btn {
-    background: #0f172a;
-    color: #00ffcc;
-    border: 1px solid #00ffcc;
     padding: 3px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: inherit;
-    box-shadow: 0 0 5px rgba(0, 255, 204, 0.2);
 }
 
-.arcade-toggle-btn:hover {
-    background: rgba(0, 255, 204, 0.1);
-}
-
-.menu-select, input[type="number"] {
-    width: 100%;
-    padding: 5px;
-    background: #0f172a;
-    color: #00ffcc;
-    border: 1px solid #1e293b;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.menu-btn {
-    width: 100%;
-    padding: 7px 10px;
-    background: #1e3a8a;
-    color: #ffffff;
-    border: 1px solid #3b82f6;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.menu-btn:hover {
-    background: #2563eb;
-    border-color: #60a5fa;
-}
-
-.menu-btn.btn-secondary {
-    background: #1e293b;
-    border-color: #475569;
-    color: #cbd5e1;
-}
-
-.menu-btn.btn-sim {
-    background: #065f46;
-    border-color: #10b981;
-    color: #a7f3d0;
-}
-
-.menu-actions {
-    display: flex;
-    gap: 8px;
-    width: 100%;
-    margin-top: 4px;
-}
-
-.slot-btn {
-    width: 100%;
-    padding: 5px 8px;
-    background: #0f172a;
-    color: #94a3b8;
-    border: 1px solid #1e293b;
-    border-radius: 4px;
-    cursor: pointer;
-    text-align: left;
-}
-
-.slot-btn.selected {
-    background: #1d4ed8;
-    color: #ffffff;
-    border-color: #60a5fa;
-}
-
-#game-over-modal {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(8, 14, 26, 0.95);
-    border: 2px solid #1e3a5f;
-    padding: 20px 28px;
-    text-align: center;
-    z-index: 100;
-    border-radius: 8px;
-    backdrop-filter: blur(10px);
-}
-
-/* ================= BATCH SIMULATION OVERLAY ================= */
-.sim-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(4, 6, 12, 0.92);
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(12px);
-}
-
-.sim-dialog {
-    width: 90%;
-    max-width: 800px;
-    max-height: 85vh;
-    background: #080e1a;
-    border: 1px solid #10b981;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    padding: 12px 16px;
-    gap: 8px;
-    overflow: hidden;
-}
-
-.sim-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #1e293b;
-    padding-bottom: 5px;
-}
-
-.sim-body {
+.arcade-faction-name {
     flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.sim-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-}
-
-.sim-card {
-    background: #0f172a;
-    border: 1px solid #1e293b;
-    border-radius: 6px;
-    padding: 6px;
+    color: var(--c-text);
+    letter-spacing: 1px;
     text-align: center;
 }
 
-.sim-num {
-    color: #00ffcc;
-    font-weight: bold;
+/* ================= DEV PANEL ================= */
+.dev-panel {
+    position: fixed;
+    left: var(--s3);
+    bottom: var(--s3);
+    z-index: 90;
+    padding: var(--s2) var(--s3);
+    background: var(--c-bg);
+    border: 1px solid var(--c-line);
+    pointer-events: none;
 }
 
-.sim-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
+.dev-panel-title {
+    margin-bottom: var(--s2);
+    padding-bottom: var(--s1);
+    border-bottom: 1px solid var(--c-line);
 }
 
-.sim-table th, .sim-table td {
-    padding: 4px 6px;
-    border-bottom: 1px solid #1e293b;
-}
-
-.sim-table th {
-    color: #94a3b8;
-    background: #0f172a;
-}
-
-.sim-footer {
+.dev-panel-cols {
     display: flex;
-    justify-content: flex-end;
-    border-top: 1px solid #1e293b;
-    padding-top: 5px;
+    gap: var(--s4);
+}
+
+.dev-col {
+    min-width: 150px;
+    line-height: 12px;
 }
