@@ -32,20 +32,7 @@ class FactionManager {
     static getFaction(ownerId, gameManager) {
         if (!ownerId || ownerId === 0) return NEUTRAL_FACTION;
 
-        let factionKey = null;
-        if (gameManager && gameManager.factionMap) {
-            factionKey = gameManager.factionMap[ownerId];
-        }
-
-        if (!factionKey) {
-            factionKey = ownerId === 1 ? 'REMNANTS' : 'PROTOCOL';
-        }
-
-        if (typeof factionKey === 'string') {
-            factionKey = factionKey.toUpperCase();
-        }
-
-        return FACTION_DATA[factionKey] || FACTION_DATA.REMNANTS;
+        return FACTION_DATA[gameManager.factionMap[ownerId]];
     }
 
     static getColor(ownerId, gameManager) {

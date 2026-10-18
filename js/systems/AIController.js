@@ -21,8 +21,7 @@ class AIController {
 
         owned.forEach(p => {
             const faction = FactionManager.getFaction(ownerId, this.gameManager);
-            const stats = p.tierStats ? p.tierStats[p.level] : { spawnInterval: 3.0 };
-            const actualInterval = stats.spawnInterval * (faction.spawnIntervalMult || 1.0);
+            const actualInterval = p.statsFor(p.level).spawnInterval * faction.spawnIntervalMult;
             if (actualInterval > 0) totalSpawnsPerSec += (1.0 / actualInterval);
         });
 
@@ -32,7 +31,7 @@ class AIController {
     calculateFleetPower(planet, ownerId) {
         if (!this.gameManager || !this.gameManager.ships) return 0;
         const faction = FactionManager.getFaction(ownerId, this.gameManager);
-        const shipHp = faction.hp || 20;
+        const shipHp = faction.hp;
 
         let count = 0;
         this.gameManager.ships.forEach(s => {
@@ -98,7 +97,7 @@ class AIController {
         const isBehindEconomically = prodRatio < 0.85;
 
         const myFaction = FactionManager.getFaction(this.teamOwner, this.gameManager);
-        const shipHp = myFaction.hp || 20;
+        const shipHp = myFaction.hp;
 
         let actionTaken = false;
 
@@ -121,7 +120,7 @@ class AIController {
             // 2. Neutral Expansion
             if (neutralTargets.length > 0) {
                 const availableNeutrals = neutralTargets.filter(n => {
-                    const claimCost = n.claimCost || 5;
+                    const claimCost = n.claimCost;
                     const inTransit = this.getIncomingShipsCount(n);
                     return inTransit < claimCost;
                 });

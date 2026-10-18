@@ -42,7 +42,7 @@ class Ship {
         this.maxHp = faction.hp;
         this.laserDamage = faction.laserDamage;
         this.laserCooldownMax = faction.laserCooldown;
-        this.laserRange = faction.laserRange || 90.0;
+        this.laserRange = faction.laserRange;
         this.maxSpeed = faction.maxSpeed;
         this.enginePower = faction.enginePower;
         this.transitTurnRate = faction.transitTurnRate;
@@ -294,7 +294,7 @@ class Ship {
         if (this.orbitTimer > 0.5) {
             const isUnclaimed = (planet.owner === 0);
             const isEnemyPlanet = (planet.owner !== 0 && planet.owner !== this.owner);
-            const maxTier = planet.getMaxTier ? planet.getMaxTier() : 3;
+            const maxTier = planet.getMaxTier();
             const isFriendlyUpgradeable = (planet.owner === this.owner && planet.level < maxTier && this.orbitPlanet !== planet);
 
             if (isUnclaimed || isEnemyPlanet || isFriendlyUpgradeable) {

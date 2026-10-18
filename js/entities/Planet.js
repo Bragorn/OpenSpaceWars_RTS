@@ -167,7 +167,7 @@ class Planet {
         this.spawnTimer += dt;
 
         const faction = FactionManager.getFaction(this.owner, gameManager);
-        const interval = this.statsFor(this.level).spawnInterval * (faction.spawnIntervalMult || 1.0);
+        const interval = this.statsFor(this.level).spawnInterval * (faction.spawnIntervalMult);
 
         if (this.spawnTimer >= interval) {
             this.spawnTimer = 0;
