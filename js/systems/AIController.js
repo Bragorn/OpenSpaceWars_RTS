@@ -6,12 +6,10 @@ class AIController {
         this.currentState = 'HOLDING_RESERVES';
     }
 
-    getFactionProfile() {
-        return {
-            updateInterval: 1.5,
-            safetyMargin: 1.15,
-            dispatchRatio: 0.60
-        };
+    // Sends a fleet and records the dispatch size for telemetry
+    dispatch(source, target, ratio) {
+        this.gameManager.dispatchFleet(source, target, ratio);
+        this.gameManager.telemetry?.logEvent(this.gameManager.gameTime, 'DISPATCH', this.teamOwner, { ratio });
     }
 
     getGlobalSpawnRate(ownerId) {
@@ -19,8 +17,8 @@ class AIController {
         const owned = this.gameManager.planets.filter(p => p.owner === ownerId);
         let totalSpawnsPerSec = 0;
 
+        const faction = FactionManager.getFaction(ownerId, this.gameManager);
         owned.forEach(p => {
-            const faction = FactionManager.getFaction(ownerId, this.gameManager);
             const actualInterval = p.statsFor(p.level).spawnInterval * faction.spawnIntervalMult;
             if (actualInterval > 0) totalSpawnsPerSec += (1.0 / actualInterval);
         });
@@ -69,10 +67,10 @@ class AIController {
     update(dt) {
         if (!this.gameManager || !this.gameManager.planets) return;
 
-        const profile = this.getFactionProfile();
+        const profile = FactionManager.getFaction(this.teamOwner, this.gameManager);
 
         this.aiTimer += dt;
-        if (this.aiTimer < profile.updateInterval) return;
+        if (this.aiTimer < profile.aiUpdateInterval) return;
         this.aiTimer = 0;
 
         const ownedPlanets = this.gameManager.planets.filter(p => p.owner === this.teamOwner);
@@ -96,8 +94,7 @@ class AIController {
         const prodRatio = mySpawnRate / enemySpawnRate;
         const isBehindEconomically = prodRatio < 0.85;
 
-        const myFaction = FactionManager.getFaction(this.teamOwner, this.gameManager);
-        const shipHp = myFaction.hp;
+        const shipHp = profile.hp;
 
         let actionTaken = false;
 
@@ -128,12 +125,9 @@ class AIController {
                 if (availableNeutrals.length > 0) {
                     const target = this.getNearestTarget(source, availableNeutrals);
                     if (target && myPower > target.hp) {
-                        this.gameManager.dispatchFleet(source, target, profile.dispatchRatio);
+                        this.dispatch(source, target, profile.aiDispatchRatio);
                         this.currentState = 'EXPANDING_NEUTRAL';
                         actionTaken = true;
-                        if (this.gameManager.telemetry) {
-                            this.gameManager.telemetry.logEvent(this.gameManager.gameTime, 'DISPATCH', this.teamOwner, { ratio: profile.dispatchRatio });
-                        }
                         return;
                     }
                 }
@@ -152,13 +146,10 @@ class AIController {
                 const enemyDefendingPower = this.calculateFleetPower(target, target.owner);
                 const totalTargetPower = target.hp + enemyDefendingPower;
 
-                if (myPower >= totalTargetPower * profile.safetyMargin) {
-                    this.gameManager.dispatchFleet(source, target, profile.dispatchRatio);
+                if (myPower >= totalTargetPower * profile.aiSafetyMargin) {
+                    this.dispatch(source, target, profile.aiDispatchRatio);
                     this.currentState = 'ASSAULTING_ENEMY';
                     actionTaken = true;
-                    if (this.gameManager.telemetry) {
-                        this.gameManager.telemetry.logEvent(this.gameManager.gameTime, 'DISPATCH', this.teamOwner, { ratio: profile.dispatchRatio });
-                    }
                 }
             }
         });

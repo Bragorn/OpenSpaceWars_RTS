@@ -7,7 +7,12 @@ const BASELINE_FACTION = {
     enginePower: 10.0,
     transitTurnRate: 10.0,
     combatTurnRate: 10.0,
-    spawnIntervalMult: 1.0
+    spawnIntervalMult: 1.0,
+
+    // AI behavior (same for every faction for now)
+    aiUpdateInterval: 1.5,
+    aiSafetyMargin: 1.15,
+    aiDispatchRatio: 0.60
 };
 
 const FACTION_DATA = {
