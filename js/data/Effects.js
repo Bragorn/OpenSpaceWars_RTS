@@ -11,9 +11,6 @@ const PLUME_MIN_THRUST = 0.05;     // below this, no plume is drawn
 
 const THRUSTER_COLOR = '#FF8C1A';  // orange for now
 
-const QUEUED_OUTLINE_COLOR = '#FFFFFF';
-const QUEUED_OUTLINE_WIDTH = 2.4;
-
 // Explosion timeline: t = 0..1 of its life. Flash, then fire, then dark smoke, then gone.
 const EXPLOSION_SCALE = 1.0; // multiplies every radius below
 const EXPLOSION_FRAMES = [

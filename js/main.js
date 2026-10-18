@@ -1,5 +1,4 @@
 const canvas = document.getElementById('game');
-const ctx = canvas ? canvas.getContext('2d') : null;
 
 function setupCanvas() {
     if (!canvas) return;

@@ -24,7 +24,7 @@ class GameManager {
         this.isRunning = false;
         this.gameTime = 0;
         this.accumulator = 0;
-        this.gameSpeed = (window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1;
+        this.gameSpeed = window.GAME_CONFIG.DEFAULT_SPEED;
 
         this.winnerId = null;
         this.onGameOver = null; // the UI sets this to show the game-over popup
@@ -58,7 +58,7 @@ class GameManager {
 
         this.loadMap(mapData);
         this.isRunning = true;
-        this.setSpeed((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1);
+        this.setSpeed(window.GAME_CONFIG.DEFAULT_SPEED);
     }
 
     setupControls() {
@@ -119,8 +119,6 @@ class GameManager {
     dispatchFleet(sourcePlanet, targetPlanet, ratio) {
         if (!sourcePlanet || !targetPlanet || sourcePlanet === targetPlanet) return;
 
-        const effectiveRatio = ratio !== undefined ? ratio : ((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_FLEET_RATIO) || 0.5);
-
         const availableShips = this.ships.filter(s =>
             s && !s.dead &&
             s.owner === sourcePlanet.owner &&
@@ -130,7 +128,7 @@ class GameManager {
 
         if (availableShips.length === 0) return;
 
-        const count = Math.max(1, Math.floor(availableShips.length * effectiveRatio));
+        const count = Math.max(1, Math.floor(availableShips.length * ratio));
         const fleet = availableShips.slice(0, count);
 
         fleet.forEach(ship => {

@@ -1,12 +1,5 @@
 class Controls {
     constructor(canvas, gameManager, playerOwner = 1) {
-        // Parameter safety guard: check if canvas was omitted or passed second
-        if (canvas && !(canvas instanceof HTMLElement) && canvas.planets) {
-            gameManager = canvas;
-            canvas = document.getElementById('game');
-        } else if (!canvas || !(canvas instanceof HTMLElement)) {
-            canvas = document.getElementById('game');
-        }
 
         this.canvas = canvas;
         this.gameManager = gameManager;
@@ -17,11 +10,8 @@ class Controls {
         this.isDragging = false;
         this.currentMousePos = { x: 0, y: 0 };
 
-        if (this.canvas) {
-            this.setupListeners();
-        } else {
-            console.error("Controls: Could not find canvas element!");
-        }
+        this.setupListeners();
+
     }
 
     reset() {
@@ -31,9 +21,9 @@ class Controls {
 
     getCanvasPos(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
+        const clientX = e.clientX;
+        const clientY = e.clientY;
+        
         return Viewport.toWorld(clientX - rect.left, clientY - rect.top);
     }
 

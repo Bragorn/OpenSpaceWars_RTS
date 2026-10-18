@@ -10,6 +10,7 @@ const AudioManager = {
     init() {
         if (this.ready || typeof SOUND_DATA === 'undefined') return;
         for (const id of Object.keys(SOUND_DATA)) {
+            if (!SOUND_DATA[id].file) continue;
             const a = new Audio(SOUND_DATA[id].file);
             a.preload = 'auto';
             a.addEventListener('error', () => {
