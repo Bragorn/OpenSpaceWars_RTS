@@ -5,9 +5,8 @@ class GameManager {
         this.ships = [];
         this.explosions = [];
         this.frameStats = { orbiting: new Map(), teamShips: {} };
-        this.currentMapData = null;
 
-        this.telemetry = typeof TelemetryCollector === 'function' ? new TelemetryCollector() : null;
+        this.telemetry = new TelemetryCollector();
         this.gameMode = 'PLAYER_VS_CPU';
 
         this.factionMap = {
@@ -17,7 +16,7 @@ class GameManager {
         };
 
         this.canvas = !this.isHeadless ? document.getElementById('game') : null;
-        this.renderer = (!this.isHeadless && typeof Renderer === 'function' && this.canvas) ? new Renderer(this.canvas) : null;
+        this.renderer = !this.isHeadless ? new Renderer(this.canvas) : null;
         this.controls = null;
         this.aiController1 = null;
         this.aiController2 = null;
@@ -49,22 +48,21 @@ class GameManager {
         this.setFactionMap(team1FactionKey, team2FactionKey);
 
         if (this.gameMode === 'CPU_VS_CPU') {
-            this.aiController1 = typeof AIController === 'function' ? new AIController(this, 1) : null;
-            this.aiController2 = typeof AIController === 'function' ? new AIController(this, 2) : null;
+            this.aiController1 = new AIController(this, 1);
+            this.aiController2 = new AIController(this, 2);
         } else {
             this.aiController1 = null;
-            this.aiController2 = typeof AIController === 'function' ? new AIController(this, 2) : null;
+            this.aiController2 = new AIController(this, 2);
         }
         this.setupControls();
 
-        this.currentMapData = mapData;
         this.loadMap(mapData);
         this.isRunning = true;
         this.setSpeed((window.GAME_CONFIG && window.GAME_CONFIG.DEFAULT_SPEED) || 1);
     }
 
     setupControls() {
-        if (this.isHeadless || typeof Controls !== 'function' || !this.canvas) {
+        if (this.isHeadless) {
             this.controls = null;
             return;
         }
@@ -92,38 +90,17 @@ class GameManager {
     }
 
     loadMap(mapData) {
-        this.planets = [];
         this.ships = [];
-
-        if (!mapData) return;
-
-        let parsed = mapData;
-        if (typeof mapData === 'string') {
-            try {
-                parsed = JSON.parse(mapData);
-            } catch (e) {
-                console.error("GameManager: Failed to parse map JSON", e);
-                return;
-            }
-        }
-
-        const rawPlanets = parsed.planets || (Array.isArray(parsed) ? parsed : []);
-
-        this.planets = rawPlanets.map(p => {
-            if (typeof Planet === 'function') {
-                return new Planet(p.x, p.y, p.level || 1, p.owner !== undefined ? p.owner : 0);
-            }
-            return p;
-        });
+        this.planets = mapData.planets.map(p => new Planet(p.x, p.y, p.level, p.owner));
     }
 
     playSound(id, opts) {
-        if (this.isHeadless || typeof AudioManager === 'undefined') return;
+        if (this.isHeadless) return;
         AudioManager.play(id, opts);
     }
 
     spawnShip(sourcePlanet, targetPlanet) {
-        if (!sourcePlanet || typeof Ship !== 'function') return null;
+        if (!sourcePlanet) return null;
         const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet, this);
         this.ships.push(ship);
 
@@ -196,19 +173,18 @@ class GameManager {
             if (steps >= cfg.MAX_STEPS_PER_FRAME) this.accumulator = 0;
         }
 
-        if (!this.isHeadless && this.renderer && this.renderer.render) {
-            this.renderer.render(this, this.controls);
-        }
+        if (this.renderer) this.renderer.render(this, this.controls);
+
     }
 
     step(dt) {
         if (this.telemetry) this.telemetry.updateTickMetrics(dt, this);
 
-        this.planets.forEach(p => p && p.update && p.update(dt, this));
-        this.ships.forEach(s => s && s.update && s.update(dt, this));
+        this.planets.forEach(p => p.update(dt, this));
+        this.ships.forEach(s => s.update(dt, this));
 
-        if (this.aiController1 && this.aiController1.update) this.aiController1.update(dt);
-        if (this.aiController2 && this.aiController2.update) this.aiController2.update(dt);
+        if (this.aiController1) this.aiController1.update(dt);
+        if (this.aiController2) this.aiController2.update(dt);
 
         for (const e of this.explosions) e.age += dt;
         this.explosions = this.explosions.filter(e => e.age < window.GAME_CONFIG.EXPLOSION_SECONDS);
