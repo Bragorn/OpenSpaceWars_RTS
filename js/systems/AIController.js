@@ -4,6 +4,8 @@ class AIController {
         this.teamOwner = teamOwner;
         this.aiTimer = 0;
         this.currentState = 'HOLDING_RESERVES';
+        this.actionQueue = [];
+        this.actionTimer = 0;
     }
 
     // Sends a fleet and records the dispatch size for telemetry
@@ -64,10 +66,35 @@ class AIController {
         return target;
     }
 
+    // Executes one queued move every aiActionDelay seconds (with jitter)
+    runQueue(dt, profile) {
+        if (this.actionQueue.length === 0) {
+            this.actionTimer = 0;
+            return;
+        }
+        this.actionTimer -= dt;
+        if (this.actionTimer > 0) return;
+
+        const a = this.actionQueue.shift();
+        this.actionTimer = profile.aiActionDelay * (0.7 + Math.random() * 0.6);
+
+        if (a.source.owner !== this.teamOwner) return; // lost the planet while waiting
+        if (a.type === 'UPGRADE') {
+            a.source.startUpgrade(this.gameManager.ships);
+        } else {
+            this.dispatch(a.source, a.target, a.ratio);
+        }
+        this.currentState = a.state;
+    }
+
     update(dt) {
         if (!this.gameManager || !this.gameManager.planets) return;
 
         const profile = FactionManager.getFaction(this.teamOwner, this.gameManager);
+
+        // Finish queued moves first; only think again once the queue is empty
+        this.runQueue(dt, profile);
+        if (this.actionQueue.length > 0) return;
 
         this.aiTimer += dt;
         if (this.aiTimer < profile.aiUpdateInterval) return;
@@ -97,6 +124,7 @@ class AIController {
         const shipHp = profile.hp;
 
         let actionTaken = false;
+        const planned = new Map(); // ships already queued toward each target this round
 
         ownedPlanets.forEach(source => {
             const orbitingCount = source.getOrbitingShipsCount(this.gameManager);
@@ -108,8 +136,7 @@ class AIController {
 
             // 1. Upgrade Decision
             if (source.level < maxTier && orbitingCount >= reqCost) {
-                source.startUpgrade(this.gameManager.ships);
-                this.currentState = `UPGRADING_PLANET_${source.level + 1}`;
+                this.actionQueue.push({ type: 'UPGRADE', source, state: `UPGRADING_PLANET_${source.level + 1}` });
                 actionTaken = true;
                 return;
             }
@@ -118,15 +145,15 @@ class AIController {
             if (neutralTargets.length > 0) {
                 const availableNeutrals = neutralTargets.filter(n => {
                     const claimCost = n.claimCost;
-                    const inTransit = this.getIncomingShipsCount(n);
+                    const inTransit = this.getIncomingShipsCount(n) + (planned.get(n) || 0);
                     return inTransit < claimCost;
                 });
 
                 if (availableNeutrals.length > 0) {
                     const target = this.getNearestTarget(source, availableNeutrals);
                     if (target && myPower > target.hp) {
-                        this.dispatch(source, target, profile.aiDispatchRatio);
-                        this.currentState = 'EXPANDING_NEUTRAL';
+                        this.actionQueue.push({ type: 'DISPATCH', source, target, ratio: profile.aiDispatchRatio, state: 'EXPANDING_NEUTRAL' });
+                        planned.set(target, (planned.get(target) || 0) + Math.max(1, Math.floor(orbitingCount * profile.aiDispatchRatio)));
                         actionTaken = true;
                         return;
                     }
@@ -147,8 +174,7 @@ class AIController {
                 const totalTargetPower = target.hp + enemyDefendingPower;
 
                 if (myPower >= totalTargetPower * profile.aiSafetyMargin) {
-                    this.dispatch(source, target, profile.aiDispatchRatio);
-                    this.currentState = 'ASSAULTING_ENEMY';
+                    this.actionQueue.push({ type: 'DISPATCH', source, target, ratio: profile.aiDispatchRatio, state: 'ASSAULTING_ENEMY' });
                     actionTaken = true;
                 }
             }

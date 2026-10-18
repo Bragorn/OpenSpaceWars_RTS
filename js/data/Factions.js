@@ -10,7 +10,8 @@ const BASELINE_FACTION = {
     spawnIntervalMult: 1.0,
 
     // AI behavior (same for every faction for now)
-    aiUpdateInterval: 1.5,
+    aiUpdateInterval: 2.0,   // seconds spent "thinking" between rounds of decisions
+    aiActionDelay: 0.4,      // average seconds between executing queued moves
     aiSafetyMargin: 1.15,
     aiDispatchRatio: 0.60
 };
