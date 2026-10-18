@@ -1,15 +1,3 @@
-const THRUSTER_COLOR = '#FF8C1A';
-
-// Explosion timeline: t = 0..1 of its life. Flash, then fire, then dark smoke, then gone.
-const EXPLOSION_SCALE = 1.0; // multiplies every radius below
-const EXPLOSION_FRAMES = [
-    { t: 0.00, r: 2.5, rgb: [255, 255, 255], a: 1.0 },  // white flash starts
-    { t: 0.06, r: 5.0, rgb: [255, 255, 255], a: 1.0 },  // peak flash
-    { t: 0.25, r: 5.5, rgb: [255, 140, 26],  a: 0.95 }, // orange fire (same as thrusters)
-    { t: 0.55, r: 6.0, rgb: [100, 45, 15],   a: 0.7 },  // dark brown
-    { t: 1.00, r: 6.5, rgb: [30, 20, 15],    a: 0.0 }   // smoke fades out
-];
-
 class Renderer {
     constructor(canvas, ctx) {
         this.canvas = canvas && typeof canvas.getContext === 'function' ? canvas : document.getElementById('game');
@@ -100,16 +88,18 @@ class Renderer {
 
     // ================= SHIPS =================
 
-    // Adds one ship hull (the 4-point arrowhead) to the current path, rotated by its heading.
-    // Local points: (3.5,0) (-2.5,-2) (-1,0) (-2.5,2)
+    // Adds one ship hull to the current path, rotated by its heading
     addHullPath(s) {
         const ctx = this.ctx;
         const c = Math.cos(s.heading);
         const n = Math.sin(s.heading);
-        ctx.moveTo(s.x + 3.5 * c,           s.y + 3.5 * n);
-        ctx.lineTo(s.x - 2.5 * c + 2.0 * n, s.y - 2.5 * n - 2.0 * c);
-        ctx.lineTo(s.x - 1.0 * c,           s.y - 1.0 * n);
-        ctx.lineTo(s.x - 2.5 * c - 2.0 * n, s.y - 2.5 * n + 2.0 * c);
+        for (let i = 0; i < HULL_POINTS.length; i++) {
+            const lx = HULL_POINTS[i][0];
+            const ly = HULL_POINTS[i][1];
+            const x = s.x + lx * c - ly * n;
+            const y = s.y + lx * n + ly * c;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
         ctx.closePath();
     }
 
@@ -128,14 +118,14 @@ class Renderer {
         }
 
         // Lasers: one stroke per faction
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = LASER_WIDTH;
         for (const [color, list] of byColor) {
             let any = false;
             ctx.beginPath();
             for (let i = 0; i < list.length; i++) {
                 const s = list[i];
                 if (s.laserTimer > 0 && s.laserTarget) {
-                    ctx.moveTo(s.x + Math.cos(s.heading) * 3.5, s.y + Math.sin(s.heading) * 3.5);
+                    ctx.moveTo(s.x + Math.cos(s.heading) * LASER_MUZZLE_OFFSET, s.y + Math.sin(s.heading) * LASER_MUZZLE_OFFSET);
                     ctx.lineTo(s.laserTarget.x, s.laserTarget.y);
                     any = true;
                 }
@@ -184,10 +174,10 @@ class Renderer {
         for (const list of byColor.values()) {
             for (let i = 0; i < list.length; i++) {
                 const s = list[i];
-                if (s.thrustRatio <= 0.05) continue;
-                const px = s.x - Math.cos(s.heading) * 3.0;
-                const py = s.y - Math.sin(s.heading) * 3.0;
-                const r = 0.8 + s.thrustRatio * 1.0;
+                if (s.thrustRatio <= PLUME_MIN_THRUST) continue;
+                const px = s.x - Math.cos(s.heading) * PLUME_OFFSET;
+                const py = s.y - Math.sin(s.heading) * PLUME_OFFSET;
+                const r = PLUME_MIN_RADIUS + s.thrustRatio * PLUME_RADIUS_GAIN;
                 ctx.moveTo(px + r, py);
                 ctx.arc(px, py, r, 0, Math.PI * 2);
                 anyPlume = true;
