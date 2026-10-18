@@ -208,9 +208,8 @@ html, body {
     justify-content: center;
 }
 
-/* Inline styles in index.html set this button's colors, hence !important */
-#btn-exit-yes { background: var(--c-bg) !important; border-color: var(--c-danger) !important; }
-#btn-exit-yes:hover { background: var(--c-danger) !important; color: var(--c-bg); }
+#btn-exit-yes { border-color: var(--c-danger); }
+#btn-exit-yes:hover { background: var(--c-danger); color: var(--c-bg); }
 
 /* Exit popup blocks everything behind it (HUD buttons, canvas drags) */
 #exit-confirm-modal::before {
@@ -326,8 +325,7 @@ html, body {
     gap: 6px;
 }
 
-/* Inline style in index.html sets this span's color, hence !important */
-.mode-select-box span { color: var(--c-text) !important; }
+.mode-select-box span { color: var(--c-text); }
 
 .matchup-container {
     display: flex;
