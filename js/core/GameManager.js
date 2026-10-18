@@ -16,8 +16,7 @@ class GameManager {
             2: 'PROTOCOL'
         };
 
-        const dom = (!this.isHeadless && window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
-        this.canvas = !this.isHeadless ? document.getElementById(dom.CANVAS_ID || 'game') : null;
+        this.canvas = !this.isHeadless ? document.getElementById('game') : null;
         this.renderer = (!this.isHeadless && typeof Renderer === 'function' && this.canvas) ? new Renderer(this.canvas) : null;
         this.controls = null;
         this.aiController1 = null;

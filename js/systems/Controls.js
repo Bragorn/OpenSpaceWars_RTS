@@ -70,7 +70,7 @@ class Controls {
                 const targetPlanet = this.getPlanetAtPos(this.currentMousePos);
                 if (targetPlanet && targetPlanet !== this.dragStartPlanet) {
                     if (typeof this.gameManager.dispatchFleet === 'function') {
-                        this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, 0.8);
+                        this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, window.GAME_CONFIG.PLAYER_FLEET_RATIO);
                     }
                 }
             }

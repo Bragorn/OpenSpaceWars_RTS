@@ -1,7 +1,6 @@
 class App {
     constructor() {
-        const dom = (window.GAME_CONFIG && window.GAME_CONFIG.DOM) ? window.GAME_CONFIG.DOM : {};
-        this.canvas = document.getElementById(dom.CANVAS_ID || 'game');
+        this.canvas = document.getElementById('game');
         this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
 
         this.state = 'MENU';
