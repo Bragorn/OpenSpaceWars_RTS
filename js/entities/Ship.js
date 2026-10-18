@@ -317,23 +317,27 @@ class Ship {
         const omegaCirc = (vCirc / safeR) * this.orbitDir;
 
         const pRad = planet.radius || 28;
-        const currentR = safeR - (safeR - pRad - 1.5) * Math.sin(p * Math.PI / 2);
-        const dthetadt = omegaCirc * (1.0 - p * 0.7);
+        const dropDist = safeR - pRad - 1.5;
+        const DESCENT_CURVE = 2.0;  // higher = gentler start, steeper finish
+        const SLIDE_FADE = 2.0;     // higher = sideways drift dies off sooner
+
+        // Radius: slow at first, then accelerating straight down
+        const currentR = safeR - dropDist * Math.pow(p, DESCENT_CURVE);
+        const drdt = -dropDist * DESCENT_CURVE * Math.pow(p, DESCENT_CURVE - 1) / this.landingDuration;
+
+        // Sideways drift fades to zero at touchdown
+        const dthetadt = omegaCirc * Math.pow(1.0 - p, SLIDE_FADE);
         this.orbitAngle += dthetadt * dt;
 
         this.x = planet.x + Math.cos(this.orbitAngle) * currentR;
         this.y = planet.y + Math.sin(this.orbitAngle) * currentR;
 
-        const drdt = -(safeR - pRad - 1.5) * (Math.PI / (2 * this.landingDuration)) * Math.cos(p * Math.PI / 2);
         this.vx = drdt * Math.cos(this.orbitAngle) - currentR * Math.sin(this.orbitAngle) * dthetadt;
         this.vy = drdt * Math.sin(this.orbitAngle) + currentR * Math.cos(this.orbitAngle) * dthetadt;
 
-        const retroHeading = Math.atan2(-this.vy, -this.vx);
-        const skywardHeading = Math.atan2(this.y - planet.y, this.x - planet.x);
-
-        let diff = skywardHeading - retroHeading;
-        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-        this.heading = retroHeading + diff * Math.pow(p, 0.8);
+        // Always point retrograde. As the velocity turns vertical, the nose ends up
+        // pointing straight up, so there's no separate rotation to fight the motion.
+        this.rotateTowards(Math.atan2(-this.vy, -this.vx), dt);
 
         this.thrustRatio = Math.sin(p * Math.PI) * 0.85;
 

@@ -100,6 +100,19 @@ class Renderer {
 
     // ================= SHIPS =================
 
+    // Adds one ship hull (the 4-point arrowhead) to the current path, rotated by its heading.
+    // Local points: (3.5,0) (-2.5,-2) (-1,0) (-2.5,2)
+    addHullPath(s) {
+        const ctx = this.ctx;
+        const c = Math.cos(s.heading);
+        const n = Math.sin(s.heading);
+        ctx.moveTo(s.x + 3.5 * c,           s.y + 3.5 * n);
+        ctx.lineTo(s.x - 2.5 * c + 2.0 * n, s.y - 2.5 * n - 2.0 * c);
+        ctx.lineTo(s.x - 1.0 * c,           s.y - 1.0 * n);
+        ctx.lineTo(s.x - 2.5 * c - 2.0 * n, s.y - 2.5 * n + 2.0 * c);
+        ctx.closePath();
+    }
+
     drawShips(ships, gameManager) {
         if (!Array.isArray(ships) || ships.length === 0) return;
         const ctx = this.ctx;
@@ -143,13 +156,7 @@ class Renderer {
                 const s = list[i];
                 if (s.state !== 'launching' || s.burning) continue;
                 if (!showAll && s.owner !== 1) continue;
-                const c = Math.cos(s.heading);
-                const n = Math.sin(s.heading);
-                ctx.moveTo(s.x + 3.5 * c,           s.y + 3.5 * n);
-                ctx.lineTo(s.x - 2.5 * c + 2.0 * n, s.y - 2.5 * n - 2.0 * c);
-                ctx.lineTo(s.x - 1.0 * c,           s.y - 1.0 * n);
-                ctx.lineTo(s.x - 2.5 * c - 2.0 * n, s.y - 2.5 * n + 2.0 * c);
-                ctx.closePath();
+                this.addHullPath(s);
                 anyQueued = true;
             }
         }
@@ -166,14 +173,7 @@ class Renderer {
             ctx.beginPath();
             for (let i = 0; i < list.length; i++) {
                 const s = list[i];
-                const c = Math.cos(s.heading);
-                const n = Math.sin(s.heading);
-                // Local points (3.5,0) (-2.5,-2) (-1,0) (-2.5,2), rotated by heading
-                ctx.moveTo(s.x + 3.5 * c,           s.y + 3.5 * n);
-                ctx.lineTo(s.x - 2.5 * c + 2.0 * n, s.y - 2.5 * n - 2.0 * c);
-                ctx.lineTo(s.x - 1.0 * c,           s.y - 1.0 * n);
-                ctx.lineTo(s.x - 2.5 * c - 2.0 * n, s.y - 2.5 * n + 2.0 * c);
-                ctx.closePath();
+                this.addHullPath(s);
             }
             ctx.fill();
         }
