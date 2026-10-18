@@ -4,7 +4,6 @@ class Planet {
         2: { radius: 30, maxHP: 20, spawnInterval: 1.8, upgradeCost: 20 },
         3: { radius: 30, maxHP: 30, spawnInterval: 0.9, upgradeCost: 0 }
     };
-    static FALLBACK_STATS = { radius: 28, maxHP: 20, spawnInterval: 3.0, upgradeCost: 10 };
 
     static CLAIM_COST = 5;          // ships needed to claim a neutral planet
     static NEUTRAL_START_HP = 5;
@@ -23,8 +22,8 @@ class Planet {
         this.maxTier = keys.length > 0 ? Math.min(Planet.MAX_TIER_CAP, Math.max(...keys)) : Planet.MAX_TIER_CAP;
 
         const stats = this.statsFor(level);
-        this.radius = stats.radius || 28;
-        this.maxHp = stats.maxHP || 20;
+        this.radius = stats.radius;
+        this.maxHp = stats.maxHP;
         this.hp = owner !== 0 ? this.maxHp : Planet.NEUTRAL_START_HP;
         this.claimCost = Planet.CLAIM_COST;
 
@@ -37,7 +36,7 @@ class Planet {
     // ================= STATS =================
 
     statsFor(level) {
-        return this.tierStats[level] || Planet.FALLBACK_STATS;
+        return this.tierStats[level]
     }
 
     getMaxTier() {
@@ -45,7 +44,7 @@ class Planet {
     }
 
     getUpgradeCost() {
-        return this.statsFor(this.level).upgradeCost || 10;
+        return this.statsFor(this.level).upgradeCost;
     }
 
     getOrbitingShipsCount(gameManager) {
@@ -122,7 +121,7 @@ class Planet {
     captureBy(newOwner, gameManager) {
         this.owner = newOwner;
         this.level = 1;
-        this.maxHp = this.statsFor(1).maxHP || 20;
+        this.maxHp = this.statsFor(1).maxHP;
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
         this.claimOwner = 0;
@@ -139,7 +138,7 @@ class Planet {
         if (this.level >= this.maxTier) return;
 
         this.level++;
-        this.maxHp = this.statsFor(this.level).maxHP || (this.maxHp + 10);
+        this.maxHp = this.statsFor(this.level).maxHP;
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
 

@@ -21,7 +21,7 @@ function hasLineOfSight(p1, p2, planets) {
         const cdx = planet.x - closestX;
         const cdy = planet.y - closestY;
         const distSq = cdx * cdx + cdy * cdy;
-        const blockRadius = (planet.radius || 28) + 2;
+        const blockRadius = (planet.radius) + 2;
 
         if (distSq < blockRadius * blockRadius) {
             return false;
@@ -48,7 +48,7 @@ class Ship {
         this.transitTurnRate = faction.transitTurnRate;
         this.combatTurnRate = faction.combatTurnRate;
 
-        const baseRadius = (sourcePlanet && sourcePlanet.radius) ? sourcePlanet.radius : 28;
+        const baseRadius = sourcePlanet.radius;
         const spawnAngle = Math.random() * Math.PI * 2;
         const minOrbitOffset = 14;
         const maxOrbitSpread = 14;
@@ -150,7 +150,7 @@ class Ship {
         if (this.hp <= 0) {
             this.dead = true;
             if (gameManager) gameManager.spawnExplosion(this.x, this.y);
-            
+
             if (gameManager && gameManager.telemetry) {
                 gameManager.telemetry.logEvent(gameManager.gameTime, 'SHIP_DESTROYED', this.owner);
                 if (attackerOwner && attackerOwner !== this.owner) {

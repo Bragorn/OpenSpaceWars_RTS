@@ -1,8 +1,7 @@
 const GAME_CONFIG = {
     DEFAULT_SPEED: 1,
     MAX_SPEED: 3,
-    DEFAULT_FLEET_RATIO: 0.5,
-    PLAYER_FLEET_RATIO: 0.8,   // share of a planet's ships sent per player drag
+    PLAYER_FLEET_RATIO: 0.8,
 
     SIM_STEP: 1 / 60,
     MAX_STEPS_PER_FRAME: 8,
