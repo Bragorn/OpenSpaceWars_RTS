@@ -4,6 +4,8 @@ class HUD {
     constructor(gameManager) {
         this.gm = gameManager;
         this.lastSpeed = null;
+        this.deadShown = { 1: 0, 2: 0 };
+        this.lastTick = null;
 
         const $ = (id) => document.getElementById(id);
         this.el = {
@@ -21,6 +23,8 @@ class HUD {
             valT2: $('hud-val-t2'),
             spmT1: $('hud-spm-t1'),
             spmT2: $('hud-spm-t2'),
+            deadT1: $('hud-dead-t1'),
+            deadT2: $('hud-dead-t2'),
             devPanel: $('dev-panel'),
             devT1: $('dev-t1'),
             devT2: $('dev-t2')
@@ -45,6 +49,8 @@ class HUD {
 
     show() {
         this.lastSpeed = null; // force the speed buttons to refresh
+        this.deadShown = { 1: 0, 2: 0 };
+        this.lastTick = null;
         this.el.bar?.classList.remove('hidden');
     }
 
@@ -108,7 +114,33 @@ class HUD {
         this.setText(el.spmT1, (t1Spawned / durationMins).toFixed(1));
         this.setText(el.spmT2, (t2Spawned / durationMins).toFixed(1));
 
+        this.rollDeathToll();
+
         this.updateDevPanel();
+    }
+
+    // Death toll: the shown number chases the real one so kills roll up instead of jumping
+    rollDeathToll() {
+        const now = performance.now();
+        const dt = this.lastTick === null ? 0 : Math.min(0.1, (now - this.lastTick) / 1000);
+        this.lastTick = now;
+
+        const ROLL_RATE = 6;      // higher = snappier catch-up
+        const MIN_SPEED = 400;    // people per second, so it always finishes
+        const perShip = window.GAME_CONFIG.DEATH_TOLL_PER_SHIP || 1000;
+
+        for (const team of [1, 2]) {
+            const lost = this.gm.telemetry ? this.gm.telemetry.summary['team' + team].shipsLost : 0;
+            const target = lost * perShip;
+            let cur = this.deadShown[team];
+            if (cur < target) {
+                const gap = target - cur;
+                cur += Math.min(gap, Math.max(gap * (1 - Math.exp(-ROLL_RATE * dt)), MIN_SPEED * dt));
+                this.deadShown[team] = cur;
+            }
+            const text = Math.round(cur).toLocaleString('en-US');
+            this.setText(team === 1 ? this.el.deadT1 : this.el.deadT2, text);
+        }
     }
 
     updateDevPanel() {
