@@ -25,7 +25,7 @@ const Viewport = {
         ctx.setTransform(s, 0, 0, s, this.offsetX * this.dpr, this.offsetY * this.dpr);
     },
 
-        toWorld(cssX, cssY) {
+    toWorld(cssX, cssY) {
         return {
             x: (cssX - this.offsetX) / this.scale,
             y: (cssY - this.offsetY) / this.scale

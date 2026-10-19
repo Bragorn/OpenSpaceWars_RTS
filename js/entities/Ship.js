@@ -236,7 +236,7 @@ class Ship {
         const omegaBase = vCirc / safeR;
         const angularVelocity = omegaBase * this.orbitDir;
 
-        const pRad = planet.radius || 28;
+        const pRad = planet.radius;
         const currentR = pRad + 2.0 + (safeR - pRad - 2.0) * Math.sin(p * Math.PI / 2);
         const turnFactor = Math.pow(p, 1.5);
         this.orbitAngle = this.launchStartAngle + angularVelocity * (this.launchDuration * 0.8) * turnFactor;
@@ -316,7 +316,7 @@ class Ship {
         const vCirc = Math.sqrt(this.gravConst / safeR);
         const omegaCirc = (vCirc / safeR) * this.orbitDir;
 
-        const pRad = planet.radius || 28;
+        const pRad = planet.radius;
         const dropDist = safeR - pRad - 1.5;
         const DESCENT_CURVE = 2.0;  // higher = gentler start, steeper finish
         const SLIDE_FADE = 2.0;     // higher = sideways drift dies off sooner
@@ -364,7 +364,7 @@ class Ship {
 
         const R = TRANSIT_SOI_RADIUS;
         const mu = this.gravConst;
-        const simStep = (window.GAME_CONFIG && window.GAME_CONFIG.SIM_STEP) || (1 / 60);
+        const simStep = window.GAME_CONFIG.SIM_STEP;
         const force = { x: 0, y: 0 };
         this.thrustRatio = 0;
 
@@ -502,7 +502,7 @@ class Ship {
             this.departTpl = null;
             this.originPlanet = null;
             this.orbitDir = (dxPos * this.vy - dyPos * this.vx) >= 0 ? 1 : -1;
-            this.targetOrbitRadius = Math.max(rr, (target.radius || 28) + 12);
+            this.targetOrbitRadius = Math.max(rr, target.radius + 14);
             this.orbitAngle = Math.atan2(dyPos, dxPos);
             this.state = 'orbit';
             this.orbitTimer = 0;

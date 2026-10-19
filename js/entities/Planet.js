@@ -11,12 +11,12 @@ class Planet {
     static TOUCHDOWN_POWER = 1.0;   // progress/damage per landed ship
     static MAX_TIER_CAP = 3;
 
-    constructor(x, y, level = 1, owner = 0, customTierStats = null) {
+    constructor(x, y, level = 1, owner = 0) {
         this.x = x;
         this.y = y;
         this.level = level;
         this.owner = owner;
-        this.tierStats = customTierStats || Planet.DEFAULT_TIER_STATS;
+        this.tierStats = Planet.DEFAULT_TIER_STATS;
 
         const keys = Object.keys(this.tierStats).map(Number).filter(k => !isNaN(k));
         this.maxTier = keys.length > 0 ? Math.min(Planet.MAX_TIER_CAP, Math.max(...keys)) : Planet.MAX_TIER_CAP;
@@ -36,7 +36,7 @@ class Planet {
     // ================= STATS =================
 
     statsFor(level) {
-        return this.tierStats[level]
+        return this.tierStats[level];
     }
 
     getMaxTier() {

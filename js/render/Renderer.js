@@ -192,31 +192,31 @@ class Renderer {
     // ================= SHIP EXPLOSIONS =================
 
     drawExplosions(gameManager) {
-    const list = gameManager.explosions;
-    if (!list || list.length === 0) return;
-    const ctx = this.ctx;
-    const dur = window.GAME_CONFIG.EXPLOSION_SECONDS;
-    const F = EXPLOSION_FRAMES;
+        const list = gameManager.explosions;
+        if (!list || list.length === 0) return;
+        const ctx = this.ctx;
+        const dur = window.GAME_CONFIG.EXPLOSION_SECONDS;
+        const F = EXPLOSION_FRAMES;
 
-    for (const e of list) {
-        const t = Math.min(1, e.age / dur);
-        let i = 1;
-        while (i < F.length - 1 && t > F[i].t) i++;
-        const a = F[i - 1], b = F[i];
-        const k = (t - a.t) / (b.t - a.t);
-        const mix = (x, y) => x + (y - x) * k;
+        for (const e of list) {
+            const t = Math.min(1, e.age / dur);
+            let i = 1;
+            while (i < F.length - 1 && t > F[i].t) i++;
+            const a = F[i - 1], b = F[i];
+            const k = (t - a.t) / (b.t - a.t);
+            const mix = (x, y) => x + (y - x) * k;
 
-        const r = mix(a.r, b.r) * EXPLOSION_SCALE;
-        const red = Math.round(mix(a.rgb[0], b.rgb[0]));
-        const green = Math.round(mix(a.rgb[1], b.rgb[1]));
-        const blue = Math.round(mix(a.rgb[2], b.rgb[2]));
+            const r = mix(a.r, b.r) * EXPLOSION_SCALE;
+            const red = Math.round(mix(a.rgb[0], b.rgb[0]));
+            const green = Math.round(mix(a.rgb[1], b.rgb[1]));
+            const blue = Math.round(mix(a.rgb[2], b.rgb[2]));
 
-        ctx.globalAlpha = mix(a.a, b.a);
-        ctx.fillStyle = `rgb(${red},${green},${blue})`;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
-        ctx.fill();
+            ctx.globalAlpha = mix(a.a, b.a);
+            ctx.fillStyle = `rgb(${red},${green},${blue})`;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
-}
 }
