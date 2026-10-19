@@ -15,27 +15,25 @@ class AIController {
     }
 
     getGlobalSpawnRate(ownerId) {
-        if (!this.gameManager || !this.gameManager.planets) return 0.01;
         const owned = this.gameManager.planets.filter(p => p.owner === ownerId);
         let totalSpawnsPerSec = 0;
 
         const faction = FactionManager.getFaction(ownerId, this.gameManager);
         owned.forEach(p => {
             const actualInterval = p.statsFor(p.level).spawnInterval * faction.spawnIntervalMult;
-            if (actualInterval > 0) totalSpawnsPerSec += (1.0 / actualInterval);
+            totalSpawnsPerSec += 1.0 / actualInterval;
         });
 
         return Math.max(0.01, totalSpawnsPerSec);
     }
 
     calculateFleetPower(planet, ownerId) {
-        if (!this.gameManager || !this.gameManager.ships) return 0;
         const faction = FactionManager.getFaction(ownerId, this.gameManager);
         const shipHp = faction.hp;
 
         let count = 0;
         this.gameManager.ships.forEach(s => {
-            if (s && !s.dead && s.owner === ownerId && s.orbitPlanet === planet && s.state === 'orbit') {
+            if (!s.dead && s.owner === ownerId && s.orbitPlanet === planet && s.state === 'orbit') {
                 count++;
             }
         });
@@ -44,14 +42,12 @@ class AIController {
     }
 
     getIncomingShipsCount(targetPlanet) {
-        if (!this.gameManager || !this.gameManager.ships) return 0;
         return this.gameManager.ships.filter(s =>
-            s && !s.dead && s.owner === this.teamOwner && s.targetPlanet === targetPlanet
+            !s.dead && s.owner === this.teamOwner && s.targetPlanet === targetPlanet
         ).length;
     }
 
     getNearestTarget(source, targets) {
-        if (!targets || targets.length === 0) return null;
         let target = targets[0];
         let minDistSq = Infinity;
         targets.forEach(t => {
@@ -88,8 +84,6 @@ class AIController {
     }
 
     update(dt) {
-        if (!this.gameManager || !this.gameManager.planets) return;
-
         const profile = FactionManager.getFaction(this.teamOwner, this.gameManager);
 
         // Finish queued moves first; only think again once the queue is empty
@@ -126,6 +120,8 @@ class AIController {
         let actionTaken = false;
         const planned = new Map(); // ships already queued toward each target this round
 
+        const teamPower = ownedPlanets.reduce((sum, p) => sum + p.getOrbitingShipsCount(this.gameManager), 0) * shipHp;
+
         ownedPlanets.forEach(source => {
             const orbitingCount = source.getOrbitingShipsCount(this.gameManager);
             if (orbitingCount === 0) return;
@@ -151,7 +147,7 @@ class AIController {
 
                 if (availableNeutrals.length > 0) {
                     const target = this.getNearestTarget(source, availableNeutrals);
-                    if (target && myPower > target.hp) {
+                    if (myPower > target.hp) {
                         this.actionQueue.push({ type: 'DISPATCH', source, target, ratio: profile.aiDispatchRatio, state: 'EXPANDING_NEUTRAL' });
                         planned.set(target, (planned.get(target) || 0) + Math.max(1, Math.floor(orbitingCount * profile.aiDispatchRatio)));
                         actionTaken = true;
@@ -173,7 +169,7 @@ class AIController {
                 const enemyDefendingPower = this.calculateFleetPower(target, target.owner);
                 const totalTargetPower = target.hp + enemyDefendingPower;
 
-                if (myPower >= totalTargetPower * profile.aiSafetyMargin) {
+                if (teamPower >= totalTargetPower * profile.aiSafetyMargin) {
                     this.actionQueue.push({ type: 'DISPATCH', source, target, ratio: profile.aiDispatchRatio, state: 'ASSAULTING_ENEMY' });
                     actionTaken = true;
                 }

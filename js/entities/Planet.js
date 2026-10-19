@@ -18,8 +18,7 @@ class Planet {
         this.owner = owner;
         this.tierStats = Planet.DEFAULT_TIER_STATS;
 
-        const keys = Object.keys(this.tierStats).map(Number).filter(k => !isNaN(k));
-        this.maxTier = keys.length > 0 ? Math.min(Planet.MAX_TIER_CAP, Math.max(...keys)) : Planet.MAX_TIER_CAP;
+        this.maxTier = Math.min(Planet.MAX_TIER_CAP, Math.max(...Object.keys(this.tierStats).map(Number)));
 
         const stats = this.statsFor(level);
         this.radius = stats.radius;
@@ -48,7 +47,6 @@ class Planet {
     }
 
     getOrbitingShipsCount(gameManager) {
-        if (!gameManager || !gameManager.frameStats) return 0;
         return gameManager.frameStats.orbiting.get(this) || 0;
     }
 
@@ -56,12 +54,10 @@ class Planet {
 
     // Sends orbiting ships down to feed the upgrade (random ships, as many as are still needed)
     startUpgrade(ships) {
-        if (!ships || !Array.isArray(ships)) return;
-
         const upgCost = this.getUpgradeCost();
         if (this.level >= this.maxTier || upgCost <= 0) return;
 
-        const mine = ships.filter(s => s && !s.dead && s.owner === this.owner && s.targetPlanet === this);
+        const mine = ships.filter(s => !s.dead && s.owner === this.owner && s.targetPlanet === this);
         const landingCount = mine.filter(s => s.state === 'landing').length;
         const needed = upgCost - (Math.floor(this.upgradeProgress) + landingCount);
         if (needed <= 0) return;
@@ -82,7 +78,6 @@ class Planet {
     }
 
     onShipTouchdown(ship, gameManager) {
-        if (!ship) return;
         const power = Planet.TOUCHDOWN_POWER;
 
         if (this.owner === 0) {
@@ -144,9 +139,7 @@ class Planet {
 
     // ================= UPDATE =================
 
-    update(dtUncapped, gameManager) {
-        const dt = Math.min(dtUncapped || 0.016, 0.1);
-
+    update(dt, gameManager) {
         if (this.owner === 0 || this.hp < this.maxHp) {
             gameManager.telemetry.addContestedTime(dt);
         }
@@ -161,11 +154,11 @@ class Planet {
         this.spawnTimer += dt;
 
         const faction = FactionManager.getFaction(this.owner, gameManager);
-        const interval = this.statsFor(this.level).spawnInterval * (faction.spawnIntervalMult);
+        const interval = this.statsFor(this.level).spawnInterval * faction.spawnIntervalMult;
 
         if (this.spawnTimer >= interval) {
             this.spawnTimer = 0;
-            if (gameManager) gameManager.spawnShip(this, this);
+            gameManager.spawnShip(this, this);
         }
     }
 
