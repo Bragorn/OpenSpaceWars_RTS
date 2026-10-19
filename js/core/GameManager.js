@@ -83,10 +83,7 @@ class GameManager {
         this.gameTime = 0;
         this.accumulator = 0;
         this.winnerId = null;
-
-        if (this.telemetry) {
-            this.telemetry.reset();
-        }
+        this.telemetry.reset();
     }
 
     loadMap(mapData) {
@@ -99,14 +96,16 @@ class GameManager {
         AudioManager.play(id, opts);
     }
 
+    log(type, teamId, details) {
+    this.telemetry.logEvent(this.gameTime, type, teamId, details);
+    }
+
     spawnShip(sourcePlanet, targetPlanet) {
         if (!sourcePlanet) return null;
         const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet, this);
         this.ships.push(ship);
 
-        if (this.telemetry && sourcePlanet.owner) {
-            this.telemetry.logEvent(this.gameTime, 'SHIP_SPAWN', sourcePlanet.owner);
-        }
+        if (sourcePlanet.owner) this.log('SHIP_SPAWN', sourcePlanet.owner);
 
         return ship;
     }
@@ -176,7 +175,7 @@ class GameManager {
     }
 
     step(dt) {
-        if (this.telemetry) this.telemetry.updateTickMetrics(dt, this);
+        this.telemetry.updateTickMetrics(dt, this);
 
         this.planets.forEach(p => p.update(dt, this));
         this.ships.forEach(s => s.update(dt, this));

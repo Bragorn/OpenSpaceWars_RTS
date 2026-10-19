@@ -1,8 +1,6 @@
 const TRANSIT_SOI_RADIUS = window.GAME_CONFIG.PHYSICS.SOI_RADIUS;
 
 function hasLineOfSight(p1, p2, planets) {
-    if (!planets || !Array.isArray(planets)) return true;
-
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const lineLenSq = dx * dx + dy * dy;
@@ -10,7 +8,6 @@ function hasLineOfSight(p1, p2, planets) {
 
     for (let i = 0; i < planets.length; i++) {
         const planet = planets[i];
-        if (!planet) continue;
 
         const pdx = planet.x - p1.x;
         const pdy = planet.y - p1.y;
@@ -21,7 +18,7 @@ function hasLineOfSight(p1, p2, planets) {
         const cdx = planet.x - closestX;
         const cdy = planet.y - closestY;
         const distSq = cdx * cdx + cdy * cdy;
-        const blockRadius = (planet.radius) + 2;
+        const blockRadius = planet.radius + 2;
 
         if (distSq < blockRadius * blockRadius) {
             return false;
@@ -32,9 +29,9 @@ function hasLineOfSight(p1, p2, planets) {
 
 class Ship {
     constructor(sourcePlanet, targetPlanet, gameManager) {
-        this.owner = sourcePlanet ? sourcePlanet.owner : 0;
+        this.owner = sourcePlanet.owner;
         this.orbitPlanet = sourcePlanet;
-        this.targetPlanet = targetPlanet || sourcePlanet;
+        this.targetPlanet = targetPlanet;
 
         const faction = FactionManager.getFaction(this.owner, gameManager);
         this.color = faction.color;
@@ -71,10 +68,8 @@ class Ship {
         this.landingDuration = 4.0;
         this.orbitTimer = 0;
 
-        const startX = sourcePlanet ? sourcePlanet.x : 0;
-        const startY = sourcePlanet ? sourcePlanet.y : 0;
-        this.x = startX + Math.cos(spawnAngle) * (baseRadius + 2);
-        this.y = startY + Math.sin(spawnAngle) * (baseRadius + 2);
+        this.x = sourcePlanet.x + Math.cos(spawnAngle) * (baseRadius + 2);
+        this.y = sourcePlanet.y + Math.sin(spawnAngle) * (baseRadius + 2);
 
         this.vx = 0;
         this.vy = 0;
@@ -114,8 +109,6 @@ class Ship {
     }
 
     rotateTowards(targetHeading, dt) {
-        if (isNaN(targetHeading)) return false;
-
         let diff = targetHeading - this.heading;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
 
@@ -131,86 +124,70 @@ class Ship {
 
     // ================= COMBAT =================
 
+    // Counts this ship once as a combat participant
+    markEngaged(gameManager) {
+        if (this.hasEngagedCombat) return;
+        this.hasEngagedCombat = true;
+        gameManager.log('COMBAT_PARTICIPANT', this.owner);
+    }
+
     takeDamage(amount, gameManager, attackerOwner = null) {
         if (this.dead) return;
 
         this.hp -= amount;
 
-        if (gameManager && gameManager.telemetry) {
-            gameManager.telemetry.logEvent(gameManager.gameTime, 'DAMAGE_RECEIVED', this.owner, { amount });
-            if (attackerOwner) {
-                gameManager.telemetry.logEvent(gameManager.gameTime, 'DAMAGE_DEALT', attackerOwner, { amount });
-            }
-            if (!this.hasEngagedCombat) {
-                this.hasEngagedCombat = true;
-                gameManager.telemetry.logEvent(gameManager.gameTime, 'COMBAT_PARTICIPANT', this.owner);
-            }
-        }
+        gameManager.log('DAMAGE_RECEIVED', this.owner, { amount });
+        if (attackerOwner) gameManager.log('DAMAGE_DEALT', attackerOwner, { amount });
+        this.markEngaged(gameManager);
 
         if (this.hp <= 0) {
             this.dead = true;
-            if (gameManager) gameManager.spawnExplosion(this.x, this.y);
-
-            if (gameManager && gameManager.telemetry) {
-                gameManager.telemetry.logEvent(gameManager.gameTime, 'SHIP_DESTROYED', this.owner);
-                if (attackerOwner && attackerOwner !== this.owner) {
-                    gameManager.telemetry.logEvent(gameManager.gameTime, 'SHIP_KILLED', attackerOwner);
-                }
+            gameManager.spawnExplosion(this.x, this.y);
+            gameManager.log('SHIP_DESTROYED', this.owner);
+            if (attackerOwner && attackerOwner !== this.owner) {
+                gameManager.log('SHIP_KILLED', attackerOwner);
             }
         }
     }
 
-    findNearestEnemy(gameManager, maxRange = null) {
-        if (isNaN(this.x) || isNaN(this.y)) return null;
-
-        const effectiveRange = maxRange || this.laserRange;
+    findNearestEnemy(gameManager) {
         let nearestEnemy = null;
-        let minDist = effectiveRange;
-        const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
+        let minDist = this.laserRange;
+        const planets = gameManager.planets;
+        const ships = gameManager.ships;
 
-        if (gameManager && Array.isArray(gameManager.ships)) {
-            for (let i = 0; i < gameManager.ships.length; i++) {
-                const other = gameManager.ships[i];
-                if (other && other !== this && !other.dead && other.owner !== this.owner) {
-                    const edx = other.x - this.x;
-                    const edy = other.y - this.y;
-                    const edist = Math.sqrt(edx * edx + edy * edy);
-                    if (edist < minDist) {
-                        if (hasLineOfSight(this, other, planets)) {
-                            minDist = edist;
-                            nearestEnemy = other;
-                        }
-                    }
-                }
+        for (let i = 0; i < ships.length; i++) {
+            const other = ships[i];
+            if (other === this || other.dead || other.owner === this.owner) continue;
+
+            const edx = other.x - this.x;
+            const edy = other.y - this.y;
+            const edist = Math.sqrt(edx * edx + edy * edy);
+            if (edist < minDist && hasLineOfSight(this, other, planets)) {
+                minDist = edist;
+                nearestEnemy = other;
             }
         }
         return nearestEnemy;
     }
 
+    // The target always comes from findNearestEnemy, which already checked range and line of sight
     fireLaser(target, gameManager) {
-        if (this.shootCooldown <= 0 && target && !target.dead) {
-            const planets = (gameManager && Array.isArray(gameManager.planets)) ? gameManager.planets : null;
-            if (!hasLineOfSight(this, target, planets)) return;
+        if (this.shootCooldown > 0 || target.dead) return;
 
-            if (gameManager && gameManager.telemetry && !this.hasEngagedCombat) {
-                this.hasEngagedCombat = true;
-                gameManager.telemetry.logEvent(gameManager.gameTime, 'COMBAT_PARTICIPANT', this.owner);
-            }
+        this.markEngaged(gameManager);
 
-            target.takeDamage(this.laserDamage, gameManager, this.owner);
-            if (gameManager) gameManager.playSound('laser', { x: this.x });
-            this.laserTarget = { x: target.x, y: target.y };
-            this.laserTimer = 0.08;
-            this.shootCooldown = this.laserCooldownMax + Math.random() * 0.2;
-        }
+        target.takeDamage(this.laserDamage, gameManager, this.owner);
+        gameManager.playSound('laser', { x: this.x });
+        this.laserTarget = { x: target.x, y: target.y };
+        this.laserTimer = 0.08;
+        this.shootCooldown = this.laserCooldownMax + Math.random() * 0.2;
     }
 
     // ================= UPDATE =================
 
-    update(dtUncapped, gameManager) {
+    update(dt, gameManager) {
         if (this.dead) return;
-
-        const dt = Math.min(dtUncapped || 0.016, 0.1);
 
         if (this.laserTimer > 0) this.laserTimer -= dt;
         if (this.shootCooldown > 0) this.shootCooldown -= dt;
@@ -225,8 +202,7 @@ class Ship {
 
     // 1. Lifting off the surface into a parking orbit
     updateSurfaceLaunch(dt) {
-        const planet = this.orbitPlanet || this.targetPlanet;
-        if (!planet) return;
+        const planet = this.orbitPlanet;
 
         this.launchProgress += dt / this.launchDuration;
         const p = Math.min(1.0, this.launchProgress);
@@ -263,7 +239,6 @@ class Ship {
     // 2. Circling a planet, fighting, and deciding when to land
     updateOrbit(dt, gameManager) {
         const planet = this.targetPlanet;
-        if (!planet) return;
 
         const safeR = Math.max(1, this.targetOrbitRadius);
         const vCirc = Math.sqrt(this.gravConst / safeR);
@@ -278,7 +253,7 @@ class Ship {
         this.vy = Math.cos(this.orbitAngle) * vCirc * this.orbitDir;
         this.thrustRatio = 0;
 
-        const enemy = this.findNearestEnemy(gameManager, this.laserRange);
+        const enemy = this.findNearestEnemy(gameManager);
         if (enemy) {
             const aimHeading = Math.atan2(enemy.y - this.y, enemy.x - this.x);
             this.rotateTowards(aimHeading, dt);
@@ -307,7 +282,6 @@ class Ship {
     // 3. Descending to the surface; the ship is consumed on touchdown
     updateLanding(dt, gameManager) {
         const planet = this.targetPlanet;
-        if (!planet) return;
 
         this.landingProgress += dt / this.landingDuration;
         const p = Math.min(1.0, this.landingProgress);
@@ -343,10 +317,7 @@ class Ship {
 
         if (p >= 1.0) {
             this.dead = true;
-            if (gameManager && gameManager.telemetry && !this.hasEngagedCombat) {
-                this.hasEngagedCombat = true;
-                gameManager.telemetry.logEvent(gameManager.gameTime, 'COMBAT_PARTICIPANT', this.owner);
-            }
+            this.markEngaged(gameManager);
             planet.onShipTouchdown(this, gameManager);
         }
     }
@@ -355,9 +326,8 @@ class Ship {
     //    (planets only pull inside their sphere of influence)
     updateTransit(dt, gameManager) {
         const target = this.targetPlanet;
-        if (!target) return;
 
-        const transitEnemy = this.findNearestEnemy(gameManager, this.laserRange);
+        const transitEnemy = this.findNearestEnemy(gameManager);
         if (transitEnemy) this.fireLaser(transitEnemy, gameManager);
 
         const R = TRANSIT_SOI_RADIUS;

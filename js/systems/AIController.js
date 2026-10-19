@@ -11,7 +11,7 @@ class AIController {
     // Sends a fleet and records the dispatch size for telemetry
     dispatch(source, target, ratio) {
         this.gameManager.dispatchFleet(source, target, ratio);
-        this.gameManager.telemetry?.logEvent(this.gameManager.gameTime, 'DISPATCH', this.teamOwner, { ratio });
+        this.gameManager.log('DISPATCH', this.teamOwner, { ratio });
     }
 
     getGlobalSpawnRate(ownerId) {
@@ -103,8 +103,8 @@ class AIController {
         const ownedPlanets = this.gameManager.planets.filter(p => p.owner === this.teamOwner);
         const allEnemyTargets = this.gameManager.planets.filter(p => p.owner !== this.teamOwner);
 
-        if (ownedPlanets.length > 1 && this.gameManager.telemetry) {
-            this.gameManager.telemetry.logEvent(this.gameManager.gameTime, 'EXPANSION', this.teamOwner, { planetCount: ownedPlanets.length });
+        if (ownedPlanets.length > 1) {
+            this.gameManager.log('EXPANSION', this.teamOwner, { planetCount: ownedPlanets.length });
         }
 
         if (allEnemyTargets.length === 0) {

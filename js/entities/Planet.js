@@ -126,15 +126,11 @@ class Planet {
         this.upgradeProgress = 0;
         this.claimOwner = 0;
 
-        if (gameManager) {
-            if (gameManager.telemetry) {
-                gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_CAPTURE', newOwner);
-            }
-            gameManager.playSound('planet_capture');
-        }
+        gameManager.log('PLANET_CAPTURE', newOwner);
+        gameManager.playSound('planet_capture');
     }
 
-    upgrade(gameManager = null) {
+    upgrade(gameManager) {
         if (this.level >= this.maxTier) return;
 
         this.level++;
@@ -142,10 +138,8 @@ class Planet {
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
 
-        if (gameManager && gameManager.telemetry) {
-            gameManager.telemetry.logEvent(gameManager.gameTime, 'PLANET_UPGRADE', this.owner);
-        }
-        if (gameManager) gameManager.playSound('planet_upgrade');
+        gameManager.log('PLANET_UPGRADE', this.owner);
+        gameManager.playSound('planet_upgrade');
     }
 
     // ================= UPDATE =================
@@ -153,7 +147,7 @@ class Planet {
     update(dtUncapped, gameManager) {
         const dt = Math.min(dtUncapped || 0.016, 0.1);
 
-        if ((this.owner === 0 || this.hp < this.maxHp) && gameManager && gameManager.telemetry) {
+        if (this.owner === 0 || this.hp < this.maxHp) {
             gameManager.telemetry.addContestedTime(dt);
         }
 
