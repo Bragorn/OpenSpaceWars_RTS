@@ -1,21 +1,15 @@
 class Renderer {
-    constructor(canvas, ctx) {
-        this.canvas = canvas && typeof canvas.getContext === 'function' ? canvas : document.getElementById('game');
-        this.ctx = ctx || (this.canvas ? this.canvas.getContext('2d') : null);
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
     }
 
     render(gameManager, controls) {
-        if (!this.canvas) this.canvas = document.getElementById('game');
-        if (!this.ctx && this.canvas) this.ctx = this.canvas.getContext('2d');
-        if (!this.ctx || !gameManager) return;
-
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         Viewport.apply(this.ctx);
 
-        if (controls && typeof controls.draw === 'function') {
-            controls.draw(this.ctx);
-        }
+        controls.draw(this.ctx);
 
         this.drawPlanets(gameManager);
         this.drawShips(gameManager.ships, gameManager);
@@ -27,11 +21,9 @@ class Renderer {
     // ================= PLANETS =================
 
     drawPlanets(gameManager) {
-        if (!Array.isArray(gameManager.planets)) return;
         const ctx = this.ctx;
 
         for (const planet of gameManager.planets) {
-            if (!planet) continue;
             ctx.beginPath();
             ctx.arc(planet.x, planet.y, planet.radius, 0, Math.PI * 2);
             ctx.fillStyle = FactionManager.getColor(planet.owner, gameManager);
@@ -41,12 +33,10 @@ class Renderer {
 
     // Labels are drawn in screen space at a fixed size so the text stays crisp at any zoom
     drawPlanetLabels(gameManager) {
-        if (!Array.isArray(gameManager.planets)) return;
         const dpr = Viewport.dpr;
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         for (const planet of gameManager.planets) {
-            if (!planet) continue;
             const p = Viewport.toScreen(planet.x, planet.y);
             this.drawPlanetLabel(planet, gameManager, Math.round(p.x * dpr) / dpr, Math.round(p.y * dpr) / dpr);
         }
@@ -104,14 +94,14 @@ class Renderer {
     }
 
     drawShips(ships, gameManager) {
-        if (!Array.isArray(ships) || ships.length === 0) return;
+        if (ships.length === 0) return;
         const ctx = this.ctx;
 
         // Group live ships by faction color
         const byColor = new Map();
         for (let i = 0; i < ships.length; i++) {
             const s = ships[i];
-            if (!s || s.dead || isNaN(s.x) || isNaN(s.y)) continue;
+            if (s.dead) continue;
             let list = byColor.get(s.color);
             if (!list) { list = []; byColor.set(s.color, list); }
             list.push(s);
@@ -138,7 +128,7 @@ class Renderer {
 
         // Queued-to-depart outline: steady thin white outline around the hull while waiting for the window.
         // Shown for your own ships (both teams in spectator mode).
-        const showAll = !gameManager || gameManager.gameMode === 'CPU_VS_CPU';
+        const showAll = gameManager.gameMode === 'CPU_VS_CPU';
         let anyQueued = false;
         ctx.beginPath();
         for (const list of byColor.values()) {
@@ -162,8 +152,7 @@ class Renderer {
             ctx.fillStyle = color;
             ctx.beginPath();
             for (let i = 0; i < list.length; i++) {
-                const s = list[i];
-                this.addHullPath(s);
+                this.addHullPath(list[i]);
             }
             ctx.fill();
         }
@@ -193,7 +182,7 @@ class Renderer {
 
     drawExplosions(gameManager) {
         const list = gameManager.explosions;
-        if (!list || list.length === 0) return;
+        if (list.length === 0) return;
         const ctx = this.ctx;
         const dur = window.GAME_CONFIG.EXPLOSION_SECONDS;
         const F = EXPLOSION_FRAMES;

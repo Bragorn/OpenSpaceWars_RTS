@@ -36,54 +36,49 @@ class HUD {
     bindButtons() {
         const gm = this.gm;
         const el = this.el;
-        if (el.playPause) el.playPause.onclick = () => gm.setSpeed(gm.gameSpeed === 0 ? 1 : 0);
-        if (el.speed1) el.speed1.onclick = () => gm.setSpeed(1);
-        if (el.speed2) el.speed2.onclick = () => gm.setSpeed(2);
-        if (el.speed3) el.speed3.onclick = () => gm.setSpeed(3);
+        el.playPause.onclick = () => gm.setSpeed(gm.gameSpeed === 0 ? 1 : 0);
+        el.speed1.onclick = () => gm.setSpeed(1);
+        el.speed2.onclick = () => gm.setSpeed(2);
+        el.speed3.onclick = () => gm.setSpeed(3);
     }
 
     // Only touch the page when the text actually changed
     setText(el, text) {
-        if (el && el.textContent !== text) el.textContent = text;
+        if (el.textContent !== text) el.textContent = text;
     }
 
     show() {
         this.lastSpeed = null; // force the speed buttons to refresh
         this.deadShown = { 1: 0, 2: 0 };
         this.lastTick = null;
-        this.el.bar?.classList.remove('hidden');
+        this.el.bar.classList.remove('hidden');
     }
 
     hide() {
-        this.el.bar?.classList.add('hidden');
+        this.el.bar.classList.add('hidden');
     }
 
     toggleDevPanel() {
-        this.el.devPanel?.classList.toggle('hidden');
+        this.el.devPanel.classList.toggle('hidden');
     }
 
     // Team names and colors for the top bar (f1, f2 are entries from FACTION_DATA)
     setFactions(f1, f2) {
         const el = this.el;
-        if (el.cardT1) el.cardT1.style.borderLeftColor = f1.color;
-        if (el.cardT2) el.cardT2.style.borderRightColor = f2.color;
-        if (el.labelT1) {
-            el.labelT1.textContent = f1.name.toUpperCase();
-            el.labelT1.style.color = f1.color;
-        }
-        if (el.labelT2) {
-            el.labelT2.textContent = f2.name.toUpperCase();
-            el.labelT2.style.color = f2.color;
-        }
-        if (el.valT1) el.valT1.style.color = f1.color;
-        if (el.valT2) el.valT2.style.color = f2.color;
+        el.cardT1.style.borderLeftColor = f1.color;
+        el.cardT2.style.borderRightColor = f2.color;
+        el.labelT1.textContent = f1.name.toUpperCase();
+        el.labelT1.style.color = f1.color;
+        el.labelT2.textContent = f2.name.toUpperCase();
+        el.labelT2.style.color = f2.color;
+        el.valT1.style.color = f1.color;
+        el.valT2.style.color = f2.color;
     }
 
     // Called every frame while a match is running
     update() {
         const gm = this.gm;
         const el = this.el;
-        if (!gm || !gm.frameStats) return;
 
         // Timer (real time, not scaled by game speed)
         const totalSecs = Math.floor(gm.gameTime);
@@ -95,13 +90,11 @@ class HUD {
         if (gm.gameSpeed !== this.lastSpeed) {
             this.lastSpeed = gm.gameSpeed;
             const paused = (gm.gameSpeed === 0);
-            if (el.playPause) {
-                el.playPause.textContent = paused ? 'Play' : 'Pause';
-                el.playPause.classList.toggle('active', paused);
-            }
-            el.speed1?.classList.toggle('active', !paused && gm.gameSpeed === 1);
-            el.speed2?.classList.toggle('active', !paused && gm.gameSpeed === 2);
-            el.speed3?.classList.toggle('active', !paused && gm.gameSpeed === 3);
+            el.playPause.textContent = paused ? 'Play' : 'Pause';
+            el.playPause.classList.toggle('active', paused);
+            el.speed1.classList.toggle('active', !paused && gm.gameSpeed === 1);
+            el.speed2.classList.toggle('active', !paused && gm.gameSpeed === 2);
+            el.speed3.classList.toggle('active', !paused && gm.gameSpeed === 3);
         }
 
         // Ship counts and spawns per minute
@@ -109,8 +102,8 @@ class HUD {
         this.setText(el.valT2, String(gm.frameStats.teamShips[2] || 0));
 
         const durationMins = Math.max(0.05, gm.gameTime / 60);
-        const t1Spawned = gm.telemetry ? gm.telemetry.summary.team1.shipsSpawned : 0;
-        const t2Spawned = gm.telemetry ? gm.telemetry.summary.team2.shipsSpawned : 0;
+        const t1Spawned = gm.telemetry.summary.team1.shipsSpawned;
+        const t2Spawned = gm.telemetry.summary.team2.shipsSpawned;
         this.setText(el.spmT1, (t1Spawned / durationMins).toFixed(1));
         this.setText(el.spmT2, (t2Spawned / durationMins).toFixed(1));
 
@@ -127,10 +120,10 @@ class HUD {
 
         const ROLL_RATE = 6;      // higher = snappier catch-up
         const MIN_SPEED = 400;    // people per second, so it always finishes
-        const perShip = window.GAME_CONFIG.DEATH_TOLL_PER_SHIP || 1000;
+        const perShip = window.GAME_CONFIG.DEATH_TOLL_PER_SHIP;
 
         for (const team of [1, 2]) {
-            const lost = this.gm.telemetry ? this.gm.telemetry.summary['team' + team].shipsLost : 0;
+            const lost = this.gm.telemetry.summary['team' + team].shipsLost;
             const target = lost * perShip;
             let cur = this.deadShown[team];
             if (cur < target) {
@@ -145,11 +138,9 @@ class HUD {
 
     updateDevPanel() {
         const gm = this.gm;
-        const panel = this.el.devPanel;
-        if (!panel || panel.classList.contains('hidden') || !gm.telemetry) return;
+        if (this.el.devPanel.classList.contains('hidden')) return;
 
         const fill = (el, teamId, ai) => {
-            if (!el) return;
             const t = gm.telemetry.summary['team' + teamId];
             const planets = gm.planets.filter(p => p.owner === teamId).length;
             el.innerHTML =

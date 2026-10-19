@@ -347,9 +347,7 @@ class Ship {
                 this.hasEngagedCombat = true;
                 gameManager.telemetry.logEvent(gameManager.gameTime, 'COMBAT_PARTICIPANT', this.owner);
             }
-            if (typeof planet.onShipTouchdown === 'function') {
-                planet.onShipTouchdown(this, gameManager);
-            }
+            planet.onShipTouchdown(this, gameManager);
         }
     }
 

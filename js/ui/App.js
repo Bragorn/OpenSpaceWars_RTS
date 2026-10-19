@@ -1,7 +1,7 @@
 class App {
     constructor() {
         this.canvas = document.getElementById('game');
-        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.ctx = this.canvas.getContext('2d');
 
         this.state = 'MENU';
         this.selectedSlotNum = 1;
@@ -30,11 +30,13 @@ class App {
     }
 
     bindEvents() {
-        document.getElementById('btn-title-enter')?.addEventListener('click', () => this.showMatchSetup());
-        document.getElementById('btn-setup-back')?.addEventListener('click', () => this.showTitleScreen());
-        document.getElementById('btn-setup-launch')?.addEventListener('click', () => this.launchSelectedMap());
-        document.getElementById('btn-new-match')?.addEventListener('click', () => {
-            document.getElementById('game-over-modal')?.classList.add('hidden');
+        const $ = (id) => document.getElementById(id);
+
+        $('btn-title-enter').addEventListener('click', () => this.showMatchSetup());
+        $('btn-setup-back').addEventListener('click', () => this.showTitleScreen());
+        $('btn-setup-launch').addEventListener('click', () => this.launchSelectedMap());
+        $('btn-new-match').addEventListener('click', () => {
+            $('game-over-modal').classList.add('hidden');
             this.showMatchSetup();
         });
 
@@ -62,53 +64,50 @@ class App {
         });
 
         // Arcade Faction Selector Arrows
-        document.getElementById('p1-prev')?.addEventListener('click', () => this.cycleFaction(1, -1));
-        document.getElementById('p1-next')?.addEventListener('click', () => this.cycleFaction(1, 1));
-        document.getElementById('p2-prev')?.addEventListener('click', () => this.cycleFaction(2, -1));
-        document.getElementById('p2-next')?.addEventListener('click', () => this.cycleFaction(2, 1));
+        $('p1-prev').addEventListener('click', () => this.cycleFaction(1, -1));
+        $('p1-next').addEventListener('click', () => this.cycleFaction(1, 1));
+        $('p2-prev').addEventListener('click', () => this.cycleFaction(2, -1));
+        $('p2-next').addEventListener('click', () => this.cycleFaction(2, 1));
 
         // Arcade Mode Toggle Button
-        document.getElementById('btn-toggle-gamemode')?.addEventListener('click', () => {
+        $('btn-toggle-gamemode').addEventListener('click', () => {
             this.gameMode = (this.gameMode === 'PLAYER_VS_CPU') ? 'CPU_VS_CPU' : 'PLAYER_VS_CPU';
-            const btn = document.getElementById('btn-toggle-gamemode');
-            const p1Label = document.getElementById('p1-header-label');
-            const p2Label = document.getElementById('p2-header-label');
 
             if (this.gameMode === 'CPU_VS_CPU') {
-                if (btn) btn.textContent = 'SPECTATOR (CPU VS CPU)';
-                if (p1Label) p1Label.textContent = 'CPU 1 (TEAM 1)';
-                if (p2Label) p2Label.textContent = 'CPU 2 (TEAM 2)';
+                $('btn-toggle-gamemode').textContent = 'SPECTATOR (CPU VS CPU)';
+                $('p1-header-label').textContent = 'CPU 1 (TEAM 1)';
+                $('p2-header-label').textContent = 'CPU 2 (TEAM 2)';
             } else {
-                if (btn) btn.textContent = 'PLAYER VS CPU';
-                if (p1Label) p1Label.textContent = 'PLAYER 1';
-                if (p2Label) p2Label.textContent = 'CPU ENEMY';
+                $('btn-toggle-gamemode').textContent = 'PLAYER VS CPU';
+                $('p1-header-label').textContent = 'PLAYER 1';
+                $('p2-header-label').textContent = 'CPU ENEMY';
             }
         });
 
         // In-Game ESC Exit Menu Bindings
-        document.getElementById('btn-esc-menu')?.addEventListener('click', () => this.openExitModal());
-        document.getElementById('btn-exit-yes')?.addEventListener('click', () => {
+        $('btn-esc-menu').addEventListener('click', () => this.openExitModal());
+        $('btn-exit-yes').addEventListener('click', () => {
             this.closeExitModal();
             this.showMatchSetup();
         });
-        document.getElementById('btn-exit-no')?.addEventListener('click', () => {
+        $('btn-exit-no').addEventListener('click', () => {
             this.closeExitModal();
-            if (window.gameManager) window.gameManager.setSpeed(this.speedBeforeExit ?? 1); // Resume previous speed
+            window.gameManager.setSpeed(this.speedBeforeExit);
         });
     }
 
     cycleFaction(teamNum, direction) {
-        if (this.factionsList.length === 0) return;
+        const n = this.factionsList.length;
 
         if (teamNum === 1) {
-            this.p1FactionIndex = (this.p1FactionIndex + direction + this.factionsList.length) % this.factionsList.length;
+            this.p1FactionIndex = (this.p1FactionIndex + direction + n) % n;
             if (this.p1FactionIndex === this.p2FactionIndex) {
-                this.p1FactionIndex = (this.p1FactionIndex + direction + this.factionsList.length) % this.factionsList.length;
+                this.p1FactionIndex = (this.p1FactionIndex + direction + n) % n;
             }
         } else {
-            this.p2FactionIndex = (this.p2FactionIndex + direction + this.factionsList.length) % this.factionsList.length;
+            this.p2FactionIndex = (this.p2FactionIndex + direction + n) % n;
             if (this.p2FactionIndex === this.p1FactionIndex) {
-                this.p2FactionIndex = (this.p2FactionIndex + direction + this.factionsList.length) % this.factionsList.length;
+                this.p2FactionIndex = (this.p2FactionIndex + direction + n) % n;
             }
         }
 
@@ -120,11 +119,8 @@ class App {
         const f1 = FACTION_DATA[this.factionsList[this.p1FactionIndex]];
         const f2 = FACTION_DATA[this.factionsList[this.p2FactionIndex]];
 
-        const p1Display = document.getElementById('p1-faction-display');
-        const p2Display = document.getElementById('p2-faction-display');
-
-        if (p1Display) p1Display.textContent = f1.name.toUpperCase();
-        if (p2Display) p2Display.textContent = f2.name.toUpperCase();
+        document.getElementById('p1-faction-display').textContent = f1.name.toUpperCase();
+        document.getElementById('p2-faction-display').textContent = f2.name.toUpperCase();
     }
 
     updateMenuFactionTheme() {
@@ -132,31 +128,24 @@ class App {
         const f2 = FACTION_DATA[this.factionsList[this.p2FactionIndex]];
 
         const teamHome = document.querySelector('.team-home');
-        if (teamHome) {
-            teamHome.style.borderLeftColor = f1.color;
-            const header = teamHome.querySelector('.team-header');
-            if (header) header.style.color = f1.color;
-        }
+        teamHome.style.borderLeftColor = f1.color;
+        teamHome.querySelector('.team-header').style.color = f1.color;
 
         const teamAway = document.querySelector('.team-away');
-        if (teamAway) {
-            teamAway.style.borderRightColor = f2.color;
-            const header = teamAway.querySelector('.team-header');
-            if (header) header.style.color = f2.color;
-        }
+        teamAway.style.borderRightColor = f2.color;
+        teamAway.querySelector('.team-header').style.color = f2.color;
     }
 
     openExitModal() {
         const modal = document.getElementById('exit-confirm-modal');
-        if (!modal || !modal.classList.contains('hidden')) return; // already open
+        if (!modal.classList.contains('hidden')) return; // already open
 
-        if (window.gameManager) {
-            this.speedBeforeExit = window.gameManager.gameSpeed;
-            window.gameManager.setSpeed(0); // Auto-pause
-        }
+        this.speedBeforeExit = window.gameManager.gameSpeed;
+        window.gameManager.setSpeed(0); // Auto-pause
+
         document.getElementById('hud-top-center').inert = true; // lock the HUD
         modal.classList.remove('hidden');
-        document.getElementById('btn-exit-no')?.focus();        // safe default for Enter/Space
+        document.getElementById('btn-exit-no').focus();         // safe default for Enter/Space
     }
 
     // Game-over popup (the sim calls this through gameManager.onGameOver)
@@ -165,7 +154,6 @@ class App {
         const modal = document.getElementById('game-over-modal');
         const title = document.getElementById('game-over-title');
         const msg = document.getElementById('game-over-msg');
-        if (!modal || !title || !msg) return;
 
         const winner = FACTION_DATA[gm.factionMap[winningTeam]];
         const totalSecs = Math.floor(gm.gameTime);
@@ -188,47 +176,39 @@ class App {
     }
 
     closeExitModal() {
-        document.getElementById('exit-confirm-modal')?.classList.add('hidden');
+        document.getElementById('exit-confirm-modal').classList.add('hidden');
         document.getElementById('hud-top-center').inert = false; // unlock the HUD
     }
 
     clearScreen() {
-        if (this.ctx && this.canvas) {
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        }
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     // Title screen: the opening "OPEN SPACE WARS / ENTER" screen
     showTitleScreen() {
         this.state = 'MENU';
-        if (window.gameManager) window.gameManager.stop();
+        window.gameManager.stop();
         this.clearScreen();
 
         this.hud.hide();
         Viewport.update(this.canvas);
-        document.getElementById('exit-confirm-modal')?.classList.add('hidden');
+        document.getElementById('exit-confirm-modal').classList.add('hidden');
 
-        const menuTitle = document.getElementById('menu-title');
-        const menuSetup = document.getElementById('menu-match-setup');
-
-        if (menuTitle) menuTitle.style.display = 'block';
-        if (menuSetup) menuSetup.style.display = 'none';
+        document.getElementById('menu-title').style.display = 'block';
+        document.getElementById('menu-match-setup').style.display = 'none';
     }
 
     // Match setup screen: pick factions, arena and mode
     showMatchSetup() {
         this.state = 'MATCH_SETUP';
-        if (window.gameManager) window.gameManager.stop();
+        window.gameManager.stop();
         this.clearScreen();
 
         this.hud.hide();
         Viewport.update(this.canvas);
 
-        const menuTitle = document.getElementById('menu-title');
-        const menuSetup = document.getElementById('menu-match-setup');
-
-        if (menuTitle) menuTitle.style.display = 'none';
-        if (menuSetup) menuSetup.style.display = 'flex';
+        document.getElementById('menu-title').style.display = 'none';
+        document.getElementById('menu-match-setup').style.display = 'flex';
 
         this.updateArcadeFactionDisplays();
         this.updateMenuFactionTheme();
@@ -237,7 +217,6 @@ class App {
 
     renderMapSlots() {
         const container = document.getElementById('slot-buttons');
-        if (!container) return;
 
         // Build the buttons once. Later calls only move the highlight.
         // (Rebuilding them under the mouse made the hover sound fire on every click.)
@@ -270,28 +249,21 @@ class App {
 
         this.state = 'GAME';
         this.clearScreen();
-        document.getElementById('game-over-modal')?.classList.add('hidden');
+        document.getElementById('game-over-modal').classList.add('hidden');
+        document.getElementById('menu-match-setup').style.display = 'none';
 
-        const menuSetup = document.getElementById('menu-match-setup');
-        if (menuSetup) menuSetup.style.display = 'none';
-
-        const f1 = FACTION_DATA[playerFaction];
-        const f2 = FACTION_DATA[enemyFaction];
-
-        this.hud.setFactions(f1, f2);
+        this.hud.setFactions(FACTION_DATA[playerFaction], FACTION_DATA[enemyFaction]);
         this.hud.show();
         Viewport.update(this.canvas);
 
-        if (window.gameManager) {
-            window.gameManager.start(scaledMap, playerFaction, enemyFaction, this.gameMode);
-        }
+        window.gameManager.start(scaledMap, playerFaction, enemyFaction, this.gameMode);
     }
 
     loop(timestamp) {
         const deltaTime = (timestamp - this.lastTime) / 1000 || 0;
         this.lastTime = timestamp;
 
-        if (this.state === 'GAME' && window.gameManager) {
+        if (this.state === 'GAME') {
             window.gameManager.update(deltaTime);
             this.hud.update();
         }

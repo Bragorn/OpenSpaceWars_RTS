@@ -23,7 +23,7 @@ class Controls {
         const rect = this.canvas.getBoundingClientRect();
         const clientX = e.clientX;
         const clientY = e.clientY;
-        
+
         return Viewport.toWorld(clientX - rect.left, clientY - rect.top);
     }
 
@@ -59,9 +59,7 @@ class Controls {
             if (this.enabled && this.isDragging && this.dragStartPlanet) {
                 const targetPlanet = this.getPlanetAtPos(this.currentMousePos);
                 if (targetPlanet && targetPlanet !== this.dragStartPlanet) {
-                    if (typeof this.gameManager.dispatchFleet === 'function') {
-                        this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, window.GAME_CONFIG.PLAYER_FLEET_RATIO);
-                    }
+                    this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, window.GAME_CONFIG.PLAYER_FLEET_RATIO);
                 }
             }
             this.reset();
@@ -71,7 +69,7 @@ class Controls {
             if (!this.enabled) return;
             const pos = this.getCanvasPos(e);
             const planet = this.getPlanetAtPos(pos);
-            if (planet && planet.owner === this.playerOwner && typeof planet.startUpgrade === 'function') {
+            if (planet && planet.owner === this.playerOwner) {
                 planet.startUpgrade(this.gameManager.ships);
             }
         });

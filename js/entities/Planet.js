@@ -171,9 +171,7 @@ class Planet {
 
         if (this.spawnTimer >= interval) {
             this.spawnTimer = 0;
-            if (gameManager && typeof gameManager.spawnShip === 'function') {
-                gameManager.spawnShip(this, this);
-            }
+            if (gameManager) gameManager.spawnShip(this, this);
         }
     }
 
