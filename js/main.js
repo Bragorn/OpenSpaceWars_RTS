@@ -8,8 +8,6 @@ function setupCanvas() {
 setupCanvas();
 window.addEventListener('resize', setupCanvas);
 
-// Global instance setup (GameManager creates its own Renderer and Controls)
-const gameManager = new GameManager();
-window.gameManager = gameManager;
+window.gameManager = new GameManager();
 
 AudioManager.init();

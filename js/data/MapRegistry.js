@@ -83,8 +83,7 @@ class MapRegistry {
     }
 
     getMap(slotNum) {
-        const index = Math.max(0, parseInt(slotNum, 10) - 1);
-        return this.maps[index] || this.maps[0];
+        return this.maps[slotNum - 1];
     }
 
     getScaledMap(slotNum, width, height) {
@@ -93,15 +92,15 @@ class MapRegistry {
         const marginX = 40;
         const marginY = 40;
         
-        const usableWidth = Math.max(200, width - marginX * 2);
-        const usableHeight = Math.max(200, height - marginY * 2);
+        const usableWidth = width - marginX * 2;
+        const usableHeight = height - marginY * 2;
 
         return {
             ...rawMap,
             planets: rawMap.planets.map(p => ({
                 x: Math.round(marginX + (p.nx * usableWidth)),
                 y: Math.round(marginY + (p.ny * usableHeight)),
-                level: p.level || 1,
+                level: p.level,
                 owner: p.owner
             }))
         };

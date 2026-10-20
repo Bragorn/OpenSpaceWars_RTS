@@ -8,7 +8,7 @@ const AudioManager = {
     ready: false,
 
     init() {
-        if (this.ready || typeof SOUND_DATA === 'undefined') return;
+        if (this.ready) return;
         for (const id of Object.keys(SOUND_DATA)) {
             if (!SOUND_DATA[id].file) continue;
             const a = new Audio(SOUND_DATA[id].file);
@@ -58,5 +58,3 @@ const AudioManager = {
         this.volumes[bus] = Math.max(0, Math.min(1, value));
     }
 };
-
-window.AudioManager = AudioManager;

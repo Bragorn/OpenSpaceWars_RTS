@@ -31,8 +31,8 @@ class GameManager {
     setFactionMap(team1FactionKey, team2FactionKey) {
         this.factionMap = {
             0: 'NEUTRAL',
-            1: team1FactionKey || 'REMNANTS',
-            2: team2FactionKey || 'PROTOCOL'
+            1: team1FactionKey,
+            2: team2FactionKey
         };
     }
 
@@ -93,8 +93,7 @@ class GameManager {
     }
 
     spawnShip(sourcePlanet, targetPlanet) {
-        if (!sourcePlanet) return null;
-        const ship = new Ship(sourcePlanet, targetPlanet || sourcePlanet, this);
+        const ship = new Ship(sourcePlanet, targetPlanet, this);
         this.ships.push(ship);
 
         if (sourcePlanet.owner) this.log('SHIP_SPAWN', sourcePlanet.owner);
@@ -110,7 +109,7 @@ class GameManager {
         if (!sourcePlanet || !targetPlanet || sourcePlanet === targetPlanet) return;
 
         const availableShips = this.ships.filter(s =>
-            s && !s.dead &&
+            !s.dead &&
             s.owner === sourcePlanet.owner &&
             (s.targetPlanet === sourcePlanet || s.orbitPlanet === sourcePlanet) &&
             (s.state === 'orbit' || s.state === 'surface_launch')
@@ -134,7 +133,7 @@ class GameManager {
         const teamShips = {};
         for (let i = 0; i < this.ships.length; i++) {
             const s = this.ships[i];
-            if (!s || s.dead) continue;
+            if (s.dead) continue;
             teamShips[s.owner] = (teamShips[s.owner] || 0) + 1;
             if (s.state === 'orbit' && s.targetPlanet) {
                 orbiting.set(s.targetPlanet, (orbiting.get(s.targetPlanet) || 0) + 1);
@@ -175,7 +174,7 @@ class GameManager {
         for (const e of this.explosions) e.age += dt;
         this.explosions = this.explosions.filter(e => e.age < window.GAME_CONFIG.EXPLOSION_SECONDS);
 
-        this.ships = this.ships.filter(s => s && !s.dead);
+        this.ships = this.ships.filter(s => !s.dead);
         this.refreshFrameStats();
         this.checkWinCondition();
     }

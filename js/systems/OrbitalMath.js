@@ -7,13 +7,12 @@ class OrbitalMath {
     static simulateDeparture(r0, s, mu, R, power, vStop, dt) {
         const vCirc = Math.sqrt(mu / r0);
         let x = r0, y = 0, vx = 0, vy = s * vCirc;
-        let burning = true, burnTicks = 0, rb = r0;
+        let burning = true, rb = r0;
 
         for (let i = 0; i < 6000; i++) {
             const sp = Math.sqrt(vx * vx + vy * vy);
             if (burning && sp >= vStop) {
                 burning = false;
-                burnTicks = i;
                 rb = Math.sqrt(x * x + y * y);
             }
             const r2 = Math.max(x * x + y * y, 1);
@@ -21,8 +20,8 @@ class OrbitalMath {
             if (!burning && r >= R) {
                 return {
                     speed: sp, dirX: vx / sp, dirY: vy / sp,
-                    h: Math.abs(x * vy - y * vx) / sp,   // distance of the exit line from the planet
-                    burnTicks, rb
+                    h: Math.abs(x * vy - y * vx) / sp,
+                    rb
                 };
             }
             let ax = 0, ay = 0;

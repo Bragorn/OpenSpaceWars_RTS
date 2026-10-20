@@ -156,5 +156,3 @@ class HUD {
         fill(this.el.devT2, 2, gm.aiController2);
     }
 }
-
-window.HUD = HUD;

@@ -36,7 +36,6 @@ class Ship {
         const faction = FactionManager.getFaction(this.owner, gameManager);
         this.color = faction.color;
         this.hp = faction.hp;
-        this.maxHp = faction.hp;
         this.laserDamage = faction.laserDamage;
         this.laserCooldownMax = faction.laserCooldown;
         this.laserRange = faction.laserRange;
@@ -114,10 +113,8 @@ class Ship {
         const maxTurn = this.currentTurnRate * dt;
         if (Math.abs(diff) <= maxTurn) {
             this.heading = targetHeading;
-            return true;
         } else {
             this.heading += Math.sign(diff) * maxTurn;
-            return Math.abs(diff) < 0.35;
         }
     }
 
@@ -166,7 +163,7 @@ class Ship {
         if (this.shootCooldown > 0 || target.dead) return;        
 
         target.takeDamage(this.laserDamage, gameManager, this.owner);
-        gameManager.playSound('laser', { x: this.x });
+        gameManager.playSound('laser');
         this.laserTarget = { x: target.x, y: target.y };
         this.laserTimer = 0.08;
         this.shootCooldown = this.laserCooldownMax + Math.random() * 0.2;
