@@ -126,28 +126,35 @@
     </div>
 
     <!-- SCRIPT INCLUDES -->
+    <!-- data -->
     <script src="js/data/config.js"></script>
     <script src="js/data/Factions.js"></script>
     <script src="js/data/Effects.js"></script>
     <script src="js/data/Sounds.js"></script>
-    <script src="js/core/AudioManager.js"></script>
-    
+    <script src="js/data/MapRegistry.js"></script>
+
+    <!-- entities -->
     <script src="js/entities/Planet.js"></script>
-    <script src="js/systems/OrbitalMath.js"></script>
     <script src="js/entities/Ship.js"></script>
 
-    <script src="js/render/Viewport.js"></script>
+    <!-- systems -->
+    <script src="js/systems/OrbitalMath.js"></script>
     <script src="js/systems/Controls.js"></script>
     <script src="js/systems/AIController.js"></script>
+
+    <!-- render -->
+    <script src="js/render/Viewport.js"></script>
     <script src="js/render/Renderer.js"></script>
 
-    <script src="js/data/MapRegistry.js"></script>
-    <script src="js/core/GameManager.js"></script>
-
+    <!-- core, utils, ui -->
+    <script src="js/core/AudioManager.js"></script>
     <script src="js/utils/TelemetryCollector.js"></script>
+    <script src="js/core/GameManager.js"></script>
     <script src="js/ui/HUD.js"></script>
-    
+
+    <!-- start-up (must be last) -->
     <script src="js/main.js"></script>
     <script src="js/ui/App.js"></script>
+    
 </body>
 </html>
