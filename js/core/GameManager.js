@@ -1,6 +1,5 @@
 class GameManager {
-    constructor(isHeadless = false) {
-        this.isHeadless = isHeadless;
+    constructor() {
         this.planets = [];
         this.ships = [];
         this.explosions = [];
@@ -15,8 +14,8 @@ class GameManager {
             2: 'PROTOCOL'
         };
 
-        this.canvas = !this.isHeadless ? document.getElementById('game') : null;
-        this.renderer = !this.isHeadless ? new Renderer(this.canvas) : null;
+        this.canvas = document.getElementById('game');
+        this.renderer = new Renderer(this.canvas);
         this.controls = null;
         this.aiController1 = null;
         this.aiController2 = null;
@@ -26,7 +25,6 @@ class GameManager {
         this.accumulator = 0;
         this.gameSpeed = window.GAME_CONFIG.DEFAULT_SPEED;
 
-        this.winnerId = null;
         this.onGameOver = null; // the UI sets this to show the game-over popup
     }
 
@@ -62,10 +60,6 @@ class GameManager {
     }
 
     setupControls() {
-        if (this.isHeadless) {
-            this.controls = null;
-            return;
-        }
         if (!this.controls) this.controls = new Controls(this.canvas, this, 1);
         this.controls.reset();
         this.controls.enabled = (this.gameMode !== 'CPU_VS_CPU');
@@ -82,7 +76,6 @@ class GameManager {
         this.frameStats = { orbiting: new Map(), teamShips: {} };
         this.gameTime = 0;
         this.accumulator = 0;
-        this.winnerId = null;
         this.telemetry.reset();
     }
 
@@ -92,12 +85,11 @@ class GameManager {
     }
 
     playSound(id, opts) {
-        if (this.isHeadless) return;
         AudioManager.play(id, opts);
     }
 
     log(type, teamId, details) {
-    this.telemetry.logEvent(this.gameTime, type, teamId, details);
+        this.telemetry.logEvent(type, teamId, details);
     }
 
     spawnShip(sourcePlanet, targetPlanet) {
@@ -111,7 +103,6 @@ class GameManager {
     }
 
     spawnExplosion(x, y) {
-        if (this.isHeadless) return; // the batch sim doesn't need visuals
         this.explosions.push({ x, y, age: 0 });
     }
 
@@ -170,13 +161,11 @@ class GameManager {
             if (steps >= cfg.MAX_STEPS_PER_FRAME) this.accumulator = 0;
         }
 
-        if (this.renderer) this.renderer.render(this, this.controls);
+        this.renderer.render(this, this.controls);
 
     }
 
     step(dt) {
-        this.telemetry.updateTickMetrics(dt, this);
-
         this.planets.forEach(p => p.update(dt, this));
         this.ships.forEach(s => s.update(dt, this));
 
@@ -213,11 +202,6 @@ class GameManager {
     // The sim only records the result. Showing it on screen is the UI's job (onGameOver).
     endGame(winningTeam) {
         this.isRunning = false;
-        this.winnerId = winningTeam;
         if (this.onGameOver) this.onGameOver(winningTeam);
     }
-}
-
-if (typeof window !== 'undefined') {
-    window.GameManager = GameManager;
 }

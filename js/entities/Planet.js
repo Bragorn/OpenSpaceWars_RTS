@@ -140,10 +140,6 @@ class Planet {
     // ================= UPDATE =================
 
     update(dt, gameManager) {
-        if (this.owner === 0 || this.hp < this.maxHp) {
-            gameManager.telemetry.addContestedTime(dt);
-        }
-
         if (this.owner !== 0) {
             this.updateSpawning(dt, gameManager);
             this.updateRegen(dt);

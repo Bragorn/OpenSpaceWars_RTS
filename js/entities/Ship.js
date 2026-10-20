@@ -80,7 +80,6 @@ class Ship {
 
         this.dead = false;
         this.thrustRatio = 0;
-        this.hasEngagedCombat = false;
 
         // Transit state (burn-based transfers)
         this.originPlanet = null;
@@ -123,14 +122,6 @@ class Ship {
     }
 
     // ================= COMBAT =================
-
-    // Counts this ship once as a combat participant
-    markEngaged(gameManager) {
-        if (this.hasEngagedCombat) return;
-        this.hasEngagedCombat = true;
-        gameManager.log('COMBAT_PARTICIPANT', this.owner);
-    }
-
     takeDamage(amount, gameManager, attackerOwner = null) {
         if (this.dead) return;
 
@@ -138,7 +129,6 @@ class Ship {
 
         gameManager.log('DAMAGE_RECEIVED', this.owner, { amount });
         if (attackerOwner) gameManager.log('DAMAGE_DEALT', attackerOwner, { amount });
-        this.markEngaged(gameManager);
 
         if (this.hp <= 0) {
             this.dead = true;
@@ -173,9 +163,7 @@ class Ship {
 
     // The target always comes from findNearestEnemy, which already checked range and line of sight
     fireLaser(target, gameManager) {
-        if (this.shootCooldown > 0 || target.dead) return;
-
-        this.markEngaged(gameManager);
+        if (this.shootCooldown > 0 || target.dead) return;        
 
         target.takeDamage(this.laserDamage, gameManager, this.owner);
         gameManager.playSound('laser', { x: this.x });
@@ -317,7 +305,6 @@ class Ship {
 
         if (p >= 1.0) {
             this.dead = true;
-            this.markEngaged(gameManager);
             planet.onShipTouchdown(this, gameManager);
         }
     }

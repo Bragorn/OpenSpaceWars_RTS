@@ -8,12 +8,6 @@ class AIController {
         this.actionTimer = 0;
     }
 
-    // Sends a fleet and records the dispatch size for telemetry
-    dispatch(source, target, ratio) {
-        this.gameManager.dispatchFleet(source, target, ratio);
-        this.gameManager.log('DISPATCH', this.teamOwner, { ratio });
-    }
-
     getGlobalSpawnRate(ownerId) {
         const owned = this.gameManager.planets.filter(p => p.owner === ownerId);
         let totalSpawnsPerSec = 0;
@@ -78,7 +72,7 @@ class AIController {
         if (a.type === 'UPGRADE') {
             a.source.startUpgrade(this.gameManager.ships);
         } else {
-            this.dispatch(a.source, a.target, a.ratio);
+            this.gameManager.dispatchFleet(a.source, a.target, a.ratio);
         }
         this.currentState = a.state;
     }
@@ -96,10 +90,6 @@ class AIController {
 
         const ownedPlanets = this.gameManager.planets.filter(p => p.owner === this.teamOwner);
         const allEnemyTargets = this.gameManager.planets.filter(p => p.owner !== this.teamOwner);
-
-        if (ownedPlanets.length > 1) {
-            this.gameManager.log('EXPANSION', this.teamOwner, { planetCount: ownedPlanets.length });
-        }
 
         if (allEnemyTargets.length === 0) {
             this.currentState = 'SYSTEM_SECURED';
