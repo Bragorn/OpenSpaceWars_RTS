@@ -5,6 +5,7 @@ class Controls {
         this.gameManager = gameManager;
         this.playerOwner = playerOwner;
         this.enabled = true; // false in spectator mode
+        this.sendRatio = window.GAME_CONFIG.SEND_RATIOS[window.GAME_CONFIG.DEFAULT_SEND_INDEX];
 
         this.dragStartPlanet = null;
         this.isDragging = false;
@@ -59,10 +60,17 @@ class Controls {
             if (this.enabled && this.isDragging && this.dragStartPlanet) {
                 const targetPlanet = this.getPlanetAtPos(this.currentMousePos);
                 if (targetPlanet && targetPlanet !== this.dragStartPlanet) {
-                    this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, window.GAME_CONFIG.PLAYER_FLEET_RATIO);
+                    this.gameManager.dispatchFleet(this.dragStartPlanet, targetPlanet, this.sendRatio);
                 }
             }
             this.reset();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (!this.enabled) return;
+            const ratios = window.GAME_CONFIG.SEND_RATIOS;
+            const i = parseInt(e.key, 10) - 1;
+            if (i >= 0 && i < ratios.length) this.sendRatio = ratios[i];
         });
 
         this.canvas.addEventListener('dblclick', (e) => {

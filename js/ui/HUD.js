@@ -23,6 +23,7 @@ class HUD {
             valT2: $('hud-val-t2'),
             spmT1: $('hud-spm-t1'),
             spmT2: $('hud-spm-t2'),
+            send: $('hud-send'),
             deadT1: $('hud-dead-t1'),
             deadT2: $('hud-dead-t2'),
             devPanel: $('dev-panel'),
@@ -106,6 +107,9 @@ class HUD {
         const t2Spawned = gm.telemetry.summary.team2.shipsSpawned;
         this.setText(el.spmT1, (t1Spawned / durationMins).toFixed(1));
         this.setText(el.spmT2, (t2Spawned / durationMins).toFixed(1));
+
+        const c = gm.controls;
+        this.setText(el.send, c.enabled ? Math.round(c.sendRatio * 100) + '%' : '--');
 
         this.rollDeathToll();
 
