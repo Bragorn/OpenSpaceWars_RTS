@@ -254,10 +254,8 @@ class Ship {
         if (this.orbitTimer > 0.5) {
             const isUnclaimed = (planet.owner === 0);
             const isEnemyPlanet = (planet.owner !== 0 && planet.owner !== this.owner);
-            const maxTier = planet.getMaxTier();
-            const isFriendlyUpgradeable = (planet.owner === this.owner && planet.level < maxTier && this.orbitPlanet !== planet);
 
-            if (isUnclaimed || isEnemyPlanet || isFriendlyUpgradeable) {
+            if (isUnclaimed || isEnemyPlanet) {
                 this.state = 'landing';
                 this.landingProgress = 0;
             }
@@ -267,6 +265,11 @@ class Ship {
     // 3. Descending to the surface; the ship is consumed on touchdown
     updateLanding(dt, gameManager) {
         const planet = this.targetPlanet;
+
+        if (this.shootCooldown <= 0) {
+            const enemy = this.findNearestEnemy(gameManager);
+            if (enemy) this.fireLaser(enemy, gameManager);
+        }
 
         this.landingProgress += dt / this.landingDuration;
         const p = Math.min(1.0, this.landingProgress);
@@ -311,8 +314,10 @@ class Ship {
     updateTransit(dt, gameManager) {
         const target = this.targetPlanet;
 
-        const transitEnemy = this.findNearestEnemy(gameManager);
-        if (transitEnemy) this.fireLaser(transitEnemy, gameManager);
+        if (this.shootCooldown <= 0) {
+            const enemy = this.findNearestEnemy(gameManager);
+            if (enemy) this.fireLaser(enemy, gameManager);
+        }
 
         const R = TRANSIT_SOI_RADIUS;
         const mu = this.gravConst;
@@ -456,8 +461,15 @@ class Ship {
             this.orbitDir = (dxPos * this.vy - dyPos * this.vx) >= 0 ? 1 : -1;
             this.targetOrbitRadius = Math.max(rr, target.radius + 14);
             this.orbitAngle = Math.atan2(dyPos, dxPos);
-            this.state = 'orbit';
             this.orbitTimer = 0;
+
+            // Neutral or enemy planet: land straight away (no flip). Friendly: orbit.
+            if (target.owner !== this.owner) {
+                this.state = 'landing';
+                this.landingProgress = 0;
+            } else {
+                this.state = 'orbit';
+            }
         }
     }
 
