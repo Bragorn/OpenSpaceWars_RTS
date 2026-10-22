@@ -11,18 +11,20 @@ class Planet {
     static TOUCHDOWN_POWER = 1.0;   // progress/damage per landed ship
     static MAX_TIER_CAP = 3;
 
-    constructor(x, y, level = 1, owner = 0) {
+    // gameManager is needed so owned planets can read their faction's planetHpMult
+    constructor(x, y, level = 1, owner = 0, gameManager = null) {
         this.x = x;
         this.y = y;
         this.level = level;
         this.owner = owner;
+        this.costMult = (owner !== 0 && gameManager) ? FactionManager.getFaction(owner, gameManager).upgradeCostMult : 1;
         this.tierStats = Planet.DEFAULT_TIER_STATS;
 
         this.maxTier = Math.min(Planet.MAX_TIER_CAP, Math.max(...Object.keys(this.tierStats).map(Number)));
 
         const stats = this.statsFor(level);
         this.radius = stats.radius;
-        this.maxHp = stats.maxHP;
+        this.maxHp = this.tierHp(level, gameManager);
         this.hp = owner !== 0 ? this.maxHp : Planet.NEUTRAL_START_HP;
         this.claimCost = Planet.CLAIM_COST;
 
@@ -38,12 +40,20 @@ class Planet {
         return this.tierStats[level];
     }
 
+    // Tier HP times the owner's planetHpMult (neutral planets use the plain tier value)
+    tierHp(level, gameManager) {
+        const base = this.statsFor(level).maxHP;
+        if (this.owner === 0 || !gameManager) return base;
+        const mult = FactionManager.getFaction(this.owner, gameManager).planetHpMult;
+        return Math.max(1, Math.round(base * mult));
+    }
+
     getMaxTier() {
         return this.maxTier;
     }
 
     getUpgradeCost() {
-        return this.statsFor(this.level).upgradeCost;
+        return Math.round(this.statsFor(this.level).upgradeCost * this.costMult);
     }
 
     getOrbitingShipsCount(gameManager) {
@@ -52,14 +62,15 @@ class Planet {
 
     // ================= UPGRADES & CAPTURE =================
 
-    // Sends orbiting ships down to feed the upgrade (random ships, as many as are still needed)
-    startUpgrade(ships) {
+    // Sends orbiting ships down to feed the upgrade (random ships, as many as are still needed).
+    // maxCount (optional) caps how many are sent this call.
+    startUpgrade(ships, maxCount = Infinity) {
         const upgCost = this.getUpgradeCost();
         if (this.level >= this.maxTier || upgCost <= 0) return;
 
         const mine = ships.filter(s => !s.dead && s.owner === this.owner && s.targetPlanet === this);
         const landingCount = mine.filter(s => s.state === 'landing').length;
-        const needed = upgCost - (Math.floor(this.upgradeProgress) + landingCount);
+        const needed = Math.min(maxCount, upgCost - (Math.floor(this.upgradeProgress) + landingCount));
         if (needed <= 0) return;
 
         const eligible = mine.filter(s => s.state === 'orbit');
@@ -115,8 +126,9 @@ class Planet {
 
     captureBy(newOwner, gameManager) {
         this.owner = newOwner;
+        this.costMult = FactionManager.getFaction(newOwner, gameManager).upgradeCostMult;
         this.level = 1;
-        this.maxHp = this.statsFor(1).maxHP;
+        this.maxHp = this.tierHp(1, gameManager);
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
         this.claimOwner = 0;
@@ -129,7 +141,7 @@ class Planet {
         if (this.level >= this.maxTier) return;
 
         this.level++;
-        this.maxHp = this.statsFor(this.level).maxHP;
+        this.maxHp = this.tierHp(this.level, gameManager);
         this.hp = this.maxHp;
         this.upgradeProgress = 0;
 

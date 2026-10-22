@@ -81,7 +81,7 @@ class GameManager {
 
     loadMap(mapData) {
         this.ships = [];
-        this.planets = mapData.planets.map(p => new Planet(p.x, p.y, p.level, p.owner));
+        this.planets = mapData.planets.map(p => new Planet(p.x, p.y, p.level, p.owner, this));
     }
 
     playSound(id, opts) {

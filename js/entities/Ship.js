@@ -37,7 +37,7 @@ class Ship {
         this.color = faction.color;
         this.hp = faction.hp;
         this.laserDamage = faction.laserDamage;
-        this.laserCooldownMax = faction.laserCooldown;
+        this.shootCooldown = 0;
         this.laserRange = faction.laserRange;
         this.maxSpeed = faction.maxSpeed;
         this.enginePower = faction.enginePower;
@@ -166,7 +166,7 @@ class Ship {
         gameManager.playSound('laser');
         this.laserTarget = { x: target.x, y: target.y };
         this.laserTimer = 0.08;
-        this.shootCooldown = this.laserCooldownMax + Math.random() * 0.2;
+        this.shootCooldown = this.laserCooldownMax;
     }
 
     // ================= UPDATE =================

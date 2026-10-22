@@ -1,60 +1,99 @@
+// AI v2: each planet decides alone, using ship counts for landing math and
+// strength (ships x HP) for fight odds. All reads go through getVisibleState()
+// so fog of war / difficulty levels can be added there later.
 class AIController {
     constructor(gameManager, teamOwner = 2) {
         this.gameManager = gameManager;
         this.teamOwner = teamOwner;
         this.aiTimer = 0;
-        this.currentState = 'HOLDING_RESERVES';
+        this.currentState = 'HOLDING';
         this.actionQueue = [];
         this.actionTimer = 0;
     }
 
+    // ================= INFO HELPERS =================
+
+    // Everything the AI is allowed to see (currently: everything)
+    getVisibleState() {
+        return {
+            planets: this.gameManager.planets,
+            ships: this.gameManager.ships.filter(s => !s.dead)
+        };
+    }
+
+    hpOf(ownerId) {
+        return FactionManager.getFaction(ownerId, this.gameManager).hp;
+    }
+
+    // Strength = ship count x total HP
+    fleetStrength(count, ownerId) {
+        return count * this.hpOf(ownerId);
+    }
+
     getGlobalSpawnRate(ownerId) {
-        const owned = this.gameManager.planets.filter(p => p.owner === ownerId);
-        let totalSpawnsPerSec = 0;
-
         const faction = FactionManager.getFaction(ownerId, this.gameManager);
-        owned.forEach(p => {
-            const actualInterval = p.statsFor(p.level).spawnInterval * faction.spawnIntervalMult;
-            totalSpawnsPerSec += 1.0 / actualInterval;
-        });
-
-        return Math.max(0.01, totalSpawnsPerSec);
+        let total = 0;
+        for (const p of this.gameManager.planets) {
+            if (p.owner !== ownerId) continue;
+            total += 1.0 / (p.statsFor(p.level).spawnInterval * faction.spawnIntervalMult);
+        }
+        return Math.max(0.01, total);
     }
 
-    calculateFleetPower(planet, ownerId) {
-        const faction = FactionManager.getFaction(ownerId, this.gameManager);
-        const shipHp = faction.hp;
-
-        let count = 0;
-        this.gameManager.ships.forEach(s => {
-            if (!s.dead && s.owner === ownerId && s.orbitPlanet === planet && s.state === 'orbit') {
-                count++;
-            }
-        });
-
-        return count * shipHp;
+    // Defenders at a planet: orbiting, waiting to launch, and lifting off all count
+    // (an attacker can't tell them apart)
+    countDefenders(vis, planet, ownerId) {
+        let n = 0;
+        for (const s of vis.ships) {
+            if (s.owner !== ownerId) continue;
+            if (s.state === 'orbit' && s.targetPlanet === planet) n++;
+            else if ((s.state === 'surface_launch' || s.state === 'launching') && s.orbitPlanet === planet) n++;
+        }
+        return n;
     }
 
-    getIncomingShipsCount(targetPlanet) {
-        return this.gameManager.ships.filter(s =>
-            !s.dead && s.owner === this.teamOwner && s.targetPlanet === targetPlanet
-        ).length;
+    // Enemy ships heading to or orbiting a planet
+    countEnemiesHeadingTo(vis, planet) {
+        let n = 0;
+        for (const s of vis.ships) {
+            if (s.owner !== this.teamOwner && s.targetPlanet === planet) n++;
+        }
+        return n;
     }
 
-    getNearestTarget(source, targets) {
-        let target = targets[0];
-        let minDistSq = Infinity;
-        targets.forEach(t => {
-            const dx = t.x - source.x;
-            const dy = t.y - source.y;
-            const distSq = dx * dx + dy * dy;
-            if (distSq < minDistSq) {
-                minDistSq = distSq;
-                target = t;
-            }
-        });
-        return target;
+    // My ships already on the way to (or at) a target
+    countMyIncoming(vis, planet) {
+        let n = 0;
+        for (const s of vis.ships) {
+            if (s.owner === this.teamOwner && s.targetPlanet === planet) n++;
+        }
+        return n;
     }
+
+    // Ships still needed to claim a neutral planet (before counting ships on the way)
+    claimNeed(n) {
+        const progress = Math.floor(n.upgradeProgress);
+        if (n.claimOwner === 0) return n.claimCost;
+        if (n.claimOwner === this.teamOwner) return n.claimCost - progress;
+        return n.claimCost + progress;
+    }
+
+    getNearest(source, list) {
+        let best = null, bestD = Infinity;
+        for (const t of list) {
+            const dx = t.x - source.x, dy = t.y - source.y;
+            const d = dx * dx + dy * dy;
+            if (d < bestD) { bestD = d; best = t; }
+        }
+        return best;
+    }
+
+    // Send exactly k of the ships sitting at the source (dispatchFleet takes a ratio)
+    makeDispatch(source, target, k, orbiting, state) {
+        return { type: 'DISPATCH', source, target, ratio: Math.min(1, k / orbiting + 1e-6), state };
+    }
+
+    // ================= QUEUE =================
 
     // Executes one queued move every aiActionDelay seconds (with jitter)
     runQueue(dt, profile) {
@@ -70,11 +109,96 @@ class AIController {
 
         if (a.source.owner !== this.teamOwner) return; // lost the planet while waiting
         if (a.type === 'UPGRADE') {
-            a.source.startUpgrade(this.gameManager.ships);
+            a.source.startUpgrade(this.gameManager.ships, a.maxCount);
         } else {
             this.gameManager.dispatchFleet(a.source, a.target, a.ratio);
         }
         this.currentState = a.state;
+    }
+
+    // ================= DECISIONS =================
+
+    // Attack rule: chance = r^3 / (1 + r^3), min 10%, r = sqrt(my strength / their strength).
+    // Send size steps through 25/50/75/100% of the surplus as r grows.
+    tryAttack(source, target, surplus, orbiting, vis, planned) {
+        const me = this.teamOwner;
+        const inbound = this.countMyIncoming(vis, target) + (planned.get(target) || 0);
+
+        const defenders = target.owner !== 0
+            ? this.countDefenders(vis, target, target.owner)
+            : this.countEnemiesHeadingTo(vis, target);
+
+        // Undefended: just cover its HP (it regenerates, so don't trickle)
+        if (defenders === 0) {
+            const need = Math.ceil(target.hp) - inbound;
+            if (need <= 0) return null;
+            const k = Math.min(surplus, need);
+            planned.set(target, (planned.get(target) || 0) + k);
+            return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY');
+        }
+
+        const enemyOwner = target.owner !== 0 ? target.owner : (me === 1 ? 2 : 1);
+        const mine = this.fleetStrength(surplus, me);
+        const theirs = this.fleetStrength(defenders, enemyOwner);
+        const r = Math.sqrt(mine / theirs);
+        const r3 = r * r * r;
+        const chance = Math.max(0.10, r3 / (1 + r3));
+        if (Math.random() >= chance) return null;
+
+        const level = r < 0.5 ? 0.25 : r < 1 ? 0.5 : r < 1.5 ? 0.75 : 1.0;
+        const k = Math.max(1, Math.floor(surplus * level));
+        planned.set(target, (planned.get(target) || 0) + k);
+        return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY');
+    }
+
+    decideForPlanet(source, ctx) {
+        const { vis, neutrals, enemyPlanets, planned, upgradeWeight } = ctx;
+        const me = this.teamOwner;
+        const gm = this.gameManager;
+
+        const orbiting = source.getOrbitingShipsCount(gm);
+        if (orbiting === 0) return null;
+
+        // Keep a reserve against enemies heading to / orbiting this planet
+        const threat = this.countEnemiesHeadingTo(vis, source);
+        const enemyOwner = me === 1 ? 2 : 1;
+        const reserve = Math.ceil(this.fleetStrength(threat, enemyOwner) / this.hpOf(me));
+        const surplus = orbiting - reserve;
+        if (surplus <= 0) return null;
+
+        // 1. Nearest neutral that is contested or still needs ships
+        let fightTarget = null;
+        const wanted = neutrals.filter(n =>
+            this.countEnemiesHeadingTo(vis, n) > 0 ||
+            this.claimNeed(n) - this.countMyIncoming(vis, n) - (planned.get(n) || 0) > 0);
+        const neutral = this.getNearest(source, wanted);
+
+        if (neutral) {
+            if (this.countEnemiesHeadingTo(vis, neutral) > 0) {
+                fightTarget = neutral; // contested: treat as a fight
+            } else {
+                const need = this.claimNeed(neutral) - this.countMyIncoming(vis, neutral) - (planned.get(neutral) || 0);
+                const k = Math.min(surplus, need);
+                planned.set(neutral, (planned.get(neutral) || 0) + k);
+                return this.makeDispatch(source, neutral, k, orbiting, 'EXPANDING_NEUTRAL');
+            }
+        }
+
+        // 2. Attack roll (contested neutral, else nearest enemy planet)
+        if (!fightTarget) fightTarget = this.getNearest(source, enemyPlanets);
+        if (fightTarget) {
+            const attack = this.tryAttack(source, fightTarget, surplus, orbiting, vis, planned);
+            if (attack) return attack;
+        }
+
+        // 3. Upgrade gradually when not threatened
+        if (threat === 0 && source.level < source.getMaxTier()) {
+            const maxCount = Math.max(1, Math.floor(surplus * upgradeWeight));
+            return { type: 'UPGRADE', source, maxCount, state: `UPGRADING_PLANET_${source.level + 1}` };
+        }
+
+        // 4. Hold
+        return null;
     }
 
     update(dt) {
@@ -88,86 +212,37 @@ class AIController {
         if (this.aiTimer < profile.aiUpdateInterval) return;
         this.aiTimer = 0;
 
-        const ownedPlanets = this.gameManager.planets.filter(p => p.owner === this.teamOwner);
-        const allEnemyTargets = this.gameManager.planets.filter(p => p.owner !== this.teamOwner);
+        const me = this.teamOwner;
+        const enemyOwner = me === 1 ? 2 : 1;
+        const vis = this.getVisibleState();
 
-        if (allEnemyTargets.length === 0) {
+        const owned = vis.planets.filter(p => p.owner === me);
+        const others = vis.planets.filter(p => p.owner !== me);
+        if (others.length === 0) {
             this.currentState = 'SYSTEM_SECURED';
             return;
         }
 
-        const neutralTargets = allEnemyTargets.filter(p => p.owner === 0);
-        const activeEnemyBases = allEnemyTargets.filter(p => p.owner !== 0);
-        const enemyOwner = activeEnemyBases.length > 0 ? activeEnemyBases[0].owner : 0;
+        // Upgrade weighting rises when behind on spawn rate
+        const behind = this.getGlobalSpawnRate(me) / this.getGlobalSpawnRate(enemyOwner) < 0.85;
 
-        const mySpawnRate = this.getGlobalSpawnRate(this.teamOwner);
-        const enemySpawnRate = enemyOwner !== 0 ? this.getGlobalSpawnRate(enemyOwner) : 0.01;
-        const prodRatio = mySpawnRate / enemySpawnRate;
-        const isBehindEconomically = prodRatio < 0.85;
+        const ctx = {
+            vis,
+            neutrals: others.filter(p => p.owner === 0),
+            enemyPlanets: others.filter(p => p.owner !== 0),
+            planned: new Map(),          // ships already queued toward each target this round
+            upgradeWeight: behind ? 1.0 : 0.5
+        };
 
-        const shipHp = profile.hp;
-
-        let actionTaken = false;
-        const planned = new Map(); // ships already queued toward each target this round
-
-        const teamPower = ownedPlanets.reduce((sum, p) => sum + p.getOrbitingShipsCount(this.gameManager), 0) * shipHp;
-
-        ownedPlanets.forEach(source => {
-            const orbitingCount = source.getOrbitingShipsCount(this.gameManager);
-            if (orbitingCount === 0) return;
-
-            const myPower = orbitingCount * shipHp;
-            const maxTier = source.getMaxTier();
-            const reqCost = source.getUpgradeCost();
-
-            // 1. Upgrade Decision
-            if (source.level < maxTier && orbitingCount >= reqCost) {
-                this.actionQueue.push({ type: 'UPGRADE', source, state: `UPGRADING_PLANET_${source.level + 1}` });
-                actionTaken = true;
-                return;
+        let acted = false;
+        for (const source of owned) {
+            const action = this.decideForPlanet(source, ctx);
+            if (action) {
+                this.actionQueue.push(action);
+                acted = true;
             }
-
-            // 2. Neutral Expansion
-            if (neutralTargets.length > 0) {
-                const availableNeutrals = neutralTargets.filter(n => {
-                    const claimCost = n.claimCost;
-                    const inTransit = this.getIncomingShipsCount(n) + (planned.get(n) || 0);
-                    return inTransit < claimCost;
-                });
-
-                if (availableNeutrals.length > 0) {
-                    const target = this.getNearestTarget(source, availableNeutrals);
-                    if (myPower > target.hp) {
-                        this.actionQueue.push({ type: 'DISPATCH', source, target, ratio: profile.aiDispatchRatio, state: 'EXPANDING_NEUTRAL' });
-                        planned.set(target, (planned.get(target) || 0) + Math.max(1, Math.floor(orbitingCount * profile.aiDispatchRatio)));
-                        actionTaken = true;
-                        return;
-                    }
-                }
-            }
-
-            // 3. Economic Catch-Up Gate
-            if (isBehindEconomically && source.level < maxTier && orbitingCount < reqCost) {
-                this.currentState = 'SAVING_TO_CLOSE_SPAWN_GAP';
-                actionTaken = true;
-                return;
-            }
-
-            // 4. Enemy Assault
-            if (activeEnemyBases.length > 0) {
-                const target = this.getNearestTarget(source, activeEnemyBases);
-                const enemyDefendingPower = this.calculateFleetPower(target, target.owner);
-                const totalTargetPower = target.hp + enemyDefendingPower;
-
-                if (teamPower >= totalTargetPower * profile.aiSafetyMargin) {
-                    this.actionQueue.push({ type: 'DISPATCH', source, target, ratio: profile.aiDispatchRatio, state: 'ASSAULTING_ENEMY' });
-                    actionTaken = true;
-                }
-            }
-        });
-
-        if (!actionTaken) {
-            this.currentState = 'BUILDING_RESERVES';
         }
+
+        if (!acted) this.currentState = 'HOLDING';
     }
 }
