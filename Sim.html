@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OpenSpaceWars Batch Sim</title>
+<style>
+    body { background: #000; color: #fff; font: 12px monospace; padding: 12px; }
+    label { margin-right: 12px; }
+    input, select, button { font: 12px monospace; background: #000; color: #fff; border: 1px solid #3b4048; padding: 3px 6px; }
+    button { cursor: pointer; }
+    button:hover { background: #fff; color: #000; }
+    #status { margin: 10px 0; color: #9aa4b2; }
+    pre { margin-top: 8px; line-height: 1.35; }
+</style>
+</head>
+<body>
+<canvas id="game" width="10" height="10" style="display:none"></canvas>
+
+<div>
+    <label>Map <select id="map"></select></label>
+    <label>Games per side per pairing <input id="reps" type="number" value="3" min="1" style="width:50px"></label>
+    <label>Time cap (game sec) <input id="cap" type="number" value="600" min="60" style="width:60px"></label>
+    <label>AI <select id="ai"><option value="v2">v2 (current)</option><option value="legacy">legacy (old 60% rules)</option></select></label>
+    <label><input id="inc" type="checkbox"> AI counts incoming ships (variant)</label>
+    <button id="run">RUN</button>
+    <button id="stop">STOP</button>
+    <button id="copy">COPY REPORT</button>
+</div>
+<div id="status">Idle.</div>
+<pre id="out"></pre>
+
+<!-- same scripts as the game, minus UI/render start-up (main.js and App.js are NOT loaded) -->
+<script src="js/data/config.js"></script>
+<script src="js/data/Factions.js"></script>
+<script src="js/data/Effects.js"></script>
+<script src="js/data/Sounds.js"></script>
+<script src="js/data/MapRegistry.js"></script>
+<script src="js/entities/Planet.js"></script>
+<script src="js/entities/Ship.js"></script>
+<script src="js/systems/OrbitalMath.js"></script>
+<script src="js/systems/Controls.js"></script>
+<script src="js/systems/AIController.js"></script>
+<script src="js/systems/AIControllerLegacy.js"></script>
+<script src="js/render/Viewport.js"></script>
+<script src="js/render/Renderer.js"></script>
+<script src="js/core/AudioManager.js"></script>
+<script src="js/utils/TelemetryCollector.js"></script>
+<script src="js/core/GameManager.js"></script>
+
+<script>
+const cfg = window.GAME_CONFIG;
+const FIDS = Object.keys(FACTION_DATA);
+const short = (id) => id.slice(0, 3);
+const registry = new MapRegistry();
+const gm = new GameManager();   // AudioManager is never init'ed, so sounds are silent
+const $ = (id) => document.getElementById(id);
+
+// map dropdown
+{
+    const sel = $('map');
+    const all = document.createElement('option');
+    all.value = '0'; all.textContent = 'All maps';
+    sel.appendChild(all);
+    registry.getAllMaps().forEach((m, i) => {
+        const o = document.createElement('option');
+        o.value = String(i + 1); o.textContent = `Map ${i + 1}: ${m.name}`;
+        sel.appendChild(o);
+    });
+    sel.value = '1';
+}
+
+let aiVersion = 'v2';
+let stopFlag = false;
+let running = false;
+let results = null;
+let meta = '';
+
+const sleep = () => new Promise(r => setTimeout(r, 0));
+
+function newTotals() {
+    return { games: 0, wins: 0, losses: 0, ties: 0, timeouts: 0, secs: 0,
+             spawned: 0, kills: 0, lost: 0, captures: 0, upgrades: 0,
+             toPlanets: 0, toEnemyPlanets: 0, toShips: 0, toEnemyShips: 0, toOrbit: 0,
+             attacks: 0, attackShips: 0, claims: 0, claimShips: 0, upgCmds: 0 };
+}
+
+function freshResults() {
+    const stats = {}, matrix = {};
+    for (const a of FIDS) {
+        stats[a] = newTotals();
+        matrix[a] = {};
+        for (const b of FIDS) if (a !== b) matrix[a][b] = { w: 0, l: 0, t: 0, n: 0 };
+    }
+    return { stats, matrix, games: 0 };
+}
+
+// One headless match: step the real sim directly, no rendering
+async function playGame(slot, f1, f2, capSecs) {
+    const map = registry.getScaledMap(slot, cfg.WORLD_WIDTH, cfg.WORLD_HEIGHT);
+    let winner = 0;
+    gm.onGameOver = (t) => { winner = t; };
+    gm.start(map, f1, f2, 'CPU_VS_CPU');
+    if (aiVersion === 'legacy') {            // swap in the old AI for both teams
+        gm.aiController1 = new AIControllerLegacy(gm, 1);
+        gm.aiController2 = new AIControllerLegacy(gm, 2);
+    }
+
+    const maxSteps = Math.round(capSecs / cfg.SIM_STEP);
+    let steps = 0;
+    let sliceStart = performance.now();
+    while (gm.isRunning && steps < maxSteps) {
+        gm.step(cfg.SIM_STEP);
+        gm.gameTime += cfg.SIM_STEP;
+        steps++;
+        if ((steps & 127) === 0 && performance.now() - sliceStart > 40) {
+            await sleep();               // keep the page responsive
+            sliceStart = performance.now();
+            if (stopFlag) break;
+        }
+    }
+    gm.stop();
+    const s = gm.telemetry.summary;
+
+    // End state, and a points decision if nobody was wiped out before the cap
+    let p1 = 0, p2 = 0;
+    for (const p of gm.planets) { if (p.owner === 1) p1++; else if (p.owner === 2) p2++; }
+    const sh1 = gm.frameStats.teamShips[1] || 0;
+    const sh2 = gm.frameStats.teamShips[2] || 0;
+    const timedOut = (winner === 0);   // only a wipe-out counts as a win; the cap is a draw
+    let or1 = 0, or2 = 0;              // ships sitting idle in orbit at the end
+    for (const sh of gm.ships) {
+        if (sh.dead || sh.state !== 'orbit') continue;
+        if (sh.owner === 1) or1++; else if (sh.owner === 2) or2++;
+    }
+    const zero = { attacks: 0, attackShips: 0, claims: 0, claimShips: 0, upgrades: 0 };
+    const a1 = gm.aiController1 ? { ...gm.aiController1.stats } : zero;
+    const a2 = gm.aiController2 ? { ...gm.aiController2.stats } : zero;
+    return { winner, timedOut, p1, p2, sh1, sh2, or1, or2, a1, a2,
+             secs: steps * cfg.SIM_STEP, t1: { ...s.team1 }, t2: { ...s.team2 } };
+}
+
+function addTeam(tot, t, secs, outcome, g, myPl, enPl, mySh, enSh, myOrbit, ai) {
+    tot.games++;
+    tot.secs += secs;
+    tot.spawned += t.shipsSpawned;
+    tot.kills += t.shipsKilled;
+    tot.lost += t.shipsLost;
+    tot.captures += t.planetsCaptured;
+    tot.upgrades += t.upgrades;
+    if (outcome === 'W') tot.wins++;
+    else if (outcome === 'L') tot.losses++;
+    else tot.ties++;
+    tot.attacks += ai.attacks; tot.attackShips += ai.attackShips;
+    tot.claims += ai.claims; tot.upgCmds += ai.upgrades;
+    if (g.timedOut) {
+        tot.toOrbit += myOrbit;
+        tot.timeouts++;
+        tot.toPlanets += myPl; tot.toEnemyPlanets += enPl;
+        tot.toShips += mySh;   tot.toEnemyShips += enSh;
+    }
+}
+
+function record(f1, f2, g) {
+    const o1 = g.winner === 1 ? 'W' : g.winner === 2 ? 'L' : 'T';
+    const o2 = g.winner === 2 ? 'W' : g.winner === 1 ? 'L' : 'T';
+    addTeam(results.stats[f1], g.t1, g.secs, o1, g, g.p1, g.p2, g.sh1, g.sh2, g.or1, g.a1);
+    addTeam(results.stats[f2], g.t2, g.secs, o2, g, g.p2, g.p1, g.sh2, g.sh1, g.or2, g.a2);
+
+    const a = results.matrix[f1][f2], b = results.matrix[f2][f1];
+    a.n++; b.n++;
+    if (o1 === 'W') { a.w++; b.l++; }
+    else if (o1 === 'L') { a.l++; b.w++; }
+    else { a.t++; b.t++; }
+    results.games++;
+}
+
+function buildReport() {
+    if (!results) return '';
+    const L = [];
+    L.push(`${meta}`);
+    L.push(`Games finished: ${results.games}`);
+    L.push('');
+    L.push('WIN % over decided games only (row vs column; ? = every game hit the cap)');
+    L.push('       ' + FIDS.map(f => short(f).padStart(5)).join(''));
+    for (const a of FIDS) {
+        let row = short(a).padEnd(7);
+        for (const b of FIDS) {
+            if (a === b) { row += '    -'; continue; }
+            const m = results.matrix[a][b];
+            row += (m.w + m.l) ? String(Math.round(100 * m.w / (m.w + m.l))).padStart(5) : '    ?';
+        }
+        L.push(row);
+    }
+    L.push('');
+    L.push('FACTION SUMMARY (averages per game)');
+    L.push('FAC   win%  avgSec  spawn/min   K/L  caps  upgr  timeouts  endPl(me/foe)  endShips(me/foe)');
+    for (const f of FIDS) {
+        const s = results.stats[f];
+        if (!s.games) continue;
+        const decided = s.wins + s.losses;
+        const winPct = decided ? String(Math.round(100 * s.wins / decided)) : '-';
+        const to = Math.max(1, s.timeouts);
+        const endPl = s.timeouts ? `${(s.toPlanets / to).toFixed(1)}/${(s.toEnemyPlanets / to).toFixed(1)}` : '-';
+        const endSh = s.timeouts ? `${Math.round(s.toShips / to)}/${Math.round(s.toEnemyShips / to)}` : '-';
+        const avgSec = Math.round(s.secs / s.games);
+        const spm = (s.spawned / Math.max(1, s.secs / 60)).toFixed(1);
+        const kl = (s.kills / Math.max(1, s.lost)).toFixed(2);
+        L.push(
+            short(f).padEnd(5) +
+            String(winPct).padStart(5) +
+            String(avgSec).padStart(8) +
+            spm.padStart(11) +
+            kl.padStart(7) +
+            (s.captures / s.games).toFixed(1).padStart(6) +
+            (s.upgrades / s.games).toFixed(1).padStart(6) +
+            String(s.timeouts).padStart(10) +
+            endPl.padStart(15) +
+            endSh.padStart(18)
+        );
+    }
+    L.push('');
+    L.push('');
+    L.push('AI BEHAVIOR (per game; idle% = share of own ships sitting in orbit at the cap, timeouts only)');
+    L.push('FAC   attacks  avgAtkSize  claims  upgCmds  idle%');
+    for (const f of FIDS) {
+        const s = results.stats[f];
+        if (!s.games) continue;
+        const idle = s.toShips ? Math.round(100 * s.toOrbit / s.toShips) + '%' : '-';
+        L.push(
+            short(f).padEnd(5) +
+            (s.attacks / s.games).toFixed(1).padStart(8) +
+            (s.attackShips / Math.max(1, s.attacks)).toFixed(1).padStart(12) +
+            (s.claims / s.games).toFixed(1).padStart(8) +
+            (s.upgCmds / s.games).toFixed(1).padStart(9) +
+            idle.padStart(7)
+        );
+    }
+    L.push('');
+    L.push('K/L = enemy ships killed / own ships lost. caps = planets captured. upgr = planet upgrades.');
+    L.push('Only a wipe-out counts as a win. Games that hit the cap are draws and are left out of win%.');
+    L.push('timeouts = games that hit the cap. endPl / endShips = my vs enemy at the cap (info only, not a result).');
+    return L.join('\n');
+}
+
+async function run() {
+    if (running) return;
+    running = true;
+    stopFlag = false;
+    results = freshResults();
+
+    AI_OPTS.countIncoming = $('inc').checked;
+    aiVersion = $('ai').value;
+    const mapVal = Number($('map').value);
+    const slots = mapVal === 0 ? registry.getAllMaps().map((m, i) => i + 1) : [mapVal];
+    const reps = Math.max(1, Number($('reps').value) || 1);
+    const cap = Math.max(60, Number($('cap').value) || 600);
+    meta = `Map: ${mapVal === 0 ? 'all' : mapVal} | games per side per pairing: ${reps} | cap: ${cap}s` +
+           ` | AI: ${aiVersion} | countIncoming: ${AI_OPTS.countIncoming} | test mode: ${FACTION_TEST_MODE} (MOU spawn mult ${FACTION_DATA.MOUNTAINBORN.spawnIntervalMult}, VES ${FACTION_DATA.VESPID.spawnIntervalMult})`;
+
+    const jobs = [];
+    for (const slot of slots) {
+        for (let i = 0; i < FIDS.length; i++) {
+            for (let j = i + 1; j < FIDS.length; j++) {
+                for (let r = 0; r < reps; r++) {
+                    jobs.push([slot, FIDS[i], FIDS[j]]);
+                    jobs.push([slot, FIDS[j], FIDS[i]]);   // swap sides to cancel side bias
+                }
+            }
+        }
+    }
+
+    const t0 = performance.now();
+    for (let k = 0; k < jobs.length && !stopFlag; k++) {
+        const [slot, f1, f2] = jobs[k];
+        $('status').textContent = `Game ${k + 1}/${jobs.length}: ${short(f1)} vs ${short(f2)} (map ${slot})`;
+        const g = await playGame(slot, f1, f2, cap);
+        if (stopFlag && g.winner === 0 && gm.isRunning === false && g.secs < cap) break;  // discard a half-played game
+        record(f1, f2, g);
+        if (k % 5 === 0) $('out').textContent = buildReport();
+        await sleep();
+    }
+    const secs = Math.round((performance.now() - t0) / 1000);
+    $('status').textContent = (stopFlag ? 'Stopped' : 'Done') + ` after ${secs}s.`;
+    $('out').textContent = buildReport();
+    running = false;
+}
+
+$('run').onclick = run;
+$('stop').onclick = () => { stopFlag = true; };
+$('copy').onclick = () => navigator.clipboard.writeText($('out').textContent);
+</script>
+</body>
+</html>

@@ -1,6 +1,11 @@
 // AI v2: each planet decides alone, using ship counts for landing math and
 // strength (ships x HP) for fight odds. All reads go through getVisibleState()
 // so fog of war / difficulty levels can be added there later.
+// Switches for A/B testing AI changes (sim.html has a checkbox for these)
+const AI_OPTS = {
+    countIncoming: false   // true = my ships already heading to a target add to my strength in the attack roll
+};
+
 class AIController {
     constructor(gameManager, teamOwner = 2) {
         this.gameManager = gameManager;
@@ -9,6 +14,8 @@ class AIController {
         this.currentState = 'HOLDING';
         this.actionQueue = [];
         this.actionTimer = 0;
+        // Behavior counters (read by sim.html; harmless in the game)
+        this.stats = { attacks: 0, attackShips: 0, claims: 0, claimShips: 0, upgrades: 0 };
     }
 
     // ================= INFO HELPERS =================
@@ -89,8 +96,8 @@ class AIController {
     }
 
     // Send exactly k of the ships sitting at the source (dispatchFleet takes a ratio)
-    makeDispatch(source, target, k, orbiting, state) {
-        return { type: 'DISPATCH', source, target, ratio: Math.min(1, k / orbiting + 1e-6), state };
+    makeDispatch(source, target, k, orbiting, state, kind = 'CLAIM') {
+        return { type: 'DISPATCH', kind, k, source, target, ratio: Math.min(1, k / orbiting + 1e-6), state };
     }
 
     // ================= QUEUE =================
@@ -110,8 +117,11 @@ class AIController {
         if (a.source.owner !== this.teamOwner) return; // lost the planet while waiting
         if (a.type === 'UPGRADE') {
             a.source.startUpgrade(this.gameManager.ships, a.maxCount);
+            this.stats.upgrades++;
         } else {
             this.gameManager.dispatchFleet(a.source, a.target, a.ratio);
+            if (a.kind === 'ATTACK') { this.stats.attacks++; this.stats.attackShips += a.k; }
+            else { this.stats.claims++; this.stats.claimShips += a.k; }
         }
         this.currentState = a.state;
     }
@@ -134,11 +144,12 @@ class AIController {
             if (need <= 0) return null;
             const k = Math.min(surplus, need);
             planned.set(target, (planned.get(target) || 0) + k);
-            return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY');
+            return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY', 'ATTACK');
         }
 
         const enemyOwner = target.owner !== 0 ? target.owner : (me === 1 ? 2 : 1);
-        const mine = this.fleetStrength(surplus, me);
+        // Optionally count my ships already on the way (so planets can join a wave that is already launched)
+        const mine = this.fleetStrength(surplus + (AI_OPTS.countIncoming ? inbound : 0), me);
         const theirs = this.fleetStrength(defenders, enemyOwner);
         const r = Math.sqrt(mine / theirs);
         const r3 = r * r * r;
@@ -148,7 +159,7 @@ class AIController {
         const level = r < 0.5 ? 0.25 : r < 1 ? 0.5 : r < 1.5 ? 0.75 : 1.0;
         const k = Math.max(1, Math.floor(surplus * level));
         planned.set(target, (planned.get(target) || 0) + k);
-        return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY');
+        return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY', 'ATTACK');
     }
 
     decideForPlanet(source, ctx) {
