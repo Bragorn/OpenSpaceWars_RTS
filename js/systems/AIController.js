@@ -3,7 +3,8 @@
 // so fog of war / difficulty levels can be added there later.
 // Switches for A/B testing AI changes (sim.html has a checkbox for these)
 const AI_OPTS = {
-    countIncoming: false   // true = my ships already heading to a target add to my strength in the attack roll
+    countIncoming: false,
+    minWaveStrength: 240   // 8 ships x 30 HP (Remnants = old behavior)
 };
 
 class AIController {
@@ -147,6 +148,9 @@ class AIController {
             return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY', 'ATTACK');
         }
 
+        const minWave = Math.max(3, Math.ceil(AI_OPTS.minWaveStrength / this.hpOf(me)));
+        if (surplus < minWave) return null;
+
         const enemyOwner = target.owner !== 0 ? target.owner : (me === 1 ? 2 : 1);
         // Optionally count my ships already on the way (so planets can join a wave that is already launched)
         const mine = this.fleetStrength(surplus + (AI_OPTS.countIncoming ? inbound : 0), me);
@@ -156,7 +160,7 @@ class AIController {
         const chance = Math.max(0.10, r3 / (1 + r3));
         if (Math.random() >= chance) return null;
 
-        const level = r < 0.5 ? 0.25 : r < 1 ? 0.5 : r < 1.5 ? 0.75 : 1.0;
+        const level = r < 1 ? 0.5 : 1.0;
         const k = Math.max(1, Math.floor(surplus * level));
         planned.set(target, (planned.get(target) || 0) + k);
         return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY', 'ATTACK');
@@ -202,10 +206,10 @@ class AIController {
             if (attack) return attack;
         }
 
-        // 3. Upgrade gradually when not threatened
-        if (threat === 0 && source.level < source.getMaxTier()) {
-            const maxCount = Math.max(1, Math.floor(surplus * upgradeWeight));
-            return { type: 'UPGRADE', source, maxCount, state: `UPGRADING_PLANET_${source.level + 1}` };
+        // 3. Upgrade 
+        if (threat === 0 && source.level < source.getMaxTier() && orbiting >= source.getUpgradeCost()) {
+            const cost = source.getUpgradeCost();
+            return { type: 'UPGRADE', source, maxCount: cost, state: `UPGRADING_PLANET_${source.level + 1}` };
         }
 
         // 4. Hold
@@ -234,15 +238,11 @@ class AIController {
             return;
         }
 
-        // Upgrade weighting rises when behind on spawn rate
-        const behind = this.getGlobalSpawnRate(me) / this.getGlobalSpawnRate(enemyOwner) < 0.85;
-
         const ctx = {
             vis,
             neutrals: others.filter(p => p.owner === 0),
             enemyPlanets: others.filter(p => p.owner !== 0),
-            planned: new Map(),          // ships already queued toward each target this round
-            upgradeWeight: behind ? 1.0 : 0.5
+            planned: new Map(),
         };
 
         let acted = false;
