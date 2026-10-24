@@ -4,7 +4,7 @@
 // Switches for A/B testing AI changes (sim.html has a checkbox for these)
 const AI_OPTS = {
     countIncoming: false,
-    minWaveStrength: 240   // 8 ships x 30 HP (Remnants = old behavior)
+    idleScore: 0.1   // how attractive "do nothing" is next to attacking or saving up
 };
 
 class AIController {
@@ -37,6 +37,9 @@ class AIController {
     fleetStrength(count, ownerId) {
         return count * this.hpOf(ownerId);
     }
+
+    // Fight strength under the square law: more ships count much more than tougher ships
+    combatPower(count, ownerId) { return count * count * this.hpOf(ownerId); }
 
     getGlobalSpawnRate(ownerId) {
         const faction = FactionManager.getFaction(ownerId, this.gameManager);
@@ -129,8 +132,7 @@ class AIController {
 
     // ================= DECISIONS =================
 
-    // Attack rule: chance = r^3 / (1 + r^3), min 10%, r = sqrt(my strength / their strength).
-    // Send size steps through 25/50/75/100% of the surplus as r grows.
+    // Scores an attack from 0 to 1. The decision itself is made in decideForPlanet.
     tryAttack(source, target, surplus, orbiting, vis, planned) {
         const me = this.teamOwner;
         const inbound = this.countMyIncoming(vis, target) + (planned.get(target) || 0);
@@ -139,31 +141,22 @@ class AIController {
             ? this.countDefenders(vis, target, target.owner)
             : this.countEnemiesHeadingTo(vis, target);
 
-        // Undefended: just cover its HP (it regenerates, so don't trickle)
+        // Undefended: just cover its HP
         if (defenders === 0) {
             const need = Math.ceil(target.hp) - inbound;
             if (need <= 0) return null;
-            const k = Math.min(surplus, need);
-            planned.set(target, (planned.get(target) || 0) + k);
-            return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY', 'ATTACK');
+            return { score: 1, k: Math.min(surplus, need), target };
         }
 
-        const minWave = Math.max(3, Math.ceil(AI_OPTS.minWaveStrength / this.hpOf(me)));
-        if (surplus < minWave) return null;
-
         const enemyOwner = target.owner !== 0 ? target.owner : (me === 1 ? 2 : 1);
-        // Optionally count my ships already on the way (so planets can join a wave that is already launched)
-        const mine = this.fleetStrength(surplus + (AI_OPTS.countIncoming ? inbound : 0), me);
-        const theirs = this.fleetStrength(defenders, enemyOwner);
+        const mine = this.combatPower(surplus + (AI_OPTS.countIncoming ? inbound : 0), me);
+        const theirs = this.combatPower(defenders, enemyOwner);
         const r = Math.sqrt(mine / theirs);
         const r3 = r * r * r;
-        const chance = Math.max(0.10, r3 / (1 + r3));
-        if (Math.random() >= chance) return null;
+        const score = r3 / (1 + r3);              // no floor: a hopeless attack scores about 0
 
-        const level = r < 1 ? 0.5 : 1.0;
-        const k = Math.max(1, Math.floor(surplus * level));
-        planned.set(target, (planned.get(target) || 0) + k);
-        return this.makeDispatch(source, target, k, orbiting, 'ASSAULTING_ENEMY', 'ATTACK');
+        const k = Math.max(1, Math.floor(surplus * (r < 1 ? 0.5 : 1.0)));
+        return { score, k, target };
     }
 
     decideForPlanet(source, ctx) {
@@ -199,21 +192,29 @@ class AIController {
             }
         }
 
-        // 2. Attack roll (contested neutral, else nearest enemy planet)
+        // 2. Options: attack, save up for the upgrade, or do nothing. Each gets a score,
+        //    then one is picked by weighted chance.
         if (!fightTarget) fightTarget = this.getNearest(source, enemyPlanets);
-        if (fightTarget) {
-            const attack = this.tryAttack(source, fightTarget, surplus, orbiting, vis, planned);
-            if (attack) return attack;
-        }
+        const attack = fightTarget ? this.tryAttack(source, fightTarget, surplus, orbiting, vis, planned) : null;
 
-        // 3. Upgrade 
-        if (threat === 0 && source.level < source.getMaxTier() && orbiting >= source.getUpgradeCost()) {
-            const cost = source.getUpgradeCost();
-            return { type: 'UPGRADE', source, maxCount: cost, state: `UPGRADING_PLANET_${source.level + 1}` };
-        }
+        const cost = source.getUpgradeCost();
+        const canUpgrade = threat === 0 && source.level < source.getMaxTier() && cost > 0;
+        const attackScore = attack ? attack.score : 0;
+        const upgradeScore = canUpgrade ? Math.min(1, orbiting / cost) : 0;   // how close to the price
 
-        // 4. Hold
-        return null;
+        let roll = Math.random() * (attackScore + upgradeScore + AI_OPTS.idleScore);
+
+        if ((roll -= attackScore) < 0) {
+            planned.set(attack.target, (planned.get(attack.target) || 0) + attack.k);
+            return this.makeDispatch(source, attack.target, attack.k, orbiting, 'ASSAULTING_ENEMY', 'ATTACK');
+        }
+        if ((roll -= upgradeScore) < 0) {
+            if (orbiting >= cost) {
+                return { type: 'UPGRADE', source, maxCount: cost, state: `UPGRADING_PLANET_${source.level + 1}` };
+            }
+            return null;   // not enough ships yet: keep saving
+        }
+        return null;       // do nothing this round
     }
 
     update(dt) {

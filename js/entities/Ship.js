@@ -39,6 +39,7 @@ class Ship {
         this.laserDamage = faction.laserDamage;
         this.shootCooldown = 0;
         this.laserRange = faction.laserRange;
+        this.laserCooldownMax = faction.laserCooldown;
         this.maxSpeed = faction.maxSpeed;
         this.enginePower = faction.enginePower;
         this.transitTurnRate = faction.transitTurnRate;
