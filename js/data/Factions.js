@@ -18,12 +18,12 @@ const BASELINE_FACTION = {
 };
 
 const FACTION_DATA = {
-    REMNANTS:     { id: 'REMNANTS',     name: 'Remnant Corps',    tagline: 'Versatile baseline.',  color: '#36C7FF', palette: { light: '#99E2FF', base: '#36C7FF', dark: '#0080B3', shadow: '#00374D' }, ...BASELINE_FACTION, hp: 30, spawnIntervalMult: 0.80,  planetHpMult: 1.0, upgradeCostMult: 1.0 },
-    MOUNTAINBORN: { id: 'MOUNTAINBORN', name: 'Mountainborn',     tagline: 'Heavy armor.',         color: '#55E04A', palette: { light: '#A5EF9F', base: '#55E04A', dark: '#208B18', shadow: '#0E3D0A' }, ...BASELINE_FACTION, hp: 60, spawnIntervalMult: 1.13,  planetHpMult: 1.4, upgradeCostMult: 0.7 },
-    VESPID:       { id: 'VESPID',       name: 'Vespid Swarm',     tagline: 'Swarm forces.',        color: '#FFD21F', palette: { light: '#FFE88F', base: '#FFD21F', dark: '#A38200', shadow: '#473900' }, ...BASELINE_FACTION, hp: 10, spawnIntervalMult: 0.46,  planetHpMult: 0.6, upgradeCostMult: 1.7 },
-    PROTOCOL:     { id: 'PROTOCOL',     name: 'Protocol Zero',    tagline: 'Precision snipers.',   color: '#FF2A2A', palette: { light: '#FF8585', base: '#FF2A2A', dark: '#AD0000', shadow: '#4D0000' }, ...BASELINE_FACTION, hp: 40, spawnIntervalMult: 0.92,  planetHpMult: 1.15, upgradeCostMult: 0.9 },
-    STATIC:       { id: 'STATIC',       name: 'Static Syndicate', tagline: 'Aggressive brawlers.', color: '#FF2BB8', palette: { light: '#FF8AD8', base: '#FF2BB8', dark: '#AD0074', shadow: '#4D0033' }, ...BASELINE_FACTION, hp: 50, spawnIntervalMult: 1.03,  planetHpMult: 1.3, upgradeCostMult: 0.8 },
-    CROWN:        { id: 'CROWN',        name: 'Violet Crown',     tagline: 'Fortress defense.',    color: '#7A2CFF', palette: { light: '#BF99FF', base: '#7A2CFF', dark: '#4400B8', shadow: '#1E0052' }, ...BASELINE_FACTION, hp: 20, spawnIntervalMult: 0.65,  planetHpMult: 0.8, upgradeCostMult: 1.2 }
+    REMNANTS:     { id: 'REMNANTS',     name: 'Remnant Corps',    tagline: 'Versatile baseline.',  color: '#36C7FF', palette: { light: '#99E2FF', base: '#36C7FF', dark: '#0080B3', shadow: '#00374D' }, ...BASELINE_FACTION, hp: 30, spawnIntervalMult: 0.80,  planetHpMult: 1.0,  upgradeCostMult: 1.0 },
+    MOUNTAINBORN: { id: 'MOUNTAINBORN', name: 'Mountainborn',     tagline: 'Heavy armor.',         color: '#55E04A', palette: { light: '#A5EF9F', base: '#55E04A', dark: '#208B18', shadow: '#0E3D0A' }, ...BASELINE_FACTION, hp: 60, spawnIntervalMult: 1.13,  planetHpMult: 1.2,  upgradeCostMult: 0.7 },
+    VESPID:       { id: 'VESPID',       name: 'Vespid Swarm',     tagline: 'Swarm forces.',        color: '#FFD21F', palette: { light: '#FFE88F', base: '#FFD21F', dark: '#A38200', shadow: '#473900' }, ...BASELINE_FACTION, hp: 10, spawnIntervalMult: 0.41,  planetHpMult: 0.8,  upgradeCostMult: 1.7 },
+    PROTOCOL:     { id: 'PROTOCOL',     name: 'Protocol Zero',    tagline: 'Precision snipers.',   color: '#FF2A2A', palette: { light: '#FF8585', base: '#FF2A2A', dark: '#AD0000', shadow: '#4D0000' }, ...BASELINE_FACTION, hp: 40, spawnIntervalMult: 0.92,  planetHpMult: 1.1,  upgradeCostMult: 0.9 },
+    STATIC:       { id: 'STATIC',       name: 'Static Syndicate', tagline: 'Aggressive brawlers.', color: '#FF2BB8', palette: { light: '#FF8AD8', base: '#FF2BB8', dark: '#AD0074', shadow: '#4D0033' }, ...BASELINE_FACTION, hp: 50, spawnIntervalMult: 1.03,  planetHpMult: 1.15, upgradeCostMult: 0.8 },
+    CROWN:        { id: 'CROWN',        name: 'Violet Crown',     tagline: 'Fortress defense.',    color: '#7A2CFF', palette: { light: '#BF99FF', base: '#7A2CFF', dark: '#4400B8', shadow: '#1E0052' }, ...BASELINE_FACTION, hp: 20, spawnIntervalMult: 0.60,  planetHpMult: 0.9,  upgradeCostMult: 1.2 }
 };
 
 const FACTION_TEST_MODE = false;   // true = every faction gets identical stats (mirror test)
